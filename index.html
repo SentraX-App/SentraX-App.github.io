@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentra-X</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 0; padding-bottom: 70px; color: #1f2937; }
+  header { background: #2563eb; color: white; padding: 18px 16px; text-align: center; font-weight: bold; font-size: 20px; }
+  .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; }
+  .screen.active { display: block; }
+  .card { background: white; border-radius: 14px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  .card h3 { margin-top: 0; font-size: 15px; color: #374151; }
+  input, select { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; }
+  button { width: 100%; padding: 14px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; margin-top: 8px; }
+  button.secondary { background: #e5e7eb; color: #1f2937; }
+  button.whatsapp { background: #22c55e; }
+  #result { margin-top: 14px; padding: 14px; border-radius: 8px; font-weight: bold; text-align: center; display: none; }
+  .streak { text-align: center; font-size: 15px; color: #374151; margin-bottom: 10px; }
+  .streak b { color: #2563eb; font-size: 20px; }
+  .med-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .med-row button { width: auto; padding: 8px 14px; margin: 0; }
+  .taken { background: #22c55e !important; }
+  .history-row { padding: 10px; border-radius: 8px; margin-bottom: 8px; }
+  nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; border-top: 1px solid #e5e7eb; }
+  nav button { flex: 1; background: none; color: #6b7280; border-radius: 0; margin: 0; padding: 10px 0; font-size: 12px; font-weight: 500; }
+  nav button.active { color: #2563eb; }
+  .empty { color: #9ca3af; text-align: center; padding: 20px 0; font-size: 14px; }
+</style>
+</head>
+<body>
+  <header>Sentra-X</header>
+
+  <div class="screen active" id="vitals-screen">
+    <div class="card streak">You're on a <b id="streak-count">0</b> day streak 🔥</div>
+    <div class="card">
+      <h3>Log a Reading</h3>
+      <input type="number" id="systolic" placeholder="Top number (Systolic)">
+      <input type="number" id="diastolic" placeholder="Bottom number (Diastolic)">
+      <input type="number" id="heartrate" placeholder="Heart rate (optional)">
+      <input type="number" id="weight" placeholder="Weight in kg (optional)">
+      <button onclick="checkBP()">Save & Check My Risk</button>
+      <div id="result"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="meds-screen">
+    <div class="card">
+      <h3>Add a Medication</h3>
+      <input type="text" id="med-name" placeholder="Medication name">
+      <input type="time" id="med-time">
+      <button onclick="addMed()">Add Medication</button>
+    </div>
+    <div class="card">
+      <h3>Today's Medications</h3>
+      <div id="med-list"><div class="empty">No medications added yet</div></div>
+    </div>
+  </div>
+
+  <div class="screen" id="history-screen">
+    <div class="card">
+      <h3>Your History</h3>
+      <div id="history-list"><div class="empty">No readings logged yet</div></div>
+    </div>
+  </div>
+
+  <div class="screen" id="family-screen">
+    <div class="card">
+      <h3>Keep Your Family in the Loop</h3>
+      <p style="color:#6b7280; font-size:14px;">Share your latest health status with a family member on WhatsApp — they'll see your streak and your most recent reading.</p>
+      <button class="whatsapp" onclick="shareToFamily()">📲 Share with Family on WhatsApp</button>
+    </div>
+  </div>
+
+  <nav>
+    <button class="active" onclick="showScreen('vitals')" id="nav-vitals">Vitals</button>
+    <button onclick="showScreen('meds')" id="nav-meds">Meds</button>
+    <button onclick="showScreen('history')" id="nav-history">History</button>
+    <button onclick="showScreen('family')" id="nav-family">Family</button>
+  </nav>
+
+<script>
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(name + '-screen').classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'meds') renderMeds();
+  if (name === 'history') renderHistory();
+}
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+function updateStreak() {
+  let streak = parseInt(localStorage.getItem('streak') || '0');
+  let lastActive = localStorage.getItem('lastActive');
+  const today = todayStr();
+  if (lastActive === today) { /* already counted today */ }
+  else {
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    streak = (lastActive === yesterday) ? streak + 1 : 1;
+    localStorage.setItem('lastActive', today);
+    localStorage.setItem('streak', streak);
+  }
+  document.getElementById('streak-count').textContent = localStorage.getItem('streak') || '1';
+}
+
+function getRisk(sys, dia) {
+  if (sys >= 180 || dia >= 120) return { level: "Hypertensive Crisis — seek medical care now", color: "#fca5a5" };
+  if (sys >= 140 || dia >= 90) return { level: "Stage 2 Hypertension — High Risk", color: "#fecaca" };
+  if (sys >= 130 || dia >= 80) return { level: "Stage 1 Hypertension — Caution", color: "#fed7aa" };
+  if (sys >= 120) return { level: "Elevated — Watch", color: "#fef08a" };
+  return { level: "Normal", color: "#bbf7d0" };
+}
+
+function checkBP() {
+  const sys = parseInt(document.getElementById('systolic').value);
+  const dia = parseInt(document.getElementById('diastolic').value);
+  const hr = document.getElementById('heartrate').value;
+  const weight = document.getElementById('weight').value;
+  const result = document.getElementById('result');
+
+  if (!sys || !dia) {
+    result.style.display = "block"; result.style.background = "#eee";
+    result.textContent = "Please enter both blood pressure numbers.";
+    return;
+  }
+
+  const risk = getRisk(sys, dia);
+  result.style.display = "block";
+  result.style.background = risk.color;
+  result.textContent = risk.level;
+
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  vitals.unshift({ date: new Date().toLocaleString(), sys, dia, hr, weight, level: risk.level, color: risk.color });
+  localStorage.setItem('vitals', JSON.stringify(vitals));
+  updateStreak();
+}
+
+function addMed() {
+  const name = document.getElementById('med-name').value.trim();
+  const time = document.getElementById('med-time').value;
+  if (!name || !time) { alert('Please enter both a medication name and time.'); return; }
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  meds.push({ id: Date.now().toString(), name, time });
+  localStorage.setItem('meds', JSON.stringify(meds));
+  document.getElementById('med-name').value = '';
+  document.getElementById('med-time').value = '';
+  renderMeds();
+}
+
+function toggleTaken(id) {
+  const today = todayStr();
+  const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+  if (!logs[today]) logs[today] = {};
+  logs[today][id] = !logs[today][id];
+  localStorage.setItem('medLogs', JSON.stringify(logs));
+  updateStreak();
+  renderMeds();
+}
+
+function renderMeds() {
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+  const today = todayStr();
+  const list = document.getElementById('med-list');
+  if (meds.length === 0) { list.innerHTML = '<div class="empty">No medications added yet</div>'; return; }
+  list.innerHTML = meds.map(m => {
+    const taken = logs[today] && logs[today][m.id];
+    return `<div class="med-row"><span>${m.name} — ${m.time}</span><button class="${taken ? 'taken' : 'secondary'}" onclick="toggleTaken('${m.id}')">${taken ? '✓ Taken' : 'Mark Taken'}</button></div>`;
+  }).join('');
+}
+
+function renderHistory() {
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  const list = document.getElementById('history-list');
+  if (vitals.length === 0) { list.innerHTML = '<div class="empty">No readings logged yet</div>'; return; }
+  list.innerHTML = vitals.map(v =>
+    `<div class="history-row" style="background:${v.color}"><b>${v.sys}/${v.dia}</b> — ${v.level}<br><small>${v.date}${v.hr ? ' · HR ' + v.hr : ''}${v.weight ? ' · ' + v.weight + 'kg' : ''}</small></div>`
+  ).join('');
+}
+
+function shareToFamily() {
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  const streak = localStorage.getItem('streak') || '0';
+  const latest = vitals[0];
+  let msg = `Hi! This is my Sentra-X health update. Current streak: ${streak} days. `;
+  msg += latest ? `Latest reading: ${latest.sys}/${latest.dia} (${latest.level}).` : `No readings logged yet.`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+renderMeds();
+renderHistory();
+document.getElementById('streak-count').textContent = localStorage.getItem('streak') || '0';
+</script>
+</body>
+</html>
