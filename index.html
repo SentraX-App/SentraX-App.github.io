@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentra-X</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Arial, sans-serif; background: linear-gradient(180deg,#eef2ff 0%,#f4f6f8 200px); margin: 0; padding: 0; padding-bottom: 78px; color: #1f2937; }
+  header { background: #2563eb; color: white; padding: 14px 16px; text-align: center; box-shadow: 0 2px 10px rgba(37,99,235,0.3); }
+  header img { height: 32px; }
+  #greeting { text-align: center; padding: 10px 16px 0; font-size: 14px; color: #4b5563; }
+  .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; }
+  .screen.active { display: block; }
+  .card { background: white; border-radius: 16px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+  .card h3 { margin-top: 0; font-size: 15px; color: #374151; }
+  input, select { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #d1d5db; border-radius: 10px; font-size: 16px; }
+  button { width: 100%; padding: 14px; background: #2563eb; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 8px; }
+  button.secondary { background: #e5e7eb; color: #1f2937; }
+  button.whatsapp { background: #22c55e; }
+  button.ghost { background: #eef2ff; color: #2563eb; }
+  button.danger { background: #dc2626; }
+  #result { margin-top: 14px; padding: 14px; border-radius: 10px; font-weight: bold; text-align: center; display: none; }
+  .streak { text-align: center; font-size: 15px; color: #374151; margin-bottom: 10px; }
+  .streak b { color: #2563eb; font-size: 22px; }
+  .alert-banner { background: #fee2e2; color: #991b1b; padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 14px; font-weight: 600; }
+  .tip-card { background: #ecfdf5; border-left: 4px solid #10b981; }
+  .tip-card p { margin: 4px 0 0; color: #065f46; font-size: 14px; }
+  .med-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .med-row button { width: auto; padding: 8px 14px; margin: 0; }
+  .taken { background: #22c55e !important; }
+  .history-row { padding: 10px; border-radius: 10px; margin-bottom: 8px; }
+  .summary-grid { display: flex; justify-content: space-between; text-align: center; margin-top: 10px; }
+  .summary-grid div { flex: 1; }
+  .summary-grid b { display: block; font-size: 18px; color: #2563eb; }
+  .summary-grid span { font-size: 11px; color: #6b7280; }
+  nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; border-top: 1px solid #e5e7eb; box-shadow: 0 -4px 12px rgba(0,0,0,0.06); padding-top: 4px; }
+  nav button { flex: 1; background: none; color: #9ca3af; border-radius: 0; margin: 0; padding: 6px 0 10px; font-size: 11px; font-weight: 600; line-height: 1.6; border-top: 3px solid transparent; }
+  nav button .icon { display: block; font-size: 20px; }
+  nav button.active { color: #2563eb; border-top: 3px solid #2563eb; }
+  .empty { color: #9ca3af; text-align: center; padding: 20px 0; font-size: 14px; }
+  #onboarding-overlay { position: fixed; inset: 0; background: #2563eb; color: white; z-index: 999; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  #onboarding-overlay .box { max-width: 380px; width: 100%; }
+  #onboarding-overlay h2 { margin-bottom: 4px; }
+  #onboarding-overlay p { color: #dbeafe; font-size: 14px; margin-top: 0; }
+  #onboarding-overlay input, #onboarding-overlay select { border: none; }
+  #onboarding-overlay button { background: white; color: #2563eb; font-weight: 700; }
+</style>
+</head>
+<body>
+
+  <div id="onboarding-overlay">
+    <div class="box">
+      <h2>Welcome to Sentra-X</h2>
+      <p>Let's set up your health protection in under a minute.</p>
+      <input type="text" id="ob-name" placeholder="Your first name">
+      <select id="ob-condition">
+        <option value="">I'm managing... (optional)</option>
+        <option value="Hypertension">Hypertension</option>
+        <option value="Diabetes">Diabetes</option>
+        <option value="Both">Both</option>
+        <option value="None">Just staying on top of my health</option>
+      </select>
+      <button onclick="completeOnboarding()">Get Started</button>
+    </div>
+  </div>
+
+  <header>
+    <img src="logo-header.png" alt="Sentra-X">
+  </header>
+  <div id="greeting"></div>
+
+  <div class="screen active" id="vitals-screen">
+    <div id="due-banner"></div>
+    <div class="card streak">You're on a <b id="streak-count">0</b> day streak 🔥</div>
+    <div class="card tip-card">
+      <h3 style="color:#065f46;">💡 Tip of the Day</h3>
+      <p id="tip-text"></p>
+    </div>
+    <div class="card">
+      <h3>Log a Reading</h3>
+      <input type="number" id="systolic" placeholder="Top number (Systolic)">
+      <input type="number" id="diastolic" placeholder="Bottom number (Diastolic)">
+      <input type="number" id="heartrate" placeholder="Heart rate (optional)">
+      <input type="number" id="weight" placeholder="Weight in kg (optional)">
+      <button onclick="checkBP()">Save & Check My Risk</button>
+      <div id="result"></div>
+      <div id="alert-caregiver-btn"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="meds-screen">
+    <div class="card">
+      <h3>Add a Medication</h3>
+      <input type="text" id="med-name" placeholder="Medication name">
+      <input type="time" id="med-time">
+      <button onclick="addMed()">Add Medication</button>
+      <button class="ghost" onclick="enableReminders()" id="enable-btn">🔔 Enable Reminder Alerts</button>
+    </div>
+    <div class="card">
+      <h3>Today's Medications</h3>
+      <div id="med-list"><div class="empty">No medications added yet</div></div>
+    </div>
+  </div>
+
+  <div class="screen" id="history-screen">
+    <div class="card">
+      <h3>Weekly Summary</h3>
+      <div class="summary-grid" id="weekly-summary">
+        <div><b>0</b><span>Readings</span></div>
+        <div><b>—</b><span>Avg BP</span></div>
+        <div><b>0%</b><span>Meds Taken</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Your History</h3>
+      <div id="history-list"><div class="empty">No readings logged yet</div></div>
+    </div>
+  </div>
+
+  <div class="screen" id="family-screen">
+    <div class="card">
+      <h3>Your Caregiver</h3>
+      <p style="color:#6b7280; font-size:14px;">Save a family member's WhatsApp number so alerts go straight to them.</p>
+      <input type="text" id="cg-name" placeholder="Caregiver's name">
+      <input type="text" id="cg-phone" placeholder="WhatsApp number, e.g. 2348012345678">
+      <button onclick="saveCaregiver()">Save Caregiver</button>
+      <div id="cg-saved-note" style="font-size:13px;color:#059669;margin-top:6px;"></div>
+    </div>
+    <div class="card">
+      <h3>Share Your Status</h3>
+      <button class="whatsapp" onclick="shareToFamily()">📲 Share with Family on WhatsApp</button>
+    </div>
+  </div>
+
+  <nav>
+    <button class="active" onclick="showScreen('vitals')" id="nav-vitals"><span class="icon">💓</span>Vitals</button>
+    <button onclick="showScreen('meds')" id="nav-meds"><span class="icon">💊</span>Meds</button>
+    <button onclick="showScreen('history')" id="nav-history"><span class="icon">📈</span>History</button>
+    <button onclick="showScreen('family')" id="nav-family"><span class="icon">👪</span>Family</button>
+  </nav>
+
+<script>
+const TIPS = [
+  "A short 10-minute walk after meals can help keep blood pressure steady.",
+  "Try to cut down on added salt this week — season with herbs and spice instead.",
+  "Aim for 7-8 hours of sleep tonight — poor sleep can raise blood pressure.",
+  "Drink a glass of water first thing in the morning to support healthy circulation.",
+  "Deep breathing for 5 minutes can genuinely lower stress-related blood pressure spikes.",
+  "Swap one fried meal this week for a grilled or boiled option.",
+  "Check in with how you're feeling today — stress management is part of heart health.",
+  "A handful of nuts is a heart-healthy snack alternative to chips or biscuits.",
+  "Take the stairs once today if you can — small movement adds up.",
+  "Remember: consistency with medication matters more than perfection. Keep going."
+];
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(name + '-screen').classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'meds') renderMeds();
+  if (name === 'history') { renderHistory(); renderWeeklySummary(); }
+  if (name === 'family') renderCaregiverNote();
+}
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]) * 60 + parseInt(parts[1]); }
+function dayOfYear(d) { return Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000); }
+
+function completeOnboarding() {
+  const name = document.getElementById('ob-name').value.trim();
+  const condition = document.getElementById('ob-condition').value;
+  if (!name) { alert('Please enter your first name.'); return; }
+  localStorage.setItem('userName', name);
+  localStorage.setItem('userCondition', condition);
+  document.getElementById('onboarding-overlay').style.display = 'none';
+  renderGreeting();
+}
+
+function renderGreeting() {
+  const name = localStorage.getItem('userName');
+  const greeting = document.getElementById('greeting');
+  greeting.textContent = name ? ('Hi ' + name + ", here's your health today") : '';
+}
+
+function renderTip() {
+  const tip = TIPS[dayOfYear(new Date()) % TIPS.length];
+  document.getElementById('tip-text').textContent = tip;
+}
+
+function updateStreak() {
+  let streak = parseInt(localStorage.getItem('streak') || '0');
+  let lastActive = localStorage.getItem('lastActive');
+  const today = todayStr();
+  if (lastActive !== today) {
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    streak = (lastActive === yesterday) ? streak + 1 : 1;
+    localStorage.setItem('lastActive', today);
+    localStorage.setItem('streak', streak);
+  }
+  document.getElementById('streak-count').textContent = localStorage.getItem('streak') || '1';
+}
+
+function getRisk(sys, dia) {
+  if (sys >= 180 || dia >= 120) return { level: "Hypertensive Crisis — seek medical care now", color: "#fca5a5", severity: 4 };
+  if (sys >= 140 || dia >= 90) return { level: "Stage 2 Hypertension — High Risk", color: "#fecaca", severity: 3 };
+  if (sys >= 130 || dia >= 80) return { level: "Stage 1 Hypertension — Caution", color: "#fed7aa", severity: 2 };
+  if (sys >= 120) return { level: "Elevated — Watch", color: "#fef08a", severity: 1 };
+  return { level: "Normal", color: "#bbf7d0", severity: 0 };
+}
+
+function checkBP() {
+  const sys = parseInt(document.getElementById('systolic').value);
+  const dia = parseInt(document.getElementById('diastolic').value);
+  const hr = document.getElementById('heartrate').value;
+  const weight = document.getElementById('weight').value;
+  const result = document.getElementById('result');
+  const cgBtn = document.getElementById('alert-caregiver-btn');
+  cgBtn.innerHTML = '';
+
+  if (!sys || !dia) {
+    result.style.display = "block"; result.style.background = "#eee";
+    result.textContent = "Please enter both blood pressure numbers.";
+    return;
+  }
+
+  const risk = getRisk(sys, dia);
+  result.style.display = "block";
+  result.style.background = risk.color;
+  result.textContent = risk.level;
+
+  const now = new Date();
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  vitals.unshift({ dateISO: now.toISOString(), date: now.toLocaleString(), sys: sys, dia: dia, hr: hr, weight: weight, level: risk.level, color: risk.color, severity: risk.severity });
+  localStorage.setItem('vitals', JSON.stringify(vitals));
+  updateStreak();
+
+  if (risk.severity >= 3) {
+    const safeLevel = risk.level.replace(/'/g, "");
+    cgBtn.innerHTML = '<button class="danger" onclick="alertCaregiverNow(' + sys + ',' + dia + ',\'' + safeLevel + '\')">🚨 Alert My Caregiver Now</button>';
+  }
+}
+
+function alertCaregiverNow(sys, dia, level) {
+  const name = localStorage.getItem('userName') || 'A Sentra-X user';
+  const cgPhone = (localStorage.getItem('cgPhone') || '').replace(/[^0-9]/g, '');
+  const msg = '\u26A0\uFE0F Sentra-X Alert: ' + name + "'s blood pressure just read " + sys + '/' + dia + ' (' + level + '). Please check on them.';
+  const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
+  window.open(url, '_blank');
+}
+
+function addMed() {
+  const name = document.getElementById('med-name').value.trim();
+  const time = document.getElementById('med-time').value;
+  if (!name || !time) { alert('Please enter both a medication name and time.'); return; }
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  meds.push({ id: Date.now().toString(), name: name, time: time });
+  localStorage.setItem('meds', JSON.stringify(meds));
+  document.getElementById('med-name').value = '';
+  document.getElementById('med-time').value = '';
+  renderMeds();
+}
+
+function toggleTaken(id) {
+  const today = todayStr();
+  const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+  if (!logs[today]) logs[today] = {};
+  logs[today][id] = !logs[today][id];
+  localStorage.setItem('medLogs', JSON.stringify(logs));
+  updateStreak();
+  renderMeds();
+}
+
+function renderMeds() {
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+  const today = todayStr();
+  const list = document.getElementById('med-list');
+  if (meds.length === 0) { list.innerHTML = '<div class="empty">No medications added yet</div>'; return; }
+  list.innerHTML = meds.map(function(m) {
+    const taken = logs[today] && logs[today][m.id];
+    return '<div class="med-row"><span>' + m.name + ' — ' + m.time + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? '✓ Taken' : 'Mark Taken') + '</button></div>';
+  }).join('');
+  checkDueMeds();
+}
+
+function checkDueMeds() {
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+  const today = todayStr();
+  const now = nowMinutes();
+  const banner = document.getElementById('due-banner');
+  const due = meds.filter(function(m) {
+    const taken = logs[today] && logs[today][m.id];
+    return !taken && timeToMinutes(m.time) <= now;
+  });
+  if (due.length > 0) {
+    const names = due.map(function(m){ return m.name; }).join(', ');
+    banner.innerHTML = '<div class="alert-banner">⏰ ' + due.length + ' medication' + (due.length > 1 ? 's' : '') + ' due or overdue today: ' + names + '</div>';
+    if (Notification.permission === 'granted' && !sessionStorage.getItem('notified-' + today)) {
+      new Notification('Sentra-X reminder', { body: 'Time for: ' + names });
+      sessionStorage.setItem('notified-' + today, '1');
+    }
+  } else {
+    banner.innerHTML = '';
+  }
+}
+
+function enableReminders() {
+  if (!('Notification' in window)) { alert('Notifications are not supported on this browser.'); return; }
+  Notification.requestPermission().then(function(perm) {
+    document.getElementById('enable-btn').textContent = perm === 'granted' ? '🔔 Reminders Enabled' : '🔔 Enable Reminder Alerts';
+  });
+}
+
+function renderHistory() {
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  const list = document.getElementById('history-list');
+  if (vitals.length === 0) { list.innerHTML = '<div class="empty">No readings logged yet</div>'; return; }
+  list.innerHTML = vitals.map(function(v) {
+    return '<div class="history-row" style="background:' + v.color + '"><b>' + v.sys + '/' + v.dia + '</b> — ' + v.level + '<br><small>' + v.date + (v.hr ? ' · HR ' + v.hr : '') + (v.weight ? ' · ' + v.weight + 'kg' : '') + '</small></div>';
+  }).join('');
+}
+
+function renderWeeklySummary() {
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const medLogs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+  const weekAgo = Date.now() - 7 * 86400000;
+
+  const weekVitals = vitals.filter(function(v) { return new Date(v.dateISO || v.date).getTime() >= weekAgo; });
+  const grid = document.getElementById('weekly-summary');
+  const readingsEl = grid.children[0].querySelector('b');
+  const avgEl = grid.children[1].querySelector('b');
+  const adherenceEl = grid.children[2].querySelector('b');
+
+  readingsEl.textContent = weekVitals.length;
+
+  if (weekVitals.length > 0) {
+    const avgSys = Math.round(weekVitals.reduce(function(s,v){ return s + v.sys; }, 0) / weekVitals.length);
+    const avgDia = Math.round(weekVitals.reduce(function(s,v){ return s + v.dia; }, 0) / weekVitals.length);
+    avgEl.textContent = avgSys + '/' + avgDia;
+  } else {
+    avgEl.textContent = '—';
+  }
+
+  if (meds.length > 0) {
+    let totalPossible = 0, totalTaken = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+      const dayLog = medLogs[d] || {};
+      meds.forEach(function(m) {
+        totalPossible++;
+        if (dayLog[m.id]) totalTaken++;
+      });
+    }
+    adherenceEl.textContent = totalPossible > 0 ? Math.round((totalTaken / totalPossible) * 100) + '%' : '—';
+  } else {
+    adherenceEl.textContent = '—';
+  }
+}
+
+function saveCaregiver() {
+  const name = document.getElementById('cg-name').value.trim();
+  const phone = document.getElementById('cg-phone').value.trim();
+  if (!name || !phone) { alert("Please enter both the caregiver's name and number."); return; }
+  localStorage.setItem('cgName', name);
+  localStorage.setItem('cgPhone', phone);
+  renderCaregiverNote();
+}
+
+function renderCaregiverNote() {
+  const name = localStorage.getItem('cgName');
+  const note = document.getElementById('cg-saved-note');
+  const nameInput = document.getElementById('cg-name');
+  const phoneInput = document.getElementById('cg-phone');
+  if (name) {
+    note.textContent = '✓ Saved — alerts will go to ' + name;
+    nameInput.value = name;
+    phoneInput.value = localStorage.getItem('cgPhone') || '';
+  }
+}
+
+function shareToFamily() {
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  const streak = localStorage.getItem('streak') || '0';
+  const name = localStorage.getItem('userName') || 'A Sentra-X user';
+  const cgPhone = (localStorage.getItem('cgPhone') || '').replace(/[^0-9]/g, '');
+  const latest = vitals[0];
+  let msg = 'Hi! This is ' + name + "'s Sentra-X health update. Current streak: " + streak + ' days. ';
+  msg += latest ? ('Latest reading: ' + latest.sys + '/' + latest.dia + ' (' + latest.level + ').') : 'No readings logged yet.';
+  const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
+  window.open(url, '_blank');
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+
+if (localStorage.getItem('userName')) {
+  document.getElementById('onboarding-overlay').style.display = 'none';
+}
+renderGreeting();
+renderTip();
+renderMeds();
+renderHistory();
+renderWeeklySummary();
+renderCaregiverNote();
+document.getElementById('streak-count').textContent = localStorage.getItem('streak') || '0';
+setInterval(checkDueMeds, 60000);
+</script>
+</body>
+  </html>
