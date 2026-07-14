@@ -133,7 +133,19 @@
     <button onclick="showScreen('history')" id="nav-history"><span class="icon">📈</span>History</button>
     <button onclick="showScreen('family')" id="nav-family"><span class="icon">👪</span>Family</button>
   </nav>
-
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyCHeWvZzGZVa79m2JvvpkX5Xlvmj8vpdPc",
+    authDomain: "sentra-x.firebaseapp.com",
+    projectId: "sentra-x",
+    storageBucket: "sentra-x.firebasestorage.app",
+    messagingSenderId: "5654480364",
+    appId: "1:5654480364:web:bd6dbe766a1c46edb66cc9"
+  });
+</script>
 <script src="script.js"></script>
 </body>
   </html>
