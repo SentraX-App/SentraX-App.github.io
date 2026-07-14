@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentra-X</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f172a">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="onboarding-overlay">
+    <div class="box">
+      <h2>Welcome to Sentra-X</h2>
+      <p>Let's set up your health protection in under a minute.</p>
+      <input type="text" id="ob-name" placeholder="Your first name">
+      <select id="ob-condition">
+        <option value="">I'm managing... (optional)</option>
+        <option value="Hypertension">Hypertension</option>
+        <option value="Diabetes">Diabetes</option>
+        <option value="Both">Both</option>
+        <option value="None">Just staying on top of my health</option>
+      </select>
+      <button onclick="completeOnboarding()">Get Started</button>
+    </div>
+  </div>
+
+  <header>
+    <img src="logo-header.png" alt="Sentra-X">
+  </header>
+  <div id="greeting"></div>
+
+  <div class="screen active" id="vitals-screen">
+    <div id="due-banner"></div>
+
+    <div class="card score-card">
+      <div class="score-ring" id="score-ring"><b id="score-num">—</b></div>
+      <div class="score-text">
+        <div class="label" id="score-label">Log a reading to see your score</div>
+        <div class="sub" id="score-sub"></div>
+      </div>
+    </div>
+
+    <div class="card streak">
+      <div class="streak-ring"><b id="streak-count">0</b></div>
+      <span class="streak-label">day streak 🔥</span>
+    </div>
+
+    <div class="card tip-card">
+      <h3 style="color:#065f46;">💡 Tip of the Day</h3>
+      <p id="tip-text"></p>
+    </div>
+
+    <div class="card">
+      <h3>Water Intake</h3>
+      <div class="water-row">
+        <button class="secondary" onclick="changeWater(-1)">−</button>
+        <span class="water-count" id="water-count">0 cups</span>
+        <button class="secondary" onclick="changeWater(1)">+</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Log a Reading</h3>
+      <input type="number" id="systolic" placeholder="Top number (Systolic)">
+      <input type="number" id="diastolic" placeholder="Bottom number (Diastolic)">
+      <input type="number" id="heartrate" placeholder="Heart rate (optional)">
+      <input type="number" id="weight" placeholder="Weight in kg (optional)">
+      <button onclick="checkBP()">Save & Check My Risk</button>
+      <div id="result"></div>
+      <div id="alert-caregiver-btn"></div>
+    </div>
+
+    <div class="card">
+      <h3>Emergency</h3>
+      <button class="sos" onclick="triggerSOS()">🆘 Emergency SOS — Alert Caregiver</button>
+      <button class="call" onclick="callEmergency()">📞 Call Emergency Services (112)</button>
+    </div>
+  </div>
+
+  <div class="screen" id="meds-screen">
+    <div class="card">
+      <h3>Add a Medication</h3>
+      <input type="text" id="med-name" placeholder="Medication name">
+      <input type="time" id="med-time">
+      <button onclick="addMed()">Add Medication</button>
+      <button class="ghost" onclick="enableReminders()" id="enable-btn">🔔 Enable Reminder Alerts</button>
+    </div>
+    <div class="card">
+      <h3>Today's Medications</h3>
+      <div id="med-list"><div class="empty">No medications added yet</div></div>
+    </div>
+  </div>
+
+  <div class="screen" id="history-screen">
+    <div class="card">
+      <h3>Weekly Summary</h3>
+      <div class="summary-grid" id="weekly-summary">
+        <div><b>0</b><span>Readings</span></div>
+        <div><b>—</b><span>Avg BP</span></div>
+        <div><b>0%</b><span>Meds Taken</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Achievements</h3>
+      <div class="badge-grid" id="badge-grid"></div>
+    </div>
+    <div class="card">
+      <h3>Your History</h3>
+      <div id="history-list"><div class="empty">No readings logged yet</div></div>
+    </div>
+  </div>
+
+  <div class="screen" id="family-screen">
+    <div class="card">
+      <h3>Your Caregiver</h3>
+      <p style="color:#94a3b8; font-size:14px;">Save a family member's WhatsApp number so alerts go straight to them.</p>
+      <input type="text" id="cg-name" placeholder="Caregiver's name">
+      <input type="text" id="cg-phone" placeholder="WhatsApp number, e.g. 2348012345678">
+      <button onclick="saveCaregiver()">Save Caregiver</button>
+      <div id="cg-saved-note" style="font-size:13px;color:#6ee7b7;margin-top:6px;"></div>
+    </div>
+    <div class="card">
+      <h3>Share Your Status</h3>
+      <button class="whatsapp" onclick="shareToFamily()">📲 Share with Family on WhatsApp</button>
+    </div>
+  </div>
+
+  <nav>
+    <button class="active" onclick="showScreen('vitals')" id="nav-vitals"><span class="icon">💓</span>Vitals</button>
+    <button onclick="showScreen('meds')" id="nav-meds"><span class="icon">💊</span>Meds</button>
+    <button onclick="showScreen('history')" id="nav-history"><span class="icon">📈</span>History</button>
+    <button onclick="showScreen('family')" id="nav-family"><span class="icon">👪</span>Family</button>
+  </nav>
+
+<script src="script.js"></script>
+</body>
+  </html>
