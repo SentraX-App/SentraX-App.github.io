@@ -26,7 +26,7 @@ function showScreen(name) {
   if (name === 'meds') renderMeds();
   if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); }
   if (name === 'family') renderCaregiverNote();
-}
+  if (name === 'passport') renderPassport();
 
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
