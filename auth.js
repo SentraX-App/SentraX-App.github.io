@@ -88,20 +88,14 @@ userCredential.user;
 await setDoc(
 doc(db,"users",user.uid),
 {
-
+{
 name:name,
-
 email:email,
-
-created:
-new Date(),
-
+onboardingComplete:false,
+created:new Date(),
 healthScore:0,
-
 medications:[],
-
 vitals:[]
-
 }
 
 );
