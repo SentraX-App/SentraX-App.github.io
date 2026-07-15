@@ -150,18 +150,17 @@ try{
 
 
 await signInWithEmailAndPassword(
-
+const result = await signInWithEmailAndPassword(
 auth,
-
 email,
-
 password
-
 );
 
-
+if(result.user){
 
 window.location.href="index.html";
+
+  }
 
 
 }
