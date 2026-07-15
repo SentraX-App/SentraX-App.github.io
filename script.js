@@ -416,42 +416,7 @@ if ('serviceWorker' in navigator) {
 if (localStorage.getItem('userName')) {
   document.getElementById('onboarding-overlay').style.display = 'none';
 }
-import { auth } from "./firebase.js";
 
-import {
-onAuthStateChanged
-}
-from
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-
-onAuthStateChanged(auth, (user)=>{
-
-if(user){
-
-const completed = localStorage.getItem("onboardingComplete");
-
-const overlay = document.getElementById("onboarding-overlay");
-
-if(!completed){
-
-if(overlay){
-overlay.style.display="flex";
-}
-
-}else{
-
-if(overlay){
-overlay.style.display="none";
-}
-
-renderGreeting();
-
-}
-
-}
-
-});
 renderGreeting();
 renderTip();
 renderMeds();
