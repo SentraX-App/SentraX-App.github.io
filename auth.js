@@ -14,7 +14,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
-
 // =========================
 // SIGN UP
 // =========================
@@ -39,6 +38,10 @@ if (signupForm) {
 
     try {
 
+      // Clear previous user's cached data
+      localStorage.clear();
+      sessionStorage.clear();
+
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -47,39 +50,29 @@ if (signupForm) {
 
       const user = userCredential.user;
 
-      // Save display name
       await updateProfile(user, {
         displayName: name
       });
 
-      // Save Firestore user document
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          name: name,
-          email: email,
-          onboardingComplete: false,
-          created: new Date(),
-          healthScore: 0,
-          medications: [],
-          vitals: []
-        }
-      );
+      await setDoc(doc(db, "users", user.uid), {
+        name: name,
+        email: email,
+        onboardingComplete: false,
+        created: new Date(),
+        healthScore: 0,
+        medications: [],
+        vitals: []
+      });
 
-      alert("Account created successfully!");
-
-      window.location.href = "index.html";
+      window.location.replace("index.html");
 
     } catch (error) {
-
       alert(error.message);
-
     }
 
   });
 
 }
-
 
 
 // =========================
@@ -99,26 +92,21 @@ if (loginForm) {
 
     try {
 
-      const result = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      // Clear previous user's cached data
+      localStorage.clear();
+      sessionStorage.clear();
 
-      console.log("Login successful:", result.user.email);
+      await signInWithEmailAndPassword(auth, email, password);
 
-      window.location.href = "index.html";
+      window.location.replace("index.html");
 
     } catch (error) {
-
       alert(error.message);
-
     }
 
   });
 
 }
-
 
 
 // =========================
@@ -152,7 +140,6 @@ if (forgot) {
 }
 
 
-
 // =========================
 // AUTH STATE
 // =========================
@@ -160,13 +147,9 @@ if (forgot) {
 onAuthStateChanged(auth, (user) => {
 
   if (user) {
-
-    console.log("Already logged in:", user.email);
-
+    console.log("Logged in:", user.email);
   } else {
-
     console.log("No user logged in");
-
   }
 
 });
