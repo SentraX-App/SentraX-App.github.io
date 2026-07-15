@@ -2,7 +2,7 @@ import { auth } from "./firebase.js";
 
 import {
 onAuthStateChanged
-} from 
+} from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 
@@ -10,13 +10,13 @@ onAuthStateChanged(auth, (user)=>{
 
 if(user){
 
-console.log("Authenticated:", user.email);
+console.log("Logged in:", user.email);
 
-}else{
+} else {
 
-console.log("No user found");
+console.log("No logged in user");
 
-window.location.href="auth.html";
+window.location.href = "auth.html";
 
 }
 
