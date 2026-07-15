@@ -38,10 +38,6 @@ if (signupForm) {
 
     try {
 
-      // Clear previous user's cached data
-      localStorage.clear();
-      sessionStorage.clear();
-
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -54,25 +50,37 @@ if (signupForm) {
         displayName: name
       });
 
-      await setDoc(doc(db, "users", user.uid), {
-        name: name,
-        email: email,
-        onboardingComplete: false,
-        created: new Date(),
-        healthScore: 0,
-        medications: [],
-        vitals: []
-      });
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          name: name,
+          email: email,
+          onboardingComplete: false,
+          created: new Date(),
+          healthScore: 0,
+          medications: [],
+          vitals: []
+        }
+      );
+
+      // Clear old local data
+      localStorage.clear();
+      sessionStorage.clear();
+
+      alert("Account created successfully!");
 
       window.location.replace("index.html");
 
     } catch (error) {
+
       alert(error.message);
+
     }
 
   });
 
 }
+
 
 
 // =========================
@@ -92,21 +100,28 @@ if (loginForm) {
 
     try {
 
+      await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
       // Clear previous user's cached data
       localStorage.clear();
       sessionStorage.clear();
 
-      await signInWithEmailAndPassword(auth, email, password);
-
       window.location.replace("index.html");
 
     } catch (error) {
+
       alert(error.message);
+
     }
 
   });
 
 }
+
 
 
 // =========================
@@ -140,6 +155,7 @@ if (forgot) {
 }
 
 
+
 // =========================
 // AUTH STATE
 // =========================
@@ -147,9 +163,13 @@ if (forgot) {
 onAuthStateChanged(auth, (user) => {
 
   if (user) {
+
     console.log("Logged in:", user.email);
+
   } else {
+
     console.log("No user logged in");
+
   }
 
 });
