@@ -121,3 +121,13 @@ nav button.active .icon { filter: none; }
 #onboarding-overlay p { color: #93c5fd; font-size: 14px; margin-top: 0; }
 #onboarding-overlay input, #onboarding-overlay select { background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.15); }
 #onboarding-overlay button { background: white; color: #1e3a8a; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+.logout-btn {
+  width: auto;
+  padding: 8px 16px;
+  margin-top: 10px;
+  background: rgba(239,68,68,0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(239,68,68,0.3);
+  box-shadow: none;
+  font-size: 13px;
+}
