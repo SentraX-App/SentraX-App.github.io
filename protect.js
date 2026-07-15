@@ -8,12 +8,16 @@ onAuthStateChanged
 
 onAuthStateChanged(auth, (user)=>{
 
-    if(user){
-        console.log("User verified:", user.email);
-    }
-    else{
-        console.log("No user. Redirecting...");
-        window.location.href="auth.html";
+    console.log("Auth check:", user);
+
+    if(!user){
+
+        window.location.href = "auth.html";
+
+    } else {
+
+        console.log("User logged in:", user.email);
+
     }
 
 });
