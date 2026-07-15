@@ -1,241 +1,172 @@
 import { auth, db } from "./firebase.js";
 
 import {
-
-createUserWithEmailAndPassword,
-
-signInWithEmailAndPassword,
-
-sendPasswordResetEmail,
-
-onAuthStateChanged
-
-}
-
-from
-
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+  updateProfile
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
-
-doc,
-
-setDoc
-
-}
-
-from
-
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  doc,
+  setDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
 
+// =========================
 // SIGN UP
+// =========================
 
 const signupForm = document.getElementById("signupForm");
 
+if (signupForm) {
 
-if(signupForm){
+  signupForm.addEventListener("submit", async (e) => {
 
-signupForm.addEventListener("submit", async(e)=>{
+    e.preventDefault();
 
-e.preventDefault();
+    const name = document.getElementById("signupName").value.trim();
+    const email = document.getElementById("signupEmail").value.trim();
+    const password = document.getElementById("signupPassword").value;
+    const confirm = document.getElementById("confirmPassword").value;
 
+    if (password !== confirm) {
+      alert("Passwords do not match");
+      return;
+    }
 
-const name =
-document.getElementById("signupName").value;
+    try {
 
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
 
-const email =
-document.getElementById("signupEmail").value;
+      const user = userCredential.user;
 
+      // Save display name
+      await updateProfile(user, {
+        displayName: name
+      });
 
-const password =
-document.getElementById("signupPassword").value;
+      // Save Firestore user document
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          name: name,
+          email: email,
+          onboardingComplete: false,
+          created: new Date(),
+          healthScore: 0,
+          medications: [],
+          vitals: []
+        }
+      );
 
+      alert("Account created successfully!");
 
-const confirm =
-document.getElementById("confirmPassword").value;
+      window.location.href = "index.html";
 
+    } catch (error) {
 
+      alert(error.message);
 
-if(password !== confirm){
+    }
 
-alert("Passwords do not match");
-
-return;
-
-}
-
-
-try{
-
-
-const userCredential =
-await createUserWithEmailAndPassword(
-auth,
-email,
-password
-);
-
-
-const user =
-userCredential.user;
-
-
-
-await setDoc(
-doc(db,"users",user.uid),
-{
-{
-name:name,
-email:email,
-onboardingComplete:false,
-created:new Date(),
-healthScore:0,
-medications:[],
-vitals:[]
-}
-
-);
-
-
-
-alert("Welcome to Sentra-X!");
-
-window.location.href="index.html";
-
-
-}
-
-catch(error){
-
-alert(error.message);
-
-}
-
-
-});
+  });
 
 }
 
 
 
-
-
+// =========================
 // LOGIN
+// =========================
 
-const loginForm =
-document.getElementById("loginForm");
+const loginForm = document.getElementById("loginForm");
+
+if (loginForm) {
+
+  loginForm.addEventListener("submit", async (e) => {
+
+    e.preventDefault();
+
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+
+    try {
+
+      const result = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      console.log("Login successful:", result.user.email);
+
+      window.location.href = "index.html";
+
+    } catch (error) {
+
+      alert(error.message);
+
+    }
+
+  });
+
+}
 
 
-if(loginForm){
 
-loginForm.addEventListener("submit",async(e)=>{
+// =========================
+// PASSWORD RESET
+// =========================
 
-e.preventDefault();
+const forgot = document.getElementById("forgotPassword");
+
+if (forgot) {
+
+  forgot.onclick = async () => {
+
+    const email = prompt("Enter your email address");
+
+    if (!email) return;
+
+    try {
+
+      await sendPasswordResetEmail(auth, email);
+
+      alert("Password reset email sent.");
+
+    } catch (error) {
+
+      alert(error.message);
+
+    }
+
+  };
+
+}
 
 
-const email =
-document.getElementById("loginEmail").value;
 
+// =========================
+// AUTH STATE
+// =========================
 
-const password =
-document.getElementById("loginPassword").value;
+onAuthStateChanged(auth, (user) => {
 
+  if (user) {
 
+    console.log("Already logged in:", user.email);
 
-try{
+  } else {
 
-
-const result = await signInWithEmailAndPassword(
-auth,
-email,
-password
-);
-
-console.log("Login successful:", result.user.email);
-
-setTimeout(()=>{
-window.location.href="index.html";
-},500);
+    console.log("No user logged in");
 
   }
-
-
-}
-
-catch(error){
-
-alert(error.message);
-
-}
-
-
-});
-
-}
-
-
-
-
-
-// PASSWORD RESET
-
-
-const forgot =
-document.getElementById("forgotPassword");
-
-
-if(forgot){
-
-forgot.onclick = async()=>{
-
-
-const email =
-prompt(
-"Enter your email address"
-);
-
-
-if(email){
-
-await sendPasswordResetEmail(
-auth,
-email
-);
-
-
-alert(
-"Password reset email sent"
-);
-
-
-}
-
-
-};
-
-
-}
-
-
-
-// CHECK LOGIN STATE
-
-
-onAuthStateChanged(auth,(user)=>{
-
-
-if(user){
-
-console.log(
-"Logged in:",
-user.email
-);
-
-}
-
 
 });
