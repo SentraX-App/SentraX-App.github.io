@@ -50,37 +50,31 @@ if (signupForm) {
         displayName: name
       });
 
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          name: name,
-          email: email,
-          onboardingComplete: false,
-          created: new Date(),
-          healthScore: 0,
-          medications: [],
-          vitals: []
-        }
-      );
-
-      // Clear old local data
-      localStorage.clear();
-      sessionStorage.clear();
+      await setDoc(doc(db, "users", user.uid), {
+        name: name,
+        email: email,
+        onboardingComplete: false,
+        created: new Date(),
+        healthScore: 0,
+        medications: [],
+        vitals: []
+      });
 
       alert("Account created successfully!");
 
-      window.location.replace("index.html");
+      onAuthStateChanged(auth, (currentUser) => {
+        if (currentUser) {
+          window.location.href = "index.html";
+        }
+      });
 
     } catch (error) {
-
       alert(error.message);
-
     }
 
   });
 
 }
-
 
 
 // =========================
@@ -106,22 +100,19 @@ if (loginForm) {
         password
       );
 
-      // Clear previous user's cached data
-      localStorage.clear();
-      sessionStorage.clear();
-
-      window.location.replace("index.html");
+      onAuthStateChanged(auth, (currentUser) => {
+        if (currentUser) {
+          window.location.href = "index.html";
+        }
+      });
 
     } catch (error) {
-
       alert(error.message);
-
     }
 
   });
 
 }
-
 
 
 // =========================
@@ -139,21 +130,15 @@ if (forgot) {
     if (!email) return;
 
     try {
-
       await sendPasswordResetEmail(auth, email);
-
       alert("Password reset email sent.");
-
     } catch (error) {
-
       alert(error.message);
-
     }
 
   };
 
 }
-
 
 
 // =========================
@@ -163,13 +148,9 @@ if (forgot) {
 onAuthStateChanged(auth, (user) => {
 
   if (user) {
-
     console.log("Logged in:", user.email);
-
   } else {
-
     console.log("No user logged in");
-
   }
 
 });
