@@ -10,9 +10,11 @@ onAuthStateChanged(auth, (user)=>{
 
 if(user){
 
-console.log("User logged in:", user.email);
+console.log("Authenticated:", user.email);
 
 }else{
+
+console.log("No user found");
 
 window.location.href="auth.html";
 
