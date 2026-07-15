@@ -413,7 +413,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 
-if (localStorage.getItem('userName')) {
+if (localStorage.getItem('onboardingComplete') === "true") {
   document.getElementById('onboarding-overlay').style.display = 'none';
 }
 
