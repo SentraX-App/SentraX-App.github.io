@@ -1,3 +1,4 @@
+import { saveVital } from "./firestore.js";
 const TIPS = [
   "A short 10-minute walk after meals can help keep blood pressure steady.",
   "Try to cut down on added salt this week — season with herbs and spice instead.",
