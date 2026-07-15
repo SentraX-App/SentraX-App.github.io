@@ -61,18 +61,6 @@ async function completeOnboarding() {
   renderGreeting();
 }
 
-
-localStorage.setItem("userName", name);
-localStorage.setItem("userCondition", condition);
-localStorage.setItem("onboardingComplete","true");
-
-
-document.getElementById("onboarding-overlay").style.display="none";
-
-renderGreeting();
-
-}
-
 function renderGreeting() {
   const name = localStorage.getItem('userName');
   const greeting = document.getElementById('greeting');
