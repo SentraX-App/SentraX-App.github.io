@@ -1,8 +1,10 @@
 // Sentra-X Firebase Configuration
 // Firebase Modular SDK
 
+
 import { initializeApp } from 
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
 
 import { 
 getAuth,
@@ -10,11 +12,14 @@ setPersistence,
 browserLocalPersistence
 } from 
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+
 import {
 getFirestore
 }
 from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
 
 
 // Your Firebase Configuration
@@ -36,19 +41,41 @@ appId: "1:5654480364:web:bd6dbe766a1c46edb66cc9"
 };
 
 
+
 // Initialize Firebase
 
 const app = initializeApp(firebaseConfig);
 
 
+
 // Authentication
 
 const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence);
+
+
+// Keep users signed in after refresh
+
+setPersistence(auth, browserLocalPersistence)
+.then(() => {
+
+console.log("Firebase persistence enabled");
+
+})
+.catch((error)=>{
+
+console.error(
+"Persistence error:",
+error
+);
+
+});
+
+
 
 // Database
 
 const db = getFirestore(app);
+
 
 
 // Export
