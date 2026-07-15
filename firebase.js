@@ -55,12 +55,11 @@ const auth = getAuth(app);
 
 // Keep users signed in after refresh
 
-setPersistence(auth, browserLocalPersistence)
-.then(() => {
+const auth = getAuth(app);
+
+await setPersistence(auth, browserLocalPersistence);
 
 console.log("Firebase persistence enabled");
-
-})
 .catch((error)=>{
 
 console.error(
