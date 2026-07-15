@@ -35,13 +35,26 @@ function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]
 function dayOfYear(d) { return Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000); }
 
 function completeOnboarding() {
-  const name = document.getElementById('ob-name').value.trim();
-  const condition = document.getElementById('ob-condition').value;
-  if (!name) { alert('Please enter your first name.'); return; }
-  localStorage.setItem('userName', name);
-  localStorage.setItem('userCondition', condition);
-  document.getElementById('onboarding-overlay').style.display = 'none';
-  renderGreeting();
+
+const name = document.getElementById('ob-name').value.trim();
+const condition = document.getElementById('ob-condition').value;
+
+
+if(!name){
+alert("Please enter your name.");
+return;
+}
+
+
+localStorage.setItem("userName", name);
+localStorage.setItem("userCondition", condition);
+localStorage.setItem("onboardingComplete","true");
+
+
+document.getElementById("onboarding-overlay").style.display="none";
+
+renderGreeting();
+
 }
 
 function renderGreeting() {
@@ -416,22 +429,25 @@ onAuthStateChanged(auth, (user)=>{
 
 if(user){
 
-localStorage.setItem(
-"userName",
-user.displayName || user.email.split("@")[0]
-);
-
+const completed = localStorage.getItem("onboardingComplete");
 
 const overlay = document.getElementById("onboarding-overlay");
 
+if(!completed){
+
 if(overlay){
-
-overlay.style.display="none";
-
+overlay.style.display="flex";
 }
 
+}else{
+
+if(overlay){
+overlay.style.display="none";
+}
 
 renderGreeting();
+
+}
 
 }
 
