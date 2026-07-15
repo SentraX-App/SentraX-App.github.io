@@ -98,10 +98,53 @@ function checkBP() {
   result.textContent = risk.level;
 
   const now = new Date();
-  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
-  vitals.unshift({ dateISO: now.toISOString(), date: now.toLocaleString(), sys: sys, dia: dia, hr: hr, weight: weight, level: risk.level, color: risk.color, severity: risk.severity });
-  localStorage.setItem('vitals', JSON.stringify(vitals));
-  updateStreak();
+
+const vitalData = {
+
+dateISO: now.toISOString(),
+
+date: now.toLocaleString(),
+
+sys: sys,
+
+dia: dia,
+
+hr: hr,
+
+weight: weight,
+
+level: risk.level,
+
+color: risk.color,
+
+severity: risk.severity
+
+};
+
+
+// Keep local backup
+
+const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+
+vitals.unshift(vitalData);
+
+localStorage.setItem('vitals', JSON.stringify(vitals));
+
+
+// Save to Firebase
+
+saveVital(vitalData)
+.catch(error => {
+
+console.error(
+"Firestore save failed:",
+error
+);
+
+});
+
+
+updateStreak();
 
   if (risk.severity >= 3) {
     const safeLevel = risk.level.replace(/'/g, "");
