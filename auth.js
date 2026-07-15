@@ -149,16 +149,17 @@ document.getElementById("loginPassword").value;
 try{
 
 
-await signInWithEmailAndPassword(
 const result = await signInWithEmailAndPassword(
 auth,
 email,
 password
 );
 
-if(result.user){
+console.log("Login successful:", result.user.email);
 
+setTimeout(()=>{
 window.location.href="index.html";
+},500);
 
   }
 
