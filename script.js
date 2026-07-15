@@ -403,6 +403,39 @@ if ('serviceWorker' in navigator) {
 if (localStorage.getItem('userName')) {
   document.getElementById('onboarding-overlay').style.display = 'none';
 }
+import { auth } from "./firebase.js";
+
+import {
+onAuthStateChanged
+}
+from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+
+onAuthStateChanged(auth, (user)=>{
+
+if(user){
+
+localStorage.setItem(
+"userName",
+user.displayName || user.email.split("@")[0]
+);
+
+
+const overlay = document.getElementById("onboarding-overlay");
+
+if(overlay){
+
+overlay.style.display="none";
+
+}
+
+
+renderGreeting();
+
+}
+
+});
 renderGreeting();
 renderTip();
 renderMeds();
