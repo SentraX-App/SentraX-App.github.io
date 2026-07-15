@@ -1,4 +1,4 @@
-import { saveVital } from "./firestore.js";
+import { saveVital, saveHealthData, loadHealthData } from "./firestore.js";
 const TIPS = [
   "A short 10-minute walk after meals can help keep blood pressure steady.",
   "Try to cut down on added salt this week — season with herbs and spice instead.",
@@ -34,15 +34,31 @@ function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMi
 function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]) * 60 + parseInt(parts[1]); }
 function dayOfYear(d) { return Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000); }
 
-function completeOnboarding() {
+async function completeOnboarding() {
 
-const name = document.getElementById('ob-name').value.trim();
-const condition = document.getElementById('ob-condition').value;
+  const name = document.getElementById("ob-name").value.trim();
+  const condition = document.getElementById("ob-condition").value;
 
+  if (!name) {
+    alert("Please enter your name.");
+    return;
+  }
 
-if(!name){
-alert("Please enter your name.");
-return;
+  // Local cache
+  localStorage.setItem("userName", name);
+  localStorage.setItem("userCondition", condition);
+  localStorage.setItem("onboardingComplete", "true");
+
+  // Save to Firestore
+  await saveHealthData({
+    name: name,
+    condition: condition,
+    onboardingComplete: true
+  });
+
+  document.getElementById("onboarding-overlay").style.display = "none";
+
+  renderGreeting();
 }
 
 
@@ -413,10 +429,27 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 
-if (localStorage.getItem('onboardingComplete') === "true") {
-  document.getElementById('onboarding-overlay').style.display = 'none';
-}
+(async () => {
 
+  const data = await loadHealthData();
+
+  if (data) {
+
+    localStorage.setItem("userName", data.name || "");
+    localStorage.setItem("userCondition", data.condition || "");
+
+    if (data.onboardingComplete) {
+      localStorage.setItem("onboardingComplete", "true");
+      document.getElementById("onboarding-overlay").style.display = "none";
+    } else {
+      document.getElementById("onboarding-overlay").style.display = "flex";
+    }
+
+    renderGreeting();
+
+  }
+
+})();
 renderGreeting();
 renderTip();
 renderMeds();
