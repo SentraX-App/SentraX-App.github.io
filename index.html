@@ -9,17 +9,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="auth-overlay">
-    <div class="box">
-      <h2>Welcome Back</h2>
-      <p>Log in or create your Sentra-X account.</p>
-      <input type="email" id="auth-email" placeholder="Email address">
-      <input type="password" id="auth-password" placeholder="Password">
-      <div class="error" id="auth-error"></div>
-      <button onclick="logIn()">Log In</button>
-      <button class="switch" onclick="signUp()">Don't have an account? Sign Up</button>
-    </div>
-</div>
+
   <div id="onboarding-overlay">
     <div class="box">
       <h2>Welcome to Sentra-X</h2>
@@ -136,57 +126,15 @@
       <button class="whatsapp" onclick="shareToFamily()">📲 Share with Family on WhatsApp</button>
     </div>
   </div>
-<div class="screen" id="passport-screen">
-    <div class="card">
-      <h3>Medical Passport</h3>
-      <p style="color:#94a3b8;font-size:13px;margin-top:0;">Kept on this device only. Fill in what you know — nothing here is required.</p>
-      <label style="font-size:12px;color:#93c5fd;">Blood Group</label>
-      <select id="pp-bloodgroup"></select>
-      <label style="font-size:12px;color:#93c5fd;">Genotype</label>
-      <select id="pp-genotype"></select>
-      <input type="text" id="pp-allergies" placeholder="Allergies (e.g. Penicillin)">
-      <input type="text" id="pp-conditions" placeholder="Chronic conditions">
-      <input type="text" id="pp-history" placeholder="Medical history summary">
-      <input type="text" id="pp-vaccinations" placeholder="Vaccination history">
-      <input type="number" id="pp-height" placeholder="Height (cm)">
-      <input type="number" id="pp-weight" placeholder="Weight (kg)">
-      <input type="text" id="pp-physician" placeholder="Primary physician">
-      <input type="text" id="pp-insurance" placeholder="Insurance info (optional)">
-      <input type="text" id="pp-emergency" placeholder="Emergency contact name & number">
-      <button onclick="savePassport()">Save Passport</button>
-      <div id="pp-saved-note" style="font-size:13px;color:#6ee7b7;margin-top:6px;"></div>
-    </div>
-    <div class="card">
-      <h3>Emergency QR Code</h3>
-      <p style="color:#94a3b8;font-size:13px;margin-top:0;">Generated on your phone — nothing is sent anywhere. Show this to a healthcare provider in an emergency.</p>
-      <button class="ghost" onclick="generatePassportQR()">Generate QR Code</button>
-      <div id="qr-box" style="display:flex;justify-content:center;margin-top:14px;"></div>
-      <div id="qr-hint" style="display:none;font-size:12px;color:#94a3b8;text-align:center;margin-top:8px;">Screenshot this to save it offline.</div>
-    </div>
-</div>
+
   <nav>
     <button class="active" onclick="showScreen('vitals')" id="nav-vitals"><span class="icon">💓</span>Vitals</button>
     <button onclick="showScreen('meds')" id="nav-meds"><span class="icon">💊</span>Meds</button>
     <button onclick="showScreen('history')" id="nav-history"><span class="icon">📈</span>History</button>
     <button onclick="showScreen('family')" id="nav-family"><span class="icon">👪</span>Family</button>
-    <button onclick="showScreen('passport')" id="nav-passport"><span class="icon">🪪</span>Passport</button>
   </nav>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script>
-  firebase.initializeApp({
-    apiKey: "AIzaSyCHeWvZzGZVa79m2JvvpkX5Xlvmj8vpdPc",
-    authDomain: "sentra-x.firebaseapp.com",
-    projectId: "sentra-x",
-    storageBucket: "sentra-x.firebasestorage.app",
-    messagingSenderId: "5654480364",
-    appId: "1:5654480364:web:bd6dbe766a1c46edb66cc9"
-  });
-</script>
-  <script src="auth.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="passport.js"></script>
+
 <script src="script.js"></script>
 </body>
-  </html>
+    </html>
+    
