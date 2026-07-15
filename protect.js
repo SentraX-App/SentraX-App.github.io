@@ -2,22 +2,24 @@ import { auth } from "./firebase.js";
 
 import {
 onAuthStateChanged
-} from
+}
+from 
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 
 onAuthStateChanged(auth, (user)=>{
 
-    console.log("Auth check:", user);
+if(user){
 
-    if(!user){
+console.log("User authenticated:", user.email);
 
-        window.location.href = "auth.html";
+}
+else{
 
-    } else {
+console.log("No user found. Redirecting...");
 
-        console.log("User logged in:", user.email);
+window.location.href="auth.html";
 
-    }
+}
 
 });
