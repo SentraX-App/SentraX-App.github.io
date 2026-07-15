@@ -18,7 +18,10 @@ try{
 
 await signOut(auth);
 
-window.location.href="auth.html";
+localStorage.clear();
+sessionStorage.clear();
+
+window.location.href = "auth.html";
 
 }
 
