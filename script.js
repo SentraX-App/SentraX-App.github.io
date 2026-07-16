@@ -473,6 +473,7 @@ if ('serviceWorker' in navigator) {
 
 
 onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async (user) => {
 
   if (!user) return;
 
@@ -483,17 +484,56 @@ onAuthStateChanged(auth, async (user) => {
     localStorage.setItem("userName", data.name || user.displayName || "");
     localStorage.setItem("userCondition", data.condition || "");
 
+    if (data.vitals)
+      localStorage.setItem("vitals", JSON.stringify(data.vitals));
+
+    if (data.medications)
+      localStorage.setItem("meds", JSON.stringify(data.medications));
+
+    if (data.caregiver) {
+
+      localStorage.setItem("cgName", data.caregiver.name || "");
+
+      localStorage.setItem("cgPhone", data.caregiver.phone || "");
+
+    }
+
+    if (data.waterLogs)
+      localStorage.setItem("waterLogs", JSON.stringify(data.waterLogs));
+
+    if (data.medLogs)
+      localStorage.setItem("medLogs", JSON.stringify(data.medLogs));
+
+    if (data.streak)
+      localStorage.setItem("streak", data.streak);
+
+    if (data.lastActive)
+      localStorage.setItem("lastActive", data.lastActive);
+
     if (data.onboardingComplete) {
+
       localStorage.setItem("onboardingComplete", "true");
+
       document.getElementById("onboarding-overlay").style.display = "none";
+
     } else {
+
       document.getElementById("onboarding-overlay").style.display = "flex";
+
     }
 
     renderGreeting();
+    renderMeds();
+    renderHistory();
+    renderWeeklySummary();
+    renderCaregiverNote();
+    renderHealthScore();
+    renderWater();
 
   } catch (error) {
+
     console.error(error);
+
   }
 
 });
