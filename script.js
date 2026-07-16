@@ -607,39 +607,7 @@ if (data.waterLogs) {
 
 });
 
-async function initializeApp() {
-
-  try {
-
-    const data = await loadHealthData();
-
-    // Restore medications
-    if (data.medications) {
-      localStorage.setItem(
-        "meds",
-        JSON.stringify(data.medications)
-      );
-    }
-
-    // Restore caregiver
-    if (data.caregiver) {
-
-      localStorage.setItem(
-        "cgName",
-        data.caregiver.name || ""
-      );
-
-      localStorage.setItem(
-        "cgPhone",
-        data.caregiver.phone || ""
-      );
-
-    }
-
-    // Restore water logs
-    if (data.waterLogs) {
-
-  onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async (user) => {
 
   if (!user) return;
 
@@ -647,49 +615,32 @@ async function initializeApp() {
 
     const data = await loadHealthData();
 
-    // ---------- USER ----------
     localStorage.setItem("userName", data.name || user.displayName || "");
     localStorage.setItem("userCondition", data.condition || "");
 
-    // ---------- MEDICATIONS ----------
-    if (data.medications) {
+    if (data.medications)
       localStorage.setItem("meds", JSON.stringify(data.medications));
-    }
 
-    // ---------- CAREGIVER ----------
     if (data.caregiver) {
       localStorage.setItem("cgName", data.caregiver.name || "");
       localStorage.setItem("cgPhone", data.caregiver.phone || "");
     }
 
-    // ---------- VITALS ----------
-    if (data.vitals) {
+    if (data.vitals)
       localStorage.setItem("vitals", JSON.stringify(data.vitals));
-    }
 
-    // ---------- WATER ----------
-    if (data.waterLogs) {
+    if (data.waterLogs)
       localStorage.setItem("waterLogs", JSON.stringify(data.waterLogs));
-    }
 
-    // ---------- STREAK ----------
-    if (data.streak) {
+    if (data.streak)
       localStorage.setItem("streak", data.streak);
-    }
 
-    if (data.lastActive) {
+    if (data.lastActive)
       localStorage.setItem("lastActive", data.lastActive);
-    }
 
-    // ---------- ONBOARDING ----------
-    if (data.onboardingComplete) {
-      localStorage.setItem("onboardingComplete", "true");
-      document.getElementById("onboarding-overlay").style.display = "none";
-    } else {
-      document.getElementById("onboarding-overlay").style.display = "flex";
-    }
+    document.getElementById("onboarding-overlay").style.display =
+      data.onboardingComplete ? "none" : "flex";
 
-    // ---------- RENDER UI ----------
     renderGreeting();
     renderTip();
     renderMeds();
