@@ -569,7 +569,38 @@ onAuthStateChanged(auth, async (user) => {
   }
 
 });
+// Restore medications
+if (data.medications) {
+  localStorage.setItem(
+    "meds",
+    JSON.stringify(data.medications)
+  );
+}
 
+// Restore caregiver
+if (data.caregiver) {
+
+  localStorage.setItem(
+    "cgName",
+    data.caregiver.name || ""
+  );
+
+  localStorage.setItem(
+    "cgPhone",
+    data.caregiver.phone || ""
+  );
+
+}
+
+// Restore water
+if (data.waterLogs) {
+
+  localStorage.setItem(
+    "waterLogs",
+    JSON.stringify(data.waterLogs)
+  );
+
+}
 renderGreeting();
 renderTip();
 renderMeds();
