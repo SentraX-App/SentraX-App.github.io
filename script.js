@@ -377,13 +377,32 @@ function renderBadges() {
   }).join('');
 }
 
-function changeWater(delta) {
+async function changeWater(delta) {
+
   const today = todayStr();
-  const logs = JSON.parse(localStorage.getItem('waterLogs') || '{}');
+
+  const logs = JSON.parse(localStorage.getItem("waterLogs") || "{}");
+
   const current = logs[today] || 0;
+
   logs[today] = Math.max(0, current + delta);
-  localStorage.setItem('waterLogs', JSON.stringify(logs));
+
+  localStorage.setItem("waterLogs", JSON.stringify(logs));
+
+  try {
+
+    await saveHealthData({
+      waterLogs: logs
+    });
+
+  } catch (err) {
+
+    console.error("Water save failed:", err);
+
+  }
+
   renderWater();
+
 }
 
 function renderWater() {
