@@ -724,11 +724,48 @@ onAuthStateChanged(auth, async (user) => {
 
 });
 
+  async function initializeApp() {
+
+  try {
+
+    const data = await loadHealthData();
+
+    if (data.medications) {
+      localStorage.setItem("meds", JSON.stringify(data.medications));
+    }
+
+    if (data.caregiver) {
+      localStorage.setItem("cgName", data.caregiver.name || "");
+      localStorage.setItem("cgPhone", data.caregiver.phone || "");
+    }
+
+    if (data.vitals) {
+      localStorage.setItem("vitals", JSON.stringify(data.vitals));
+    }
+
+    if (data.waterLogs) {
+      localStorage.setItem("waterLogs", JSON.stringify(data.waterLogs));
+    }
+
+  } catch (e) {
+
+    console.log("Cloud sync skipped");
+
+  }
+
+  renderGreeting();
+  renderTip();
+  renderMeds();
+  renderHistory();
+  renderWeeklySummary();
+  renderCaregiverNote();
+  renderHealthScore();
+  renderWater();
+
   document.getElementById("streak-count").textContent =
     localStorage.getItem("streak") || "0";
 
-}
-
+  }
 initializeApp();
 
 setInterval(checkDueMeds, 60000);
