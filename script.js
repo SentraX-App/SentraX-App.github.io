@@ -417,13 +417,18 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 
-(async () => {
+import { auth } from "./firebase.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  const data = await loadHealthData();
+onAuthStateChanged(auth, async (user) => {
 
-  if (data) {
+  if (!user) return;
 
-    localStorage.setItem("userName", data.name || "");
+  try {
+
+    const data = await loadHealthData();
+
+    localStorage.setItem("userName", data.name || user.displayName || "");
     localStorage.setItem("userCondition", data.condition || "");
 
     if (data.onboardingComplete) {
@@ -435,7 +440,11 @@ if ('serviceWorker' in navigator) {
 
     renderGreeting();
 
+  } catch (error) {
+    console.error(error);
   }
+
+});
 
 })();
 renderGreeting();
