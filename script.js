@@ -627,15 +627,67 @@ if (data.waterLogs) {
   );
 
 }
-renderGreeting();
-renderTip();
-renderMeds();
-renderHistory();
-renderWeeklySummary();
-renderCaregiverNote();
-renderHealthScore();
-renderWater();
-document.getElementById('streak-count').textContent = localStorage.getItem('streak') || '0';
+async function initializeApp() {
+
+  try {
+
+    const data = await loadHealthData();
+
+    // Restore medications
+    if (data.medications) {
+      localStorage.setItem(
+        "meds",
+        JSON.stringify(data.medications)
+      );
+    }
+
+    // Restore caregiver
+    if (data.caregiver) {
+
+      localStorage.setItem(
+        "cgName",
+        data.caregiver.name || ""
+      );
+
+      localStorage.setItem(
+        "cgPhone",
+        data.caregiver.phone || ""
+      );
+
+    }
+
+    // Restore water logs
+    if (data.waterLogs) {
+
+      localStorage.setItem(
+        "waterLogs",
+        JSON.stringify(data.waterLogs)
+      );
+
+    }
+
+  } catch (e) {
+
+    console.log("Cloud sync skipped");
+
+  }
+
+  renderGreeting();
+  renderTip();
+  renderMeds();
+  renderHistory();
+  renderWeeklySummary();
+  renderCaregiverNote();
+  renderHealthScore();
+  renderWater();
+
+  document.getElementById("streak-count").textContent =
+    localStorage.getItem("streak") || "0";
+
+}
+
+initializeApp();
+
 setInterval(checkDueMeds, 60000);
 window.checkBP = checkBP;
 window.addMed = addMed;
