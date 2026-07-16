@@ -149,16 +149,29 @@ vitals.unshift(vitalData);
 
 localStorage.setItem('vitals', JSON.stringify(vitals));
 
-
 // Save to Firebase
 
 saveVital(vitalData)
+.then(async () => {
+
+    try {
+
+        await saveHealthData({
+            vitals: vitals,
+            streak: localStorage.getItem("streak"),
+            lastActive: localStorage.getItem("lastActive")
+        });
+
+    } catch (err) {
+
+        console.error("History sync failed:", err);
+
+    }
+
+})
 .catch(error => {
 
-console.error(
-"Firestore save failed:",
-error
-);
+    console.error("Firestore save failed:", error);
 
 });
 
