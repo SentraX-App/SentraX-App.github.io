@@ -505,7 +505,6 @@ if ('serviceWorker' in navigator) {
 
 
 onAuthStateChanged(auth, async (user) => {
-onAuthStateChanged(auth, async (user) => {
 
   if (!user) return;
 
