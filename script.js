@@ -151,6 +151,8 @@ localStorage.setItem('vitals', JSON.stringify(vitals));
 
 // Save to Firebase
 
+updateStreak();
+
 saveVital(vitalData)
 .then(async () => {
 
@@ -174,9 +176,6 @@ saveVital(vitalData)
     console.error("Firestore save failed:", error);
 
 });
-
-
-updateStreak();
 
   if (risk.severity >= 3) {
     const safeLevel = risk.level.replace(/'/g, "");
