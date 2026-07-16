@@ -513,44 +513,70 @@ onAuthStateChanged(auth, async (user) => {
 
     const data = await loadHealthData();
 
+    // ---------- USER ----------
     localStorage.setItem("userName", data.name || user.displayName || "");
     localStorage.setItem("userCondition", data.condition || "");
 
-    if (data.vitals)
-      localStorage.setItem("vitals", JSON.stringify(data.vitals));
+    // ---------- MEDICATIONS ----------
+    if (data.medications) {
+      localStorage.setItem(
+        "meds",
+        JSON.stringify(data.medications)
+      );
+    }
 
-    if (data.medications)
-      localStorage.setItem("meds", JSON.stringify(data.medications));
-
+    // ---------- CAREGIVER ----------
     if (data.caregiver) {
 
-      localStorage.setItem("cgName", data.caregiver.name || "");
+      localStorage.setItem(
+        "cgName",
+        data.caregiver.name || ""
+      );
 
-      localStorage.setItem("cgPhone", data.caregiver.phone || "");
+      localStorage.setItem(
+        "cgPhone",
+        data.caregiver.phone || ""
+      );
 
     }
 
-    if (data.waterLogs)
-      localStorage.setItem("waterLogs", JSON.stringify(data.waterLogs));
+    // ---------- VITALS ----------
+    if (data.vitals) {
 
-    if (data.medLogs)
-      localStorage.setItem("medLogs", JSON.stringify(data.medLogs));
+      localStorage.setItem(
+        "vitals",
+        JSON.stringify(data.vitals)
+      );
 
-    if (data.streak)
-      localStorage.setItem("streak", data.streak);
+    }
 
-    if (data.lastActive)
-      localStorage.setItem("lastActive", data.lastActive);
+    // ---------- WATER ----------
+    if (data.waterLogs) {
 
+      localStorage.setItem(
+        "waterLogs",
+        JSON.stringify(data.waterLogs)
+      );
+
+    }
+
+    // ---------- ONBOARDING ----------
     if (data.onboardingComplete) {
 
-      localStorage.setItem("onboardingComplete", "true");
+      localStorage.setItem(
+        "onboardingComplete",
+        "true"
+      );
 
-      document.getElementById("onboarding-overlay").style.display = "none";
+      document.getElementById(
+        "onboarding-overlay"
+      ).style.display = "none";
 
     } else {
 
-      document.getElementById("onboarding-overlay").style.display = "flex";
+      document.getElementById(
+        "onboarding-overlay"
+      ).style.display = "flex";
 
     }
 
@@ -562,9 +588,9 @@ onAuthStateChanged(auth, async (user) => {
     renderHealthScore();
     renderWater();
 
-  } catch (error) {
+  } catch (err) {
 
-    console.error(error);
+    console.error(err);
 
   }
 
