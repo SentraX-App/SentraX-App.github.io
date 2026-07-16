@@ -179,16 +179,43 @@ function alertCaregiverNow(sys, dia, level) {
   window.open(url, '_blank');
 }
 
-function addMed() {
-  const name = document.getElementById('med-name').value.trim();
-  const time = document.getElementById('med-time').value;
-  if (!name || !time) { alert('Please enter both a medication name and time.'); return; }
-  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
-  meds.push({ id: Date.now().toString(), name: name, time: time });
-  localStorage.setItem('meds', JSON.stringify(meds));
-  document.getElementById('med-name').value = '';
-  document.getElementById('med-time').value = '';
+async function addMed() {
+
+  const name = document.getElementById("med-name").value.trim();
+  const time = document.getElementById("med-time").value;
+
+  if (!name || !time) {
+    alert("Please enter both a medication name and time.");
+    return;
+  }
+
+  const meds = JSON.parse(localStorage.getItem("meds") || "[]");
+
+  meds.push({
+    id: Date.now().toString(),
+    name,
+    time
+  });
+
+  localStorage.setItem("meds", JSON.stringify(meds));
+
+  try {
+
+    await saveHealthData({
+      medications: meds
+    });
+
+  } catch (err) {
+
+    console.error("Medication save failed:", err);
+
+  }
+
+  document.getElementById("med-name").value = "";
+  document.getElementById("med-time").value = "";
+
   renderMeds();
+
 }
 
 function toggleTaken(id) {
