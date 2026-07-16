@@ -579,7 +579,31 @@ onAuthStateChanged(auth, async (user) => {
 
     }
 
-    renderGreeting();
+    // Restore user data from Firestore
+
+if (data.medications) {
+  localStorage.setItem(
+    "meds",
+    JSON.stringify(data.medications)
+  );
+}
+
+if (data.caregiver) {
+  localStorage.setItem("cgName", data.caregiver.name || "");
+  localStorage.setItem("cgPhone", data.caregiver.phone || "");
+}
+
+if (data.waterLogs) {
+  localStorage.setItem(
+    "waterLogs",
+    JSON.stringify(data.waterLogs)
+  );
+}
+
+renderGreeting();
+renderMeds();
+renderCaregiverNote();
+renderWater();
     renderMeds();
     renderHistory();
     renderWeeklySummary();
