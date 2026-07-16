@@ -599,17 +599,6 @@ if (data.waterLogs) {
   );
 }
 
-renderGreeting();
-renderMeds();
-renderCaregiverNote();
-renderWater();
-    renderMeds();
-    renderHistory();
-    renderWeeklySummary();
-    renderCaregiverNote();
-    renderHealthScore();
-    renderWater();
-
   } catch (err) {
 
     console.error(err);
@@ -617,38 +606,7 @@ renderWater();
   }
 
 });
-// Restore medications
-if (data.medications) {
-  localStorage.setItem(
-    "meds",
-    JSON.stringify(data.medications)
-  );
-}
 
-// Restore caregiver
-if (data.caregiver) {
-
-  localStorage.setItem(
-    "cgName",
-    data.caregiver.name || ""
-  );
-
-  localStorage.setItem(
-    "cgPhone",
-    data.caregiver.phone || ""
-  );
-
-}
-
-// Restore water
-if (data.waterLogs) {
-
-  localStorage.setItem(
-    "waterLogs",
-    JSON.stringify(data.waterLogs)
-  );
-
-}
 async function initializeApp() {
 
   try {
@@ -681,27 +639,90 @@ async function initializeApp() {
     // Restore water logs
     if (data.waterLogs) {
 
+onAuthStateChanged(auth, async (user) => {
+
+  if (!user) return;
+
+  try {
+
+    const data = await loadHealthData();
+
+    // ---------- USER ----------
+    localStorage.setItem("userName", data.name || user.displayName || "");
+    localStorage.setItem("userCondition", data.condition || "");
+
+    // ---------- MEDICATIONS ----------
+    if (data.medications) {
+      localStorage.setItem(
+        "meds",
+        JSON.stringify(data.medications)
+      );
+    }
+
+    // ---------- CAREGIVER ----------
+    if (data.caregiver) {
+      localStorage.setItem(
+        "cgName",
+        data.caregiver.name || ""
+      );
+
+      localStorage.setItem(
+        "cgPhone",
+        data.caregiver.phone || ""
+      );
+    }
+
+    // ---------- VITALS ----------
+    if (data.vitals) {
+      localStorage.setItem(
+        "vitals",
+        JSON.stringify(data.vitals)
+      );
+    }
+
+    // ---------- WATER ----------
+    if (data.waterLogs) {
       localStorage.setItem(
         "waterLogs",
         JSON.stringify(data.waterLogs)
       );
+    }
+
+    // ---------- ONBOARDING ----------
+    if (data.onboardingComplete) {
+
+      localStorage.setItem(
+        "onboardingComplete",
+        "true"
+      );
+
+      document.getElementById(
+        "onboarding-overlay"
+      ).style.display = "none";
+
+    } else {
+
+      document.getElementById(
+        "onboarding-overlay"
+      ).style.display = "flex";
 
     }
 
-  } catch (e) {
+    renderGreeting();
+    renderMeds();
+    renderHistory();
+    renderWeeklySummary();
+    renderCaregiverNote();
+    renderHealthScore();
+    renderWater();
 
-    console.log("Cloud sync skipped");
+  } catch (err) {
+
+    console.error(err);
 
   }
 
-  renderGreeting();
-  renderTip();
-  renderMeds();
-  renderHistory();
-  renderWeeklySummary();
-  renderCaregiverNote();
-  renderHealthScore();
-  renderWater();
+});
 
   document.getElementById("streak-count").textContent =
     localStorage.getItem("streak") || "0";
