@@ -8,22 +8,37 @@ import {
   arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-function getUserRef() {
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  const user = auth.currentUser;
+
+function getCurrentUser() {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
+
+
+async function getUserRef() {
+
+  const user = auth.currentUser || await getCurrentUser();
 
   if (!user) {
     throw new Error("User not logged in.");
   }
 
   return doc(db, "users", user.uid);
-
 }
+
 
 // Save any user data
 export async function saveHealthData(data) {
 
-  const ref = getUserRef();
+  const ref = await getUserRef();
 
   await setDoc(ref, data, {
     merge: true
@@ -31,10 +46,11 @@ export async function saveHealthData(data) {
 
 }
 
+
 // Load user document
 export async function loadHealthData() {
 
-  const ref = getUserRef();
+  const ref = await getUserRef();
 
   const snap = await getDoc(ref);
 
@@ -46,16 +62,18 @@ export async function loadHealthData() {
 
 }
 
+
 // Save one vital
 export async function saveVital(vital) {
 
-  const ref = getUserRef();
+  const ref = await getUserRef();
 
   await updateDoc(ref, {
     vitals: arrayUnion(vital)
   });
 
 }
+
 
 // Save medications
 export async function saveMedications(medications) {
@@ -65,6 +83,7 @@ export async function saveMedications(medications) {
   });
 
 }
+
 
 // Save caregiver
 export async function saveCaregiverData(caregiver) {
