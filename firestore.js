@@ -68,11 +68,21 @@ export async function saveVital(vital) {
 
   const ref = await getUserRef();
 
+  try {
+
   await updateDoc(ref, {
     vitals: arrayUnion(vital)
   });
 
-}
+} catch {
+
+  await setDoc(ref, {
+    vitals: [vital]
+  }, {
+    merge: true
+  });
+
+  }
 
 
 // Save medications
