@@ -352,13 +352,38 @@ function renderWater() {
   document.getElementById('water-count').textContent = (logs[today] || 0) + ' cups';
 }
 
-function saveCaregiver() {
-  const name = document.getElementById('cg-name').value.trim();
-  const phone = document.getElementById('cg-phone').value.trim();
-  if (!name || !phone) { alert("Please enter both the caregiver's name and number."); return; }
-  localStorage.setItem('cgName', name);
-  localStorage.setItem('cgPhone', phone);
-  renderCaregiverNote();
+async function saveCaregiver() {
+
+  const name = document.getElementById("cg-name").value.trim();
+  const phone = document.getElementById("cg-phone").value.trim();
+
+  if (!name || !phone) {
+    alert("Please enter both the caregiver's name and number.");
+    return;
+  }
+
+  localStorage.setItem("cgName", name);
+  localStorage.setItem("cgPhone", phone);
+
+  try {
+
+    await saveHealthData({
+      caregiver: {
+        name,
+        phone
+      }
+    });
+
+    renderCaregiverNote();
+    alert("Caregiver saved successfully.");
+
+  } catch (err) {
+
+    console.error(err);
+    alert("Failed to save caregiver.");
+
+  }
+
 }
 
 function renderCaregiverNote() {
