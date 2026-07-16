@@ -103,3 +103,13 @@ export async function saveCaregiverData(caregiver) {
   });
 
 }
+// Save everything at once
+export async function syncHealthData(data) {
+
+  const ref = await getUserRef();
+
+  await setDoc(ref, data, {
+    merge: true
+  });
+
+}
