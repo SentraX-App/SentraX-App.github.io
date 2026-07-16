@@ -1,25 +1,25 @@
 import { auth } from "./firebase.js";
 
 import {
-onAuthStateChanged
-}
-from 
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+let checked = false;
 
-onAuthStateChanged(auth, (user)=>{
+onAuthStateChanged(auth, (user) => {
 
-if(user){
+  if (user) {
 
-console.log("User authenticated:", user.email);
+    console.log("User authenticated:", user.email);
 
-}
-else{
+  } else {
 
-console.log("No user found. Redirecting...");
+    if (checked) {
+      window.location.replace("auth.html");
+    }
 
-window.location.href="auth.html";
+  }
 
-}
+  checked = true;
 
 });
