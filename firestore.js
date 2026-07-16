@@ -1,124 +1,76 @@
-import { db } from "./firebase.js";
+import { db, auth } from "./firebase.js";
 
 import {
-doc,
-getDoc,
-setDoc,
-updateDoc,
-arrayUnion
-}
-from
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  arrayUnion
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import { auth } from "./firebase.js";
+function getUserRef() {
 
+  const user = auth.currentUser;
 
-// Get current user document
+  if (!user) {
+    throw new Error("User not logged in.");
+  }
 
-function getUserRef(){
-
-const user = auth.currentUser;
-
-if(!user) return null;
-
-return doc(db,"users",user.uid);
+  return doc(db, "users", user.uid);
 
 }
 
+// Save any user data
+export async function saveHealthData(data) {
 
+  const ref = getUserRef();
 
-// Save health data
-
-export async function saveHealthData(data){
-
-const ref = getUserRef();
-
-if(!ref) return;
-
-
-await setDoc(
-ref,
-data,
-{
-merge:true
-}
-);
+  await setDoc(ref, data, {
+    merge: true
+  });
 
 }
 
+// Load user document
+export async function loadHealthData() {
 
+  const ref = getUserRef();
 
-// Load health data
+  const snap = await getDoc(ref);
 
-export async function loadHealthData(){
+  if (snap.exists()) {
+    return snap.data();
+  }
 
-const ref = getUserRef();
-
-if(!ref) return null;
-
-
-const snapshot = await getDoc(ref);
-
-
-if(snapshot.exists()){
-
-return snapshot.data();
+  return {};
 
 }
 
+// Save one vital
+export async function saveVital(vital) {
 
-return null;
+  const ref = getUserRef();
 
-}
-
-
-
-// Add blood pressure reading
-
-export async function saveVital(vital){
-
-const ref=getUserRef();
-
-if(!ref)return;
-
-
-await updateDoc(
-ref,
-{
-
-vitals:
-arrayUnion(vital)
+  await updateDoc(ref, {
+    vitals: arrayUnion(vital)
+  });
 
 }
 
-);
+// Save medications
+export async function saveMedications(medications) {
+
+  await saveHealthData({
+    medications
+  });
 
 }
-
-
-
-// Save medication list
-
-export async function saveMedications(meds){
-
-await saveHealthData({
-
-medications:meds
-
-});
-
-}
-
-
 
 // Save caregiver
+export async function saveCaregiverData(caregiver) {
 
-export async function saveCaregiverData(data){
-
-await saveHealthData({
-
-caregiver:data
-
-});
+  await saveHealthData({
+    caregiver
+  });
 
 }
