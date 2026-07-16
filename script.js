@@ -639,7 +639,7 @@ async function initializeApp() {
     // Restore water logs
     if (data.waterLogs) {
 
-onAuthStateChanged(auth, async (user) => {
+  onAuthStateChanged(auth, async (user) => {
 
   if (!user) return;
 
@@ -653,122 +653,64 @@ onAuthStateChanged(auth, async (user) => {
 
     // ---------- MEDICATIONS ----------
     if (data.medications) {
-      localStorage.setItem(
-        "meds",
-        JSON.stringify(data.medications)
-      );
+      localStorage.setItem("meds", JSON.stringify(data.medications));
     }
 
     // ---------- CAREGIVER ----------
     if (data.caregiver) {
-      localStorage.setItem(
-        "cgName",
-        data.caregiver.name || ""
-      );
-
-      localStorage.setItem(
-        "cgPhone",
-        data.caregiver.phone || ""
-      );
+      localStorage.setItem("cgName", data.caregiver.name || "");
+      localStorage.setItem("cgPhone", data.caregiver.phone || "");
     }
 
     // ---------- VITALS ----------
     if (data.vitals) {
-      localStorage.setItem(
-        "vitals",
-        JSON.stringify(data.vitals)
-      );
+      localStorage.setItem("vitals", JSON.stringify(data.vitals));
     }
 
     // ---------- WATER ----------
     if (data.waterLogs) {
-      localStorage.setItem(
-        "waterLogs",
-        JSON.stringify(data.waterLogs)
-      );
+      localStorage.setItem("waterLogs", JSON.stringify(data.waterLogs));
+    }
+
+    // ---------- STREAK ----------
+    if (data.streak) {
+      localStorage.setItem("streak", data.streak);
+    }
+
+    if (data.lastActive) {
+      localStorage.setItem("lastActive", data.lastActive);
     }
 
     // ---------- ONBOARDING ----------
     if (data.onboardingComplete) {
-
-      localStorage.setItem(
-        "onboardingComplete",
-        "true"
-      );
-
-      document.getElementById(
-        "onboarding-overlay"
-      ).style.display = "none";
-
+      localStorage.setItem("onboardingComplete", "true");
+      document.getElementById("onboarding-overlay").style.display = "none";
     } else {
-
-      document.getElementById(
-        "onboarding-overlay"
-      ).style.display = "flex";
-
+      document.getElementById("onboarding-overlay").style.display = "flex";
     }
 
+    // ---------- RENDER UI ----------
     renderGreeting();
+    renderTip();
     renderMeds();
     renderHistory();
     renderWeeklySummary();
     renderCaregiverNote();
     renderHealthScore();
     renderWater();
+    renderBadges();
+
+    document.getElementById("streak-count").textContent =
+      localStorage.getItem("streak") || "0";
 
   } catch (err) {
-
     console.error(err);
-
   }
 
 });
 
-  async function initializeApp() {
-
-  try {
-
-    const data = await loadHealthData();
-
-    if (data.medications) {
-      localStorage.setItem("meds", JSON.stringify(data.medications));
-    }
-
-    if (data.caregiver) {
-      localStorage.setItem("cgName", data.caregiver.name || "");
-      localStorage.setItem("cgPhone", data.caregiver.phone || "");
-    }
-
-    if (data.vitals) {
-      localStorage.setItem("vitals", JSON.stringify(data.vitals));
-    }
-
-    if (data.waterLogs) {
-      localStorage.setItem("waterLogs", JSON.stringify(data.waterLogs));
-    }
-
-  } catch (e) {
-
-    console.log("Cloud sync skipped");
-
-  }
-
-  renderGreeting();
-  renderTip();
-  renderMeds();
-  renderHistory();
-  renderWeeklySummary();
-  renderCaregiverNote();
-  renderHealthScore();
-  renderWater();
-
-  document.getElementById("streak-count").textContent =
-    localStorage.getItem("streak") || "0";
-
-  }
-initializeApp();
-
 setInterval(checkDueMeds, 60000);
+
 window.checkBP = checkBP;
 window.addMed = addMed;
 window.toggleTaken = toggleTaken;
