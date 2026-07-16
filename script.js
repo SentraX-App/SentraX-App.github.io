@@ -1,3 +1,5 @@
+import { auth } from "./firebase.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { saveVital, saveHealthData, loadHealthData } from "./firestore.js";
 const TIPS = [
   "A short 10-minute walk after meals can help keep blood pressure steady.",
@@ -417,8 +419,6 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 
-import { auth } from "./firebase.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 onAuthStateChanged(auth, async (user) => {
 
@@ -446,7 +446,6 @@ onAuthStateChanged(auth, async (user) => {
 
 });
 
-})();
 renderGreeting();
 renderTip();
 renderMeds();
