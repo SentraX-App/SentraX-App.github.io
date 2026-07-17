@@ -1,6 +1,3 @@
-import { auth } from "./firebase.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { saveVital, saveHealthData, loadHealthData } from "./firestore.js";
 const TIPS = [
   "A short 10-minute walk after meals can help keep blood pressure steady.",
   "Try to cut down on added salt this week — season with herbs and spice instead.",
@@ -36,31 +33,15 @@ function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMi
 function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]) * 60 + parseInt(parts[1]); }
 function dayOfYear(d) { return Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000); }
 
-async function completeOnboarding() {
-
-  const name = document.getElementById("ob-name").value.trim();
-  const condition = document.getElementById("ob-condition").value;
-
-  if (!name) {
-    alert("Please enter your name.");
-    return;
-  }
-
-  // Local cache
-  localStorage.setItem("userName", name);
-  localStorage.setItem("userCondition", condition);
-  localStorage.setItem("onboardingComplete", "true");
-
-  // Save to Firestore
-  await saveHealthData({
-    name: name,
-    condition: condition,
-    onboardingComplete: true
-  });
-
-  document.getElementById("onboarding-overlay").style.display = "none";
-
+function completeOnboarding() {
+  const name = document.getElementById('ob-name').value.trim();
+  const condition = document.getElementById('ob-condition').value;
+  if (!name) { alert('Please enter your first name.'); return; }
+  localStorage.setItem('userName', name);
+  localStorage.setItem('userCondition', condition);
+  document.getElementById('onboarding-overlay').style.display = 'none';
   renderGreeting();
+  syncToFirestore({ userName: name, userCondition: condition });
 }
 
 function renderGreeting() {
@@ -117,65 +98,11 @@ function checkBP() {
   result.textContent = risk.level;
 
   const now = new Date();
-
-const vitalData = {
-
-dateISO: now.toISOString(),
-
-date: now.toLocaleString(),
-
-sys: sys,
-
-dia: dia,
-
-hr: hr,
-
-weight: weight,
-
-level: risk.level,
-
-color: risk.color,
-
-severity: risk.severity
-
-};
-
-
-// Keep local backup
-
-const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
-
-vitals.unshift(vitalData);
-
-localStorage.setItem('vitals', JSON.stringify(vitals));
-
-// Save to Firebase
-
-updateStreak();
-
-saveVital(vitalData)
-.then(async () => {
-
-    try {
-
-        await saveHealthData({
-            vitals: vitals,
-            streak: localStorage.getItem("streak"),
-            lastActive: localStorage.getItem("lastActive")
-        });
-
-    } catch (err) {
-
-        console.error("History sync failed:", err);
-
-    }
-
-})
-.catch(error => {
-
-    console.error("Firestore save failed:", error);
-
-});
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  vitals.unshift({ dateISO: now.toISOString(), date: now.toLocaleString(), sys: sys, dia: dia, hr: hr, weight: weight, level: risk.level, color: risk.color, severity: risk.severity });
+  localStorage.setItem('vitals', JSON.stringify(vitals));
+  updateStreak();
+  syncToFirestore({ vitals: vitals, streak: localStorage.getItem('streak'), lastActive: localStorage.getItem('lastActive') });
 
   if (risk.severity >= 3) {
     const safeLevel = risk.level.replace(/'/g, "");
@@ -191,43 +118,17 @@ function alertCaregiverNow(sys, dia, level) {
   window.open(url, '_blank');
 }
 
-async function addMed() {
-
-  const name = document.getElementById("med-name").value.trim();
-  const time = document.getElementById("med-time").value;
-
-  if (!name || !time) {
-    alert("Please enter both a medication name and time.");
-    return;
-  }
-
-  const meds = JSON.parse(localStorage.getItem("meds") || "[]");
-
-  meds.push({
-    id: Date.now().toString(),
-    name,
-    time
-  });
-
-  localStorage.setItem("meds", JSON.stringify(meds));
-
-  try {
-
-    await saveHealthData({
-      medications: meds
-    });
-
-  } catch (err) {
-
-    console.error("Medication save failed:", err);
-
-  }
-
-  document.getElementById("med-name").value = "";
-  document.getElementById("med-time").value = "";
-
+function addMed() {
+  const name = document.getElementById('med-name').value.trim();
+  const time = document.getElementById('med-time').value;
+  if (!name || !time) { alert('Please enter both a medication name and time.'); return; }
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  meds.push({ id: Date.now().toString(), name: name, time: time });
+  localStorage.setItem('meds', JSON.stringify(meds));
+  document.getElementById('med-name').value = '';
+  document.getElementById('med-time').value = '';
   renderMeds();
-
+  syncToFirestore({ meds: meds });
 }
 
 function toggleTaken(id) {
@@ -238,6 +139,7 @@ function toggleTaken(id) {
   localStorage.setItem('medLogs', JSON.stringify(logs));
   updateStreak();
   renderMeds();
+  syncToFirestore({ medLogs: logs, streak: localStorage.getItem('streak'), lastActive: localStorage.getItem('lastActive') });
 }
 
 function renderMeds() {
@@ -376,32 +278,14 @@ function renderBadges() {
   }).join('');
 }
 
-async function changeWater(delta) {
-
+function changeWater(delta) {
   const today = todayStr();
-
-  const logs = JSON.parse(localStorage.getItem("waterLogs") || "{}");
-
+  const logs = JSON.parse(localStorage.getItem('waterLogs') || '{}');
   const current = logs[today] || 0;
-
   logs[today] = Math.max(0, current + delta);
-
-  localStorage.setItem("waterLogs", JSON.stringify(logs));
-
-  try {
-
-    await saveHealthData({
-      waterLogs: logs
-    });
-
-  } catch (err) {
-
-    console.error("Water save failed:", err);
-
-  }
-
+  localStorage.setItem('waterLogs', JSON.stringify(logs));
   renderWater();
-
+  syncToFirestore({ waterLogs: logs });
 }
 
 function renderWater() {
@@ -410,38 +294,14 @@ function renderWater() {
   document.getElementById('water-count').textContent = (logs[today] || 0) + ' cups';
 }
 
-async function saveCaregiver() {
-
-  const name = document.getElementById("cg-name").value.trim();
-  const phone = document.getElementById("cg-phone").value.trim();
-
-  if (!name || !phone) {
-    alert("Please enter both the caregiver's name and number.");
-    return;
-  }
-
-  localStorage.setItem("cgName", name);
-  localStorage.setItem("cgPhone", phone);
-
-  try {
-
-    await saveHealthData({
-      caregiver: {
-        name,
-        phone
-      }
-    });
-
-    renderCaregiverNote();
-    alert("Caregiver saved successfully.");
-
-  } catch (err) {
-
-    console.error(err);
-    alert("Failed to save caregiver.");
-
-  }
-
+function saveCaregiver() {
+  const name = document.getElementById('cg-name').value.trim();
+  const phone = document.getElementById('cg-phone').value.trim();
+  if (!name || !phone) { alert("Please enter both the caregiver's name and number."); return; }
+  localStorage.setItem('cgName', name);
+  localStorage.setItem('cgPhone', phone);
+  renderCaregiverNote();
+  syncToFirestore({ cgName: name, cgPhone: phone });
 }
 
 function renderCaregiverNote() {
@@ -498,124 +358,33 @@ function triggerSOS() {
   }
 }
 
+function refreshAllUI() {
+  if (localStorage.getItem('userName')) {
+    document.getElementById('onboarding-overlay').style.display = 'none';
+  } else {
+    document.getElementById('onboarding-overlay').style.display = 'flex';
+  }
+  renderGreeting();
+  renderTip();
+  renderMeds();
+  renderHistory();
+  renderWeeklySummary();
+  renderCaregiverNote();
+  renderHealthScore();
+  renderWater();
+  document.getElementById('streak-count').textContent = localStorage.getItem('streak') || '0';
+}
+
+function syncToFirestore(fields) {
+  if (typeof firebase === 'undefined' || !firebase.auth().currentUser) return;
+  firebase.firestore().collection('users').doc(firebase.auth().currentUser.uid)
+    .set(fields, { merge: true })
+    .catch(function(err) { console.error('Sync failed:', err); });
+}
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 
-
-onAuthStateChanged(auth, async (user) => {
-
-  if (!user) return;
-
-  try {
-
-    const data = await loadHealthData();
-
-    // ---------- USER ----------
-    localStorage.setItem("userName", data.name || user.displayName || "");
-    localStorage.setItem("userCondition", data.condition || "");
-
-    // ---------- MEDICATIONS ----------
-    if (data.medications) {
-      localStorage.setItem(
-        "meds",
-        JSON.stringify(data.medications)
-      );
-    }
-
-    // ---------- CAREGIVER ----------
-    if (data.caregiver) {
-
-      localStorage.setItem(
-        "cgName",
-        data.caregiver.name || ""
-      );
-
-      localStorage.setItem(
-        "cgPhone",
-        data.caregiver.phone || ""
-      );
-
-    }
-
-    // ---------- VITALS ----------
-    if (data.vitals) {
-
-      localStorage.setItem(
-        "vitals",
-        JSON.stringify(data.vitals)
-      );
-
-    }
-
-    // ---------- WATER ----------
-    if (data.waterLogs) {
-
-      localStorage.setItem(
-        "waterLogs",
-        JSON.stringify(data.waterLogs)
-      );
-
-    }
-
-    // ---------- ONBOARDING ----------
-    if (data.onboardingComplete) {
-
-      localStorage.setItem(
-        "onboardingComplete",
-        "true"
-      );
-
-      document.getElementById(
-        "onboarding-overlay"
-      ).style.display = "none";
-
-    } else {
-
-      document.getElementById(
-        "onboarding-overlay"
-      ).style.display = "flex";
-
-    }
-
-    // Restore user data from Firestore
-
-if (data.medications) {
-  localStorage.setItem(
-    "meds",
-    JSON.stringify(data.medications)
-  );
-}
-
-if (data.caregiver) {
-  localStorage.setItem("cgName", data.caregiver.name || "");
-  localStorage.setItem("cgPhone", data.caregiver.phone || "");
-}
-
-if (data.waterLogs) {
-  localStorage.setItem(
-    "waterLogs",
-    JSON.stringify(data.waterLogs)
-  );
-}
-
-  } catch (err) {
-
-    console.error(err);
-
-  }
-
-});
+refreshAllUI();
 setInterval(checkDueMeds, 60000);
-
-window.checkBP = checkBP;
-window.addMed = addMed;
-window.toggleTaken = toggleTaken;
-window.changeWater = changeWater;
-window.saveCaregiver = saveCaregiver;
-window.shareToFamily = shareToFamily;
-window.triggerSOS = triggerSOS;
-window.callEmergency = callEmergency;
-window.completeOnboarding = completeOnboarding;
-window.showScreen = showScreen;
-window.enableReminders = enableReminders;
