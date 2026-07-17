@@ -12,7 +12,7 @@ import {
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-
+// Wait for authenticated user
 function getCurrentUser() {
   return new Promise((resolve) => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -22,9 +22,8 @@ function getCurrentUser() {
   });
 }
 
-
+// Get current user's Firestore document
 async function getUserRef() {
-
   const user = auth.currentUser || await getCurrentUser();
 
   if (!user) {
@@ -34,22 +33,17 @@ async function getUserRef() {
   return doc(db, "users", user.uid);
 }
 
-
 // Save any user data
 export async function saveHealthData(data) {
-
   const ref = await getUserRef();
 
   await setDoc(ref, data, {
     merge: true
   });
-
 }
-
 
 // Load user document
 export async function loadHealthData() {
-
   const ref = await getUserRef();
 
   const snap = await getDoc(ref);
@@ -59,57 +53,48 @@ export async function loadHealthData() {
   }
 
   return {};
-
 }
-
 
 // Save one vital
 export async function saveVital(vital) {
-
   const ref = await getUserRef();
 
   try {
-
-  await updateDoc(ref, {
-    vitals: arrayUnion(vital)
-  });
-
-} catch {
-
-  await setDoc(ref, {
-    vitals: [vital]
-  }, {
-    merge: true
-  });
-
+    await updateDoc(ref, {
+      vitals: arrayUnion(vital)
+    });
+  } catch (err) {
+    await setDoc(
+      ref,
+      {
+        vitals: [vital]
+      },
+      {
+        merge: true
+      }
+    );
   }
-
+}
 
 // Save medications
 export async function saveMedications(medications) {
-
   await saveHealthData({
     medications
   });
-
 }
-
 
 // Save caregiver
 export async function saveCaregiverData(caregiver) {
-
   await saveHealthData({
     caregiver
   });
-
 }
+
 // Save everything at once
 export async function syncHealthData(data) {
-
   const ref = await getUserRef();
 
   await setDoc(ref, data, {
     merge: true
   });
-
 }
