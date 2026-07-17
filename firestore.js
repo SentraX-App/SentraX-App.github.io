@@ -1,4 +1,4 @@
-import { db, auth } from "./firebase.js";
+import { auth, db } from "./firebase.js";
 
 import {
   doc,
@@ -8,93 +8,86 @@ import {
   arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import {
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+async function userRef() {
 
-// Wait for authenticated user
-function getCurrentUser() {
-  return new Promise((resolve) => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      unsubscribe();
-      resolve(user);
-    });
-  });
-}
-
-// Get current user's Firestore document
-async function getUserRef() {
-  const user = auth.currentUser || await getCurrentUser();
+  const user = auth.currentUser;
 
   if (!user) {
-    throw new Error("User not logged in.");
+    throw new Error("User not authenticated");
   }
 
   return doc(db, "users", user.uid);
+
 }
 
-// Save any user data
+// Load entire user document
+export async function loadHealthData() {
+
+  const ref = await userRef();
+
+  const snap = await getDoc(ref);
+
+  return snap.exists() ? snap.data() : {};
+
+}
+
+// Save any fields
 export async function saveHealthData(data) {
-  const ref = await getUserRef();
+
+  const ref = await userRef();
 
   await setDoc(ref, data, {
     merge: true
   });
+
 }
 
-// Load user document
-export async function loadHealthData() {
-  const ref = await getUserRef();
-
-  const snap = await getDoc(ref);
-
-  if (snap.exists()) {
-    return snap.data();
-  }
-
-  return {};
-}
-
-// Save one vital
+// Save one BP reading
 export async function saveVital(vital) {
-  const ref = await getUserRef();
+
+  const ref = await userRef();
 
   try {
+
     await updateDoc(ref, {
       vitals: arrayUnion(vital)
     });
-  } catch (err) {
-    await setDoc(
-      ref,
-      {
-        vitals: [vital]
-      },
-      {
-        merge: true
-      }
-    );
+
+  } catch {
+
+    await setDoc(ref, {
+      vitals: [vital]
+    }, {
+      merge: true
+    });
+
   }
+
 }
 
 // Save medications
 export async function saveMedications(medications) {
+
   await saveHealthData({
     medications
   });
+
 }
 
 // Save caregiver
-export async function saveCaregiverData(caregiver) {
+export async function saveCaregiver(caregiver) {
+
   await saveHealthData({
     caregiver
   });
+
 }
 
-// Save everything at once
-export async function syncHealthData(data) {
-  const ref = await getUserRef();
+// Save water
+export async function saveWaterLogs(waterLogs) {
 
-  await setDoc(ref, data, {
-    merge: true
+  await saveHealthData({
+    waterLogs
   });
+
 }
