@@ -10,6 +10,18 @@
 </head>
 <body>
 
+  <div id="auth-overlay">
+    <div class="box">
+      <h2>Welcome Back</h2>
+      <p>Log in or create your Sentra-X account.</p>
+      <input type="email" id="auth-email" placeholder="Email address">
+      <input type="password" id="auth-password" placeholder="Password">
+      <div class="error" id="auth-error"></div>
+      <button onclick="logIn()">Log In</button>
+      <button class="switch" onclick="signUp()">Don't have an account? Sign Up</button>
+    </div>
+  </div>
+
   <div id="onboarding-overlay">
     <div class="box">
       <h2>Welcome to Sentra-X</h2>
@@ -27,10 +39,7 @@
   </div>
 
   <header>
-  <img src="logo-header.png" alt="Sentra-X">
-  <button id="logoutBtn" class="logout-btn">
-    Logout
-  </button>
+    <img src="logo-header.png" alt="Sentra-X">
   </header>
   <div id="greeting"></div>
 
@@ -128,6 +137,9 @@
       <h3>Share Your Status</h3>
       <button class="whatsapp" onclick="shareToFamily()">📲 Share with Family on WhatsApp</button>
     </div>
+    <div class="card">
+      <button class="secondary" onclick="logOut()">Log Out</button>
+    </div>
   </div>
 
   <nav>
@@ -137,9 +149,20 @@
     <button onclick="showScreen('family')" id="nav-family"><span class="icon">👪</span>Family</button>
   </nav>
 
-<script type="module" src="firebase.js"></script>
-<script type="module" src="protect.js"></script>
-<script type="module" src="script.js"></script>
-<script type="module" src="logout.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyCHeWvZzGZVa79m2JvvpkX5Xlvmj8vpdPc",
+    authDomain: "sentra-x.firebaseapp.com",
+    projectId: "sentra-x",
+    storageBucket: "sentra-x.firebasestorage.app",
+    messagingSenderId: "5654480364",
+    appId: "1:5654480364:web:bd6dbe766a1c46edb66cc9"
+  });
+</script>
+<script src="script.js"></script>
+<script src="auth.js"></script>
 </body>
 </html>
