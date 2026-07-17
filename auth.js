@@ -4,7 +4,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-  onAuthStateChanged,
   updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -14,9 +13,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
-// =========================
+// =====================
 // SIGN UP
-// =========================
+// =====================
 
 const signupForm = document.getElementById("signupForm");
 
@@ -32,44 +31,39 @@ if (signupForm) {
     const confirm = document.getElementById("confirmPassword").value;
 
     if (password !== confirm) {
-      alert("Passwords do not match");
+      alert("Passwords do not match.");
       return;
     }
 
     try {
 
-      const userCredential = await createUserWithEmailAndPassword(
+      const cred = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
 
-      const user = userCredential.user;
-
-      await updateProfile(user, {
+      await updateProfile(cred.user, {
         displayName: name
       });
 
-      await setDoc(doc(db, "users", user.uid), {
-        name: name,
-        email: email,
+      await setDoc(doc(db, "users", cred.user.uid), {
+        name,
+        email,
         onboardingComplete: false,
-        created: new Date(),
-        healthScore: 0,
         medications: [],
-        vitals: []
+        vitals: [],
+        caregiver: {},
+        waterLogs: {},
+        created: new Date()
       });
 
-      alert("Account created successfully!");
+      window.location.replace("index.html");
 
-      onAuthStateChanged(auth, (currentUser) => {
-        if (currentUser) {
-          window.location.href = "index.html";
-        }
-      });
+    } catch (err) {
 
-    } catch (error) {
-      alert(error.message);
+      alert(err.message);
+
     }
 
   });
@@ -77,9 +71,9 @@ if (signupForm) {
 }
 
 
-// =========================
+// =====================
 // LOGIN
-// =========================
+// =====================
 
 const loginForm = document.getElementById("loginForm");
 
@@ -100,14 +94,12 @@ if (loginForm) {
         password
       );
 
-      onAuthStateChanged(auth, (currentUser) => {
-        if (currentUser) {
-          window.location.href = "index.html";
-        }
-      });
+      window.location.replace("index.html");
 
-    } catch (error) {
-      alert(error.message);
+    } catch (err) {
+
+      alert(err.message);
+
     }
 
   });
@@ -115,9 +107,9 @@ if (loginForm) {
 }
 
 
-// =========================
-// PASSWORD RESET
-// =========================
+// =====================
+// RESET PASSWORD
+// =====================
 
 const forgot = document.getElementById("forgotPassword");
 
@@ -125,32 +117,22 @@ if (forgot) {
 
   forgot.onclick = async () => {
 
-    const email = prompt("Enter your email address");
+    const email = prompt("Enter your email");
 
     if (!email) return;
 
     try {
+
       await sendPasswordResetEmail(auth, email);
+
       alert("Password reset email sent.");
-    } catch (error) {
-      alert(error.message);
+
+    } catch (err) {
+
+      alert(err.message);
+
     }
 
   };
 
 }
-
-
-// =========================
-// AUTH STATE
-// =========================
-
-onAuthStateChanged(auth, (user) => {
-
-  if (user) {
-    console.log("Logged in:", user.email);
-  } else {
-    console.log("No user logged in");
-  }
-
-});
