@@ -404,11 +404,6 @@ function triggerSOS() {
 }
 
 function refreshAllUI() {
-  if (localStorage.getItem('userName')) {
-    document.getElementById('onboarding-overlay').style.display = 'none';
-  } else {
-    document.getElementById('onboarding-overlay').style.display = 'flex';
-  }
   renderGreeting();
   renderTip();
   renderMeds();
