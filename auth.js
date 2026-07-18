@@ -50,9 +50,15 @@ firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
     hideAuthScreen();
     loadFromFirestore(user.uid).then(function() {
+      if (localStorage.getItem('userName')) {
+        document.getElementById('onboarding-overlay').style.display = 'none';
+      } else {
+        document.getElementById('onboarding-overlay').style.display = 'flex';
+      }
       if (typeof refreshAllUI === 'function') refreshAllUI();
     });
   } else {
     showAuthScreen();
+    document.getElementById('onboarding-overlay').style.display = 'none';
   }
 });
