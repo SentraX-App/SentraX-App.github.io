@@ -1,4 +1,3 @@
-alert('SCRIPT IS RUNNING');
 const TIPS = [
   "A short 10-minute walk after meals can help keep blood pressure steady.",
   "Try to cut down on added salt this week — season with herbs and spice instead.",
@@ -170,7 +169,11 @@ function checkDueMeds() {
     const names = due.map(function(m){ return m.name; }).join(', ');
     banner.innerHTML = '<div class="alert-banner">⏰ ' + due.length + ' medication' + (due.length > 1 ? 's' : '') + ' due or overdue today: ' + names + '</div>';
     if (Notification.permission === 'granted' && !sessionStorage.getItem('notified-' + today)) {
-      new Notification('Sentra-X reminder', { body: 'Time for: ' + names });
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+        navigator.serviceWorker.getRegistration().then(function(reg) {
+          if (reg) reg.showNotification('Sentra-X reminder', { body: 'Time for: ' + names });
+        });
+      }
       sessionStorage.setItem('notified-' + today, '1');
     }
   } else {
