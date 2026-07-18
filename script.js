@@ -181,52 +181,11 @@ function checkDueMeds() {
   }
 }
 
-const VAPID_PUBLIC_KEY = 'BD-mfJd2F4ft5MaZMMTIAE_kEDDJxoXhz4-OQ20gaF05oFTegQkmh-c3xc-J3n2nsoSKIRDedv3cpCabowFMwZI';
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; i++) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
 function enableReminders() {
-  try {
-    if (!('Notification' in window)) { alert('Notifications are not supported on this browser.'); return; }
-    Notification.requestPermission().then(function(perm) {
-      if (perm !== 'granted') {
-        document.getElementById('enable-btn').textContent = '🔔 Enable Reminder Alerts';
-        return;
-      }
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled (local only)';
-        return;
-      }
-      navigator.serviceWorker.ready.then(function(reg) {
-        return reg.pushManager.getSubscription().then(function(existing) {
-          if (existing) return existing;
-          return reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-          });
-        });
-      }).then(function(subscription) {
-        syncToFirestore({ pushSubscription: subscription.toJSON() });
-        document.getElementById('enable-btn').textContent = '🔔 Automatic Alerts Enabled';
-      }).catch(function(err) {
-        alert('Push error: ' + err.message);
-        document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled (local only)';
-      });
-    }).catch(function(err) {
-      alert('Permission error: ' + err.message);
-    });
-  } catch (err) {
-    alert('Enable Reminders error: ' + err.message);
-  }
+  if (!('Notification' in window)) { alert('Notifications are not supported on this browser.'); return; }
+  Notification.requestPermission().then(function(perm) {
+    document.getElementById('enable-btn').textContent = perm === 'granted' ? '🔔 Reminders Enabled' : '🔔 Enable Reminder Alerts';
+  });
 }
 
 function renderHistory() {
