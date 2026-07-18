@@ -191,32 +191,38 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 function enableReminders() {
-  if (!('Notification' in window)) { alert('Notifications are not supported on this browser.'); return; }
-  Notification.requestPermission().then(function(perm) {
-    if (perm !== 'granted') {
-      document.getElementById('enable-btn').textContent = '🔔 Enable Reminder Alerts';
-      return;
-    }
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled (local only)';
-      return;
-    }
-    navigator.serviceWorker.ready.then(function(reg) {
-      return reg.pushManager.getSubscription().then(function(existing) {
-        if (existing) return existing;
-        return reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+  try {
+    if (!('Notification' in window)) { alert('Notifications are not supported on this browser.'); return; }
+    Notification.requestPermission().then(function(perm) {
+      if (perm !== 'granted') {
+        document.getElementById('enable-btn').textContent = '🔔 Enable Reminder Alerts';
+        return;
+      }
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled (local only)';
+        return;
+      }
+      navigator.serviceWorker.ready.then(function(reg) {
+        return reg.pushManager.getSubscription().then(function(existing) {
+          if (existing) return existing;
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          });
         });
+      }).then(function(subscription) {
+        syncToFirestore({ pushSubscription: subscription.toJSON() });
+        document.getElementById('enable-btn').textContent = '🔔 Automatic Alerts Enabled';
+      }).catch(function(err) {
+        alert('Push error: ' + err.message);
+        document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled (local only)';
       });
-    }).then(function(subscription) {
-      syncToFirestore({ pushSubscription: subscription.toJSON() });
-      document.getElementById('enable-btn').textContent = '🔔 Automatic Alerts Enabled';
     }).catch(function(err) {
-      console.error('Push subscription failed:', err);
-      document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled (local only)';
+      alert('Permission error: ' + err.message);
     });
-  });
+  } catch (err) {
+    alert('Enable Reminders error: ' + err.message);
+  }
 }
 
 function renderHistory() {
