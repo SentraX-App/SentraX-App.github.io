@@ -11,6 +11,11 @@ const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID;
 const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
 const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY;
 
+console.log('Diagnostic - EMAILJS_SERVICE_ID present:', !!EMAILJS_SERVICE_ID, 'length:', (EMAILJS_SERVICE_ID || '').length);
+console.log('Diagnostic - EMAILJS_TEMPLATE_ID present:', !!EMAILJS_TEMPLATE_ID, 'length:', (EMAILJS_TEMPLATE_ID || '').length);
+console.log('Diagnostic - EMAILJS_PUBLIC_KEY present:', !!EMAILJS_PUBLIC_KEY, 'length:', (EMAILJS_PUBLIC_KEY || '').length);
+console.log('Diagnostic - EMAILJS_PRIVATE_KEY present:', !!EMAILJS_PRIVATE_KEY, 'length:', (EMAILJS_PRIVATE_KEY || '').length);
+
 // Nigeria is UTC+1 (WAT), no daylight saving. GitHub Actions runs in UTC,
 // so we shift "now" forward by 60 minutes to match the local time patients enter.
 const NIGERIA_OFFSET_MINUTES = 60;
