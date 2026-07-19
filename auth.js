@@ -40,6 +40,7 @@ function loadFromFirestore(uid) {
       if (data.lastActive) localStorage.setItem('lastActive', data.lastActive);
       if (data.cgName) localStorage.setItem('cgName', data.cgName);
       if (data.cgPhone) localStorage.setItem('cgPhone', data.cgPhone);
+      if (data.cgEmail) localStorage.setItem('cgEmail', data.cgEmail);
     }
   }).catch(function(err) {
     console.error('Firestore load failed:', err);
