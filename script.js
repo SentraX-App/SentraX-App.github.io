@@ -300,8 +300,6 @@ function renderWater() {
 
 function saveCaregiver() {
   const name = document.getElementById('cg-name').value.trim();
-function saveCaregiver() {
-  const name = document.getElementById('cg-name').value.trim();
   const phone = document.getElementById('cg-phone').value.trim();
   const email = document.getElementById('cg-email').value.trim();
   if (!name || !phone) { alert("Please enter both the caregiver's name and number."); return; }
@@ -325,6 +323,7 @@ function renderCaregiverNote() {
     emailInput.value = localStorage.getItem('cgEmail') || '';
   }
 }
+
 function shareToFamily() {
   const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
   const streak = localStorage.getItem('streak') || '0';
