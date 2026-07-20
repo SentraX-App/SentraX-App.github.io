@@ -143,3 +143,14 @@ nav button.active .icon { filter: none; }
 .fa-body { padding: 0 20px 18px; }
 .fa-body p { font-size: 13px; color: #cbd5e1; line-height: 1.5; margin: 6px 0; }
 .fa-body b { color: #93c5fd; }
+
+.fa-card { padding: 0; overflow: hidden; }
+.fa-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; cursor: pointer; font-weight: 700; font-size: 14px; color: #f1f5f9;
+}
+.fa-arrow { color: #60a5fa; transition: transform 0.2s ease; font-size: 12px; }
+.fa-arrow.open { transform: rotate(180deg); }
+.fa-body { padding: 0 20px 18px; }
+.fa-body p { font-size: 13px; color: #cbd5e1; line-height: 1.5; margin: 6px 0; }
+.fa-body b { color: #93c5fd; }
