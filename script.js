@@ -397,6 +397,5 @@ function syncToFirestore(fields) {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
-
 refreshAllUI();
 setInterval(checkDueMeds, 60000);
