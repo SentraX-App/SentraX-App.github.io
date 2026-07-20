@@ -340,6 +340,15 @@ function callEmergency() {
   window.location.href = 'tel:112';
 }
 
+function toggleFirstAid(id) {
+  const body = document.getElementById('fa-body-' + id);
+  const arrow = document.getElementById('fa-arrow-' + id);
+  if (!body || !arrow) return;
+  const isOpen = body.style.display === 'block';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.classList.toggle('open', !isOpen);
+}
+
 function triggerSOS() {
   const confirmed = confirm('This will send your live location and an SOS alert to your saved caregiver on WhatsApp. Continue?');
   if (!confirmed) return;
