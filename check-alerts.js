@@ -10,6 +10,7 @@ const EMAILJS_SERVICE_ID = process.env.EMAILJS_SERVICE_ID;
 const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID;
 const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
 const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY;
+const TERMII_API_KEY = process.env.TERMII_API_KEY;
 
 console.log('Diagnostic - EMAILJS_SERVICE_ID present:', !!EMAILJS_SERVICE_ID, 'length:', (EMAILJS_SERVICE_ID || '').length);
 console.log('Diagnostic - EMAILJS_TEMPLATE_ID present:', !!EMAILJS_TEMPLATE_ID, 'length:', (EMAILJS_TEMPLATE_ID || '').length);
@@ -104,7 +105,7 @@ async function maybeSendWeeklyDigest(doc) {
   const now = new Date();
   const nigeriaNow = new Date(now.getTime() + NIGERIA_OFFSET_MINUTES * 60000);
   const isSunday = nigeriaNow.getUTCDay() === 0;
-  const isEveningWindow = nigeriaNow.getUTCHours() === 18; // 6pm Nigeria time
+  const isEveningWindow = nigeriaNow.getUTCHours() === 18;
   const today = todayStr();
 
   if (!isSunday || !isEveningWindow) return;
@@ -119,6 +120,33 @@ async function maybeSendWeeklyDigest(doc) {
   );
   if (ok) {
     await db.collection('users').doc(uid).set({ lastDigestSent: today }, { merge: true });
+  }
+}
+
+async function sendSMS(toPhone, message) {
+  if (!TERMII_API_KEY || !toPhone) return false;
+  let digits = toPhone.replace(/[^0-9]/g, '');
+  if (digits.startsWith('0')) digits = '234' + digits.slice(1);
+  if (!digits.startsWith('234')) digits = '234' + digits;
+  try {
+    const res = await fetch('https://api.ng.termii.com/api/sms/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TERMII_API_KEY,
+        to: digits,
+        from: 'N-Alert',
+        sms: message,
+        type: 'plain',
+        channel: 'generic'
+      })
+    });
+    const text = await res.text();
+    console.log('SMS result:', res.status, text);
+    return res.ok;
+  } catch (err) {
+    console.error('SMS send failed:', err.message);
+    return false;
   }
 }
 
@@ -143,12 +171,9 @@ async function checkUser(doc) {
     const overdueBy = nowMin - timeToMinutes(med.time);
     const key = med.id + '_' + today;
     if (overdueBy >= 30 && !medAlertsSent[key]) {
-      const ok = await sendEmail(
-        data.cgEmail,
-        data.userName || 'Your loved one',
-        data.cgName,
-        (data.userName || 'Your loved one') + ' has not taken their medication "' + med.name + '" (due at ' + med.time + '). It has been overdue for over 30 minutes.'
-      );
+      const medMessage = (data.userName || 'Your loved one') + ' has not taken their medication "' + med.name + '" (due at ' + med.time + '). It has been overdue for over 30 minutes.';
+      const ok = await sendEmail(data.cgEmail, data.userName || 'Your loved one', data.cgName, medMessage);
+      if (data.cgPhone) await sendSMS(data.cgPhone, 'SentraX Alert: ' + medMessage);
       if (ok) {
         medAlertsSent[key] = true;
         updates.medAlertsSent = medAlertsSent;
@@ -160,12 +185,9 @@ async function checkUser(doc) {
   if (vitals.length > 0) {
     const latest = vitals[0];
     if (latest.severity >= 3 && data.lastBpAlertISO !== latest.dateISO) {
-      const ok = await sendEmail(
-        data.cgEmail,
-        data.userName || 'Your loved one',
-        data.cgName,
-        (data.userName || 'Your loved one') + "'s blood pressure just read " + latest.sys + '/' + latest.dia + ' (' + latest.level + '). Please check on them as soon as possible.'
-      );
+      const bpMessage = (data.userName || 'Your loved one') + "'s blood pressure just read " + latest.sys + '/' + latest.dia + ' (' + latest.level + '). Please check on them as soon as possible.';
+      const ok = await sendEmail(data.cgEmail, data.userName || 'Your loved one', data.cgName, bpMessage);
+      if (data.cgPhone) await sendSMS(data.cgPhone, 'SentraX Alert: ' + bpMessage);
       if (ok) {
         updates.lastBpAlertISO = latest.dateISO;
       }
