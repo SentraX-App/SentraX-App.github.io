@@ -61,10 +61,73 @@ async function sendEmail(toEmail, patientName, caregiverName, alertMessage) {
   }
 }
 
+function getWeeklyStats(data) {
+  const vitals = data.vitals || [];
+  const meds = data.meds || [];
+  const medLogs = data.medLogs || {};
+  const weekAgo = Date.now() - 7 * 86400000;
+
+  const weekVitals = vitals.filter(function(v) {
+    return new Date(v.dateISO || v.date).getTime() >= weekAgo;
+  });
+
+  let avgText = 'No readings logged this week';
+  if (weekVitals.length > 0) {
+    const avgSys = Math.round(weekVitals.reduce(function(s, v) { return s + v.sys; }, 0) / weekVitals.length);
+    const avgDia = Math.round(weekVitals.reduce(function(s, v) { return s + v.dia; }, 0) / weekVitals.length);
+    avgText = avgSys + '/' + avgDia + ' average across ' + weekVitals.length + ' reading' + (weekVitals.length > 1 ? 's' : '');
+  }
+
+  let adherenceText = 'No medications on file';
+  if (meds.length > 0) {
+    let totalPossible = 0, totalTaken = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+      const dayLog = medLogs[d] || {};
+      meds.forEach(function(m) {
+        totalPossible++;
+        if (dayLog[m.id]) totalTaken++;
+      });
+    }
+    const pct = totalPossible > 0 ? Math.round((totalTaken / totalPossible) * 100) : 0;
+    adherenceText = pct + '% of doses taken this week';
+  }
+
+  return 'This week: ' + avgText + '. Medication adherence: ' + adherenceText + '. Current streak: ' + (data.streak || 0) + ' days.';
+}
+
+async function maybeSendWeeklyDigest(doc) {
+  const data = doc.data();
+  const uid = doc.id;
+  if (!data.cgEmail) return;
+
+  const now = new Date();
+  const nigeriaNow = new Date(now.getTime() + NIGERIA_OFFSET_MINUTES * 60000);
+  const isSunday = nigeriaNow.getUTCDay() === 0;
+  const isEveningWindow = nigeriaNow.getUTCHours() === 18; // 6pm Nigeria time
+  const today = todayStr();
+
+  if (!isSunday || !isEveningWindow) return;
+  if (data.lastDigestSent === today) return;
+
+  const summary = getWeeklyStats(data);
+  const ok = await sendEmail(
+    data.cgEmail,
+    data.userName || 'Your loved one',
+    data.cgName,
+    'Weekly summary for ' + (data.userName || 'your loved one') + ': ' + summary
+  );
+  if (ok) {
+    await db.collection('users').doc(uid).set({ lastDigestSent: today }, { merge: true });
+  }
+}
+
 async function checkUser(doc) {
   const data = doc.data();
   const uid = doc.id;
   if (!data.cgEmail) return;
+
+  await maybeSendWeeklyDigest(doc);
 
   const today = todayStr();
   const nowMin = nowMinutesNigeria();
