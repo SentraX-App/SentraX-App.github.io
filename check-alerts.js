@@ -16,6 +16,7 @@ console.log('Diagnostic - EMAILJS_SERVICE_ID present:', !!EMAILJS_SERVICE_ID, 'l
 console.log('Diagnostic - EMAILJS_TEMPLATE_ID present:', !!EMAILJS_TEMPLATE_ID, 'length:', (EMAILJS_TEMPLATE_ID || '').length);
 console.log('Diagnostic - EMAILJS_PUBLIC_KEY present:', !!EMAILJS_PUBLIC_KEY, 'length:', (EMAILJS_PUBLIC_KEY || '').length);
 console.log('Diagnostic - EMAILJS_PRIVATE_KEY present:', !!EMAILJS_PRIVATE_KEY, 'length:', (EMAILJS_PRIVATE_KEY || '').length);
+console.log('Diagnostic - TERMII_API_KEY present:', !!TERMII_API_KEY, 'length:', (TERMII_API_KEY || '').length);
 
 // Nigeria is UTC+1 (WAT), no daylight saving. GitHub Actions runs in UTC,
 // so we shift "now" forward by 60 minutes to match the local time patients enter.
@@ -105,7 +106,7 @@ async function maybeSendWeeklyDigest(doc) {
   const now = new Date();
   const nigeriaNow = new Date(now.getTime() + NIGERIA_OFFSET_MINUTES * 60000);
   const isSunday = nigeriaNow.getUTCDay() === 0;
-  const isEveningWindow = nigeriaNow.getUTCHours() === 18;
+  const isEveningWindow = nigeriaNow.getUTCHours() === 18; // 6pm Nigeria time
   const today = todayStr();
 
   if (!isSunday || !isEveningWindow) return;
@@ -124,7 +125,8 @@ async function maybeSendWeeklyDigest(doc) {
 }
 
 async function sendSMS(toPhone, message) {
-  if (!TERMII_API_KEY || !toPhone) return false;
+  if (!TERMII_API_KEY) { console.log('SMS skipped: TERMII_API_KEY not set.'); return false; }
+  if (!toPhone) { console.log('SMS skipped: no caregiver phone number on file.'); return false; }
   let digits = toPhone.replace(/[^0-9]/g, '');
   if (digits.startsWith('0')) digits = '234' + digits.slice(1);
   if (!digits.startsWith('234')) digits = '234' + digits;
