@@ -59,6 +59,33 @@
       <span class="streak-label">day streak 🔥</span>
     </div>
 
+    <div class="card">
+      <h3>Health Radar</h3>
+      <div class="radar-grid" id="radar-grid"></div>
+    </div>
+
+    <div class="card">
+      <h3>Quick Daily Check-in</h3>
+      <p style="color:#94a3b8;font-size:12px;margin:0 0 10px;">Sleep</p>
+      <div class="quick-row" id="quick-sleep">
+        <button class="quick-btn" onclick="setQuickStat('sleep','poor')" data-val="poor">😴 Poor</button>
+        <button class="quick-btn" onclick="setQuickStat('sleep','ok')" data-val="ok">🙂 OK</button>
+        <button class="quick-btn" onclick="setQuickStat('sleep','good')" data-val="good">😃 Good</button>
+      </div>
+      <p style="color:#94a3b8;font-size:12px;margin:14px 0 10px;">Activity</p>
+      <div class="quick-row" id="quick-activity">
+        <button class="quick-btn" onclick="setQuickStat('activity','low')" data-val="low">🛋️ Low</button>
+        <button class="quick-btn" onclick="setQuickStat('activity','moderate')" data-val="moderate">🚶 Moderate</button>
+        <button class="quick-btn" onclick="setQuickStat('activity','active')" data-val="active">🏃 Active</button>
+      </div>
+      <p style="color:#94a3b8;font-size:12px;margin:14px 0 10px;">Mood</p>
+      <div class="quick-row" id="quick-mood">
+        <button class="quick-btn" onclick="setQuickStat('mood','low')" data-val="low">😔 Low</button>
+        <button class="quick-btn" onclick="setQuickStat('mood','okay')" data-val="okay">😐 Okay</button>
+        <button class="quick-btn" onclick="setQuickStat('mood','good')" data-val="good">😊 Good</button>
+      </div>
+    </div>
+
     <div class="card tip-card">
       <h3 style="color:#065f46;">💡 Tip of the Day</h3>
       <p id="tip-text"></p>
@@ -150,74 +177,133 @@
       <button class="call" onclick="callEmergency()">📞 Call Emergency Services (112)</button>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('cpr')"><span>CPR (Adult)</span><span class="fa-arrow" id="fa-arrow-cpr">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('cpr')">
+        <span>CPR (Adult)</span>
+        <span class="fa-arrow" id="fa-arrow-cpr">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-cpr" style="display:none;">
         <p><b>Symptoms:</b> Check if the person responds and is breathing normally.</p>
         <p><b>What to do:</b> Call 112 immediately. Push hard and fast in the center of the chest, about 5cm deep, at 100-120 pushes per minute. Keep going until help arrives or the person responds.</p>
       </div>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('stroke')"><span>Stroke (Think FAST)</span><span class="fa-arrow" id="fa-arrow-stroke">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('stroke')">
+        <span>Stroke (Think FAST)</span>
+        <span class="fa-arrow" id="fa-arrow-stroke">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-stroke" style="display:none;">
         <p><b>Symptoms:</b> Face drooping on one side. Arm weakness or numbness. Slurred or strange speech.</p>
         <p><b>What to do:</b> Call 112 immediately and note the time symptoms started. Do not give food, water, or medication. Keep the person calm and still.</p>
       </div>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('heart')"><span>Heart Attack</span><span class="fa-arrow" id="fa-arrow-heart">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('heart')">
+        <span>Heart Attack</span>
+        <span class="fa-arrow" id="fa-arrow-heart">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-heart" style="display:none;">
         <p><b>Symptoms:</b> Chest pain or pressure, possibly spreading to the arm, jaw, or back. Shortness of breath, sweating, nausea.</p>
         <p><b>What to do:</b> Call 112 immediately. Help the person sit down in a comfortable position and loosen tight clothing. Stay with them until help arrives.</p>
       </div>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('choking')"><span>Choking</span><span class="fa-arrow" id="fa-arrow-choking">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('choking')">
+        <span>Choking</span>
+        <span class="fa-arrow" id="fa-arrow-choking">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-choking" style="display:none;">
         <p><b>Symptoms:</b> Cannot speak, cough, or breathe. Clutching at the throat.</p>
         <p><b>What to do:</b> Give 5 firm back blows between the shoulder blades. If that does not work, give 5 abdominal thrusts (Heimlich maneuver). Repeat until the object clears or help arrives. Call 112 if it does not resolve quickly.</p>
       </div>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('burns')"><span>Burns</span><span class="fa-arrow" id="fa-arrow-burns">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('burns')">
+        <span>Burns</span>
+        <span class="fa-arrow" id="fa-arrow-burns">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-burns" style="display:none;">
         <p><b>Symptoms:</b> Red, blistered, or damaged skin from heat, chemicals, or electricity.</p>
         <p><b>What to do:</b> Cool the burn under cool (not ice-cold) running water for 10-20 minutes. Remove nearby tight items like rings. Cover loosely with a clean, non-fluffy cloth. Do not apply ice, butter, or ointments. Seek medical care for large or deep burns.</p>
       </div>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('bleeding')"><span>Severe Bleeding</span><span class="fa-arrow" id="fa-arrow-bleeding">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('bleeding')">
+        <span>Severe Bleeding</span>
+        <span class="fa-arrow" id="fa-arrow-bleeding">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-bleeding" style="display:none;">
         <p><b>Symptoms:</b> Heavy or fast blood loss from a wound.</p>
         <p><b>What to do:</b> Apply firm, direct pressure with a clean cloth. Raise the injured area above heart level if possible. Keep steady pressure until bleeding slows. Seek medical care for deep or heavy bleeding.</p>
       </div>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('fractures')"><span>Fractures</span><span class="fa-arrow" id="fa-arrow-fractures">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('fractures')">
+        <span>Fractures</span>
+        <span class="fa-arrow" id="fa-arrow-fractures">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-fractures" style="display:none;">
         <p><b>Symptoms:</b> Suspected broken bone: pain, swelling, deformity, inability to move the area normally.</p>
         <p><b>What to do:</b> Keep the area still — do not try to realign it. Support it with padding or a splint if possible. Apply a cloth-wrapped ice pack to reduce swelling. Get medical care as soon as possible.</p>
       </div>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('seizures')"><span>Seizures</span><span class="fa-arrow" id="fa-arrow-seizures">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('seizures')">
+        <span>Seizures</span>
+        <span class="fa-arrow" id="fa-arrow-seizures">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-seizures" style="display:none;">
         <p><b>Symptoms:</b> Uncontrolled shaking, loss of awareness, or staring spells.</p>
         <p><b>What to do:</b> Clear the area of hard or sharp objects. Cushion their head. Do not hold them down or put anything in their mouth. Time the seizure. Once it stops, turn them onto their side. Call 112 if it lasts over 5 minutes or repeats.</p>
       </div>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('fainting')"><span>Fainting</span><span class="fa-arrow" id="fa-arrow-fainting">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('fainting')">
+        <span>Fainting</span>
+        <span class="fa-arrow" id="fa-arrow-fainting">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-fainting" style="display:none;">
         <p><b>Symptoms:</b> Sudden brief loss of consciousness, often with paleness or dizziness beforehand.</p>
         <p><b>What to do:</b> Lay the person flat and raise their legs above heart level. Loosen tight clothing and ensure fresh air. If they do not wake and breathe normally within a minute, call 112.</p>
       </div>
     </div>
     <div class="card fa-card">
-      <div class="fa-header" onclick="toggleFirstAid('heatstroke')"><span>Heat Stroke</span><span class="fa-arrow" id="fa-arrow-heatstroke">▼</span></div>
+      <div class="fa-header" onclick="toggleFirstAid('heatstroke')">
+        <span>Heat Stroke</span>
+        <span class="fa-arrow" id="fa-arrow-heatstroke">▼</span>
+      </div>
       <div class="fa-body" id="fa-body-heatstroke" style="display:none;">
         <p><b>Symptoms:</b> Very high body temperature, confusion, hot/dry or heavily sweating skin, rapid pulse.</p>
         <p><b>What to do:</b> Move to a cool place immediately. Remove excess clothing. Cool the body with water, damp cloths, or fanning. Give small sips of water only if fully conscious. Call 112 immediately — heat stroke can be life-threatening.</p>
       </div>
+    </div>
+  </div>
+
+  <div class="screen" id="passport-screen">
+    <div class="card">
+      <h3>Medical Passport</h3>
+      <p style="color:#94a3b8;font-size:13px;margin-top:0;">Kept safely in your account. Fill in what you know — nothing here is required.</p>
+      <label style="font-size:12px;color:#93c5fd;">Blood Group</label>
+      <select id="pp-bloodgroup"></select>
+      <label style="font-size:12px;color:#93c5fd;">Genotype</label>
+      <select id="pp-genotype"></select>
+      <input type="text" id="pp-allergies" placeholder="Allergies (e.g. Penicillin)">
+      <input type="text" id="pp-conditions" placeholder="Chronic conditions">
+      <input type="text" id="pp-history" placeholder="Medical history summary">
+      <input type="text" id="pp-vaccinations" placeholder="Vaccination history">
+      <input type="number" id="pp-height" placeholder="Height (cm)">
+      <input type="number" id="pp-weight" placeholder="Weight (kg)">
+      <input type="text" id="pp-physician" placeholder="Primary physician">
+      <input type="text" id="pp-insurance" placeholder="Insurance info (optional)">
+      <input type="text" id="pp-emergency" placeholder="Emergency contact name & number">
+      <button onclick="savePassport()">Save Passport</button>
+      <div id="pp-saved-note" style="font-size:13px;color:#6ee7b7;margin-top:6px;"></div>
+    </div>
+    <div class="card">
+      <h3>Emergency QR Code</h3>
+      <p style="color:#94a3b8;font-size:13px;margin-top:0;">Generated on your phone — nothing is sent anywhere. Show this to a healthcare provider in an emergency.</p>
+      <button class="ghost" onclick="generatePassportQR()">Generate QR Code</button>
+      <div id="qr-box" style="display:flex;justify-content:center;margin-top:14px;"></div>
+      <div id="qr-hint" style="display:none;font-size:12px;color:#94a3b8;text-align:center;margin-top:8px;">Screenshot this to save it offline.</div>
     </div>
   </div>
 
@@ -227,6 +313,7 @@
     <button onclick="showScreen('history')" id="nav-history"><span class="icon">📈</span>History</button>
     <button onclick="showScreen('family')" id="nav-family"><span class="icon">👪</span>Family</button>
     <button onclick="showScreen('firstaid')" id="nav-firstaid"><span class="icon">🚑</span>First Aid</button>
+    <button onclick="showScreen('passport')" id="nav-passport"><span class="icon">🪪</span>Passport</button>
   </nav>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -242,7 +329,8 @@
     appId: "1:5654480364:web:bd6dbe766a1c46edb66cc9"
   });
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="script.js"></script>
 <script src="auth.js"></script>
 </body>
-                                                                                                             </html>
+</html>
