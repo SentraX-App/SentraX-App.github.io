@@ -26,6 +26,7 @@ function showScreen(name) {
   if (name === 'meds') renderMeds();
   if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); }
   if (name === 'family') renderCaregiverNote();
+  if (name === 'passport') renderPassport();
 }
 
 function todayStr() { return new Date().toISOString().split('T')[0]; }
@@ -375,27 +376,60 @@ function triggerSOS() {
   }
 }
 
-function refreshAllUI() {
-  renderGreeting();
-  renderTip();
-  renderMeds();
-  renderHistory();
-  renderWeeklySummary();
-  renderCaregiverNote();
-  renderHealthScore();
-  renderWater();
-  document.getElementById('streak-count').textContent = localStorage.getItem('streak') || '0';
+function setQuickStat(kind, value) {
+  const today = todayStr();
+  const key = 'quick_' + kind;
+  const stats = JSON.parse(localStorage.getItem(key) || '{}');
+  stats[today] = value;
+  localStorage.setItem(key, JSON.stringify(stats));
+  syncToFirestore({ ['quick' + kind.charAt(0).toUpperCase() + kind.slice(1)]: stats });
+  renderQuickStats();
+  renderHealthRadar();
 }
 
-function syncToFirestore(fields) {
-  if (typeof firebase === 'undefined' || !firebase.auth().currentUser) return;
-  firebase.firestore().collection('users').doc(firebase.auth().currentUser.uid)
-    .set(fields, { merge: true })
-    .catch(function(err) { console.error('Sync failed:', err); });
+function renderQuickStats() {
+  const today = todayStr();
+  ['sleep', 'activity', 'mood'].forEach(function(kind) {
+    const stats = JSON.parse(localStorage.getItem('quick_' + kind) || '{}');
+    const todayVal = stats[today];
+    const row = document.getElementById('quick-' + kind);
+    if (!row) return;
+    Array.prototype.forEach.call(row.children, function(btn) {
+      btn.classList.toggle('selected', btn.getAttribute('data-val') === todayVal);
+    });
+  });
 }
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(function(){});
-}
-refreshAllUI();
-setInterval(checkDueMeds, 60000);
+function renderHealthRadar() {
+  const grid = document.getElementById('radar-grid');
+  if (!grid) return;
+  const today = todayStr();
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const medLogs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+  const waterLogs = JSON.parse(localStorage.getItem('waterLogs') || '{}');
+  const sleepStats = JSON.parse(localStorage.getItem('quick_sleep') || '{}');
+  const activityStats = JSON.parse(localStorage.getItem('quick_activity') || '{}');
+  const moodStats = JSON.parse(localStorage.getItem('quick_mood') || '{}');
+
+  const items = [];
+
+  if (vitals.length > 0) {
+    const sev = vitals[0].severity;
+    items.push(sev <= 1 ? ['❤️', 'Heart', '🟢', 'Normal'] : sev === 2 ? ['❤️', 'Heart', '🟡', 'Caution'] : ['❤️', 'Heart', '🔴', 'High Risk']);
+  } else {
+    items.push(['❤️', 'Heart', '⚪', 'No data yet']);
+  }
+
+  const adherence = getWeeklyAdherencePct(meds, medLogs);
+  if (adherence !== null) {
+    items.push(adherence >= 80 ? ['💊', 'Medication', '🟢', 'On track'] : adherence >= 50 ? ['💊', 'Medication', '🟡', 'Needs Attention'] : ['💊', 'Medication', '🔴', 'High Risk']);
+  } else {
+    items.push(['💊', 'Medication', '⚪', 'No meds yet']);
+  }
+
+  const cupsToday = waterLogs[today] || 0;
+  items.push(cupsToday >= 6 ? ['💧', 'Hydration', '🟢', 'Great'] : cupsToday >= 3 ? ['💧', 'Hydration', '🟡', 'Needs Attention'] : ['💧', 'Hydration', '🔴', 'Low']);
+
+  const sleepVal = sleepStats[today];
+  items.push(sleepVal === 'good' ? ['😴', 'Sleep', '🟢', 'Good'] : sleepVal === 'ok' ? ['😴', 'Sleep', '🟡', 'OK'] : sleepVal === 'poor' ? ['😴', 'Sleep', '🔴', 'Poor'] : ['?
