@@ -432,4 +432,120 @@ function renderHealthRadar() {
   items.push(cupsToday >= 6 ? ['💧', 'Hydration', '🟢', 'Great'] : cupsToday >= 3 ? ['💧', 'Hydration', '🟡', 'Needs Attention'] : ['💧', 'Hydration', '🔴', 'Low']);
 
   const sleepVal = sleepStats[today];
-  items.push(sleepVal === 'good' ? ['😴', 'Sleep', '🟢', 'Good'] : sleepVal === 'ok' ? ['😴', 'Sleep', '🟡', 'OK'] : sleepVal === 'poor' ? ['😴', 'Sleep', '🔴', 'Poor'] : ['?
+  items.push(sleepVal === 'good' ? ['😴', 'Sleep', '🟢', 'Good'] : sleepVal === 'ok' ? ['😴', 'Sleep', '🟡', 'OK'] : sleepVal === 'poor' ? ['😴', 'Sleep', '🔴', 'Poor'] : ['😴', 'Sleep', '⚪', 'No data yet']);
+
+  const activityVal = activityStats[today];
+  items.push(activityVal === 'active' ? ['🏃', 'Activity', '🟢', 'Active'] : activityVal === 'moderate' ? ['🏃', 'Activity', '🟡', 'Moderate'] : activityVal === 'low' ? ['🏃', 'Activity', '🔴', 'Low'] : ['🏃', 'Activity', '⚪', 'No data yet']);
+
+  const moodVal = moodStats[today];
+  items.push(moodVal === 'good' ? ['😊', 'Mood', '🟢', 'Good'] : moodVal === 'okay' ? ['😊', 'Mood', '🟡', 'Okay'] : moodVal === 'low' ? ['😊', 'Mood', '🔴', 'Low'] : ['😊', 'Mood', '⚪', 'No data yet']);
+
+  grid.innerHTML = items.map(function(it) {
+    return '<div class="radar-item"><span class="dot">' + it[2] + '</span><span class="label">' + it[0] + ' ' + it[1] + '</span><span class="status">' + it[3] + '</span></div>';
+  }).join('');
+}
+
+function syncToFirestore(data) {
+  try {
+    if (typeof firebase === 'undefined' || !firebase.auth || !firebase.auth().currentUser) return;
+    const uid = firebase.auth().currentUser.uid;
+    firebase.firestore().collection('users').doc(uid).set(data, { merge: true })
+      .catch(function(err) { console.error('Sentra-X Firestore sync failed:', err.message); });
+  } catch (err) {
+    console.error('Sentra-X Firestore sync error:', err);
+  }
+}
+
+function populatePassportSelects() {
+  const bg = document.getElementById('pp-bloodgroup');
+  const gt = document.getElementById('pp-genotype');
+  if (bg && bg.options.length === 0) {
+    ['Unknown', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].forEach(function(v) {
+      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; bg.appendChild(opt);
+    });
+  }
+  if (gt && gt.options.length === 0) {
+    ['Unknown', 'AA', 'AS', 'SS', 'AC', 'SC'].forEach(function(v) {
+      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; gt.appendChild(opt);
+    });
+  }
+}
+
+function renderPassport() {
+  populatePassportSelects();
+  const pp = JSON.parse(localStorage.getItem('passport') || '{}');
+  document.getElementById('pp-bloodgroup').value = pp.bloodGroup || 'Unknown';
+  document.getElementById('pp-genotype').value = pp.genotype || 'Unknown';
+  document.getElementById('pp-allergies').value = pp.allergies || '';
+  document.getElementById('pp-conditions').value = pp.conditions || '';
+  document.getElementById('pp-history').value = pp.history || '';
+  document.getElementById('pp-vaccinations').value = pp.vaccinations || '';
+  document.getElementById('pp-height').value = pp.height || '';
+  document.getElementById('pp-weight').value = pp.weight || '';
+  document.getElementById('pp-physician').value = pp.physician || '';
+  document.getElementById('pp-insurance').value = pp.insurance || '';
+  document.getElementById('pp-emergency').value = pp.emergency || '';
+  document.getElementById('pp-saved-note').textContent = pp.savedAt ? '✓ Saved' : '';
+}
+
+function savePassport() {
+  const pp = {
+    bloodGroup: document.getElementById('pp-bloodgroup').value,
+    genotype: document.getElementById('pp-genotype').value,
+    allergies: document.getElementById('pp-allergies').value.trim(),
+    conditions: document.getElementById('pp-conditions').value.trim(),
+    history: document.getElementById('pp-history').value.trim(),
+    vaccinations: document.getElementById('pp-vaccinations').value.trim(),
+    height: document.getElementById('pp-height').value.trim(),
+    weight: document.getElementById('pp-weight').value.trim(),
+    physician: document.getElementById('pp-physician').value.trim(),
+    insurance: document.getElementById('pp-insurance').value.trim(),
+    emergency: document.getElementById('pp-emergency').value.trim(),
+    savedAt: new Date().toISOString()
+  };
+  localStorage.setItem('passport', JSON.stringify(pp));
+  document.getElementById('pp-saved-note').textContent = '✓ Saved';
+  syncToFirestore({ passport: pp });
+}
+
+function generatePassportQR() {
+  const box = document.getElementById('qr-box');
+  const hint = document.getElementById('qr-hint');
+  if (!box) return;
+  box.innerHTML = '';
+  if (typeof QRCode === 'undefined') {
+    box.innerHTML = '<div class="empty">QR code library failed to load.</div>';
+    return;
+  }
+  const pp = JSON.parse(localStorage.getItem('passport') || '{}');
+  const name = localStorage.getItem('userName') || '';
+  const lines = [
+    'Sentra-X Medical Passport',
+    name && ('Name: ' + name),
+    pp.bloodGroup && ('Blood Group: ' + pp.bloodGroup),
+    pp.genotype && ('Genotype: ' + pp.genotype),
+    pp.allergies && ('Allergies: ' + pp.allergies),
+    pp.conditions && ('Conditions: ' + pp.conditions),
+    pp.history && ('History: ' + pp.history),
+    pp.vaccinations && ('Vaccinations: ' + pp.vaccinations),
+    pp.height && ('Height: ' + pp.height + 'cm'),
+    pp.weight && ('Weight: ' + pp.weight + 'kg'),
+    pp.physician && ('Physician: ' + pp.physician),
+    pp.insurance && ('Insurance: ' + pp.insurance),
+    pp.emergency && ('Emergency Contact: ' + pp.emergency)
+  ].filter(Boolean).join('\n');
+  new QRCode(box, { text: lines, width: 200, height: 200 });
+  if (hint) hint.style.display = 'block';
+}
+
+// auth.js calls window.refreshAllUI() once a user's data has been loaded from
+// Firestore (or on plain login). Without this, the home screen never paints.
+window.refreshAllUI = function() {
+  renderGreeting();
+  renderTip();
+  updateStreak();      // also calls renderHealthScore()
+  renderWater();
+  checkDueMeds();
+  renderQuickStats();
+  renderHealthRadar();
+};
