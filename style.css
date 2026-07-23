@@ -150,3 +150,8 @@ nav button.active .icon { filter: none; }
 .quick-row { display: flex; gap: 8px; }
 .quick-btn { flex: 1; width: auto; padding: 10px 4px; font-size: 12px; background: rgba(255,255,255,0.08); color: #cbd5e1; margin-top: 0; box-shadow: none; }
 .quick-btn.selected { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; }
+.top-row { display: flex; align-items: center; gap: 14px; }
+.top-row .score-card { padding: 0; box-shadow: none; background: none; border: none; }
+.checkin-toggle { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.radar-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+.radar-grid .radar-item { flex: 1 1 28%; padding: 8px 4px; }
