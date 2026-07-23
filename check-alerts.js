@@ -170,6 +170,8 @@ async function checkUser(doc) {
 
   for (const med of meds) {
     if (todayLog[med.id]) continue;
+    const scheduledTodayISO = today + 'T' + med.time + ':00';
+    if (med.stopped && med.stoppedAt && new Date(med.stoppedAt) < new Date(scheduledTodayISO)) continue;
     const overdueBy = nowMin - timeToMinutes(med.time);
     const key = med.id + '_' + today;
     if (overdueBy >= 30 && !medAlertsSent[key]) {
