@@ -24,7 +24,7 @@ function showScreen(name) {
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
   if (name === 'meds') renderMeds();
-  if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); }
+  if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); }
   if (name === 'family') renderCaregiverNote();
   if (name === 'passport') renderPassport();
 }
@@ -148,12 +148,34 @@ function renderMeds() {
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
   const today = todayStr();
   const list = document.getElementById('med-list');
-  if (meds.length === 0) { list.innerHTML = '<div class="empty">No medications added yet</div>'; return; }
-  list.innerHTML = meds.map(function(m) {
+  const activeMeds = meds.filter(function(m) { return !m.stopped; });
+  if (activeMeds.length === 0) { list.innerHTML = '<div class="empty">No medications added yet</div>'; return; }
+  list.innerHTML = activeMeds.map(function(m) {
     const taken = logs[today] && logs[today][m.id];
-    return '<div class="med-row"><span>' + m.name + ' — ' + m.time + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? '✓ Taken' : 'Mark Taken') + '</button></div>';
+    return '<div class="med-row"><span>' + m.name + ' — ' + m.time + '</span><div style="display:flex;gap:6px;"><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? '✓ Taken' : 'Mark Taken') + '</button><button class="danger" style="width:auto;padding:8px 12px;" onclick="deleteMed(\'' + m.id + '\')">✕</button></div></div>';
   }).join('');
   checkDueMeds();
+}
+
+function deleteMed(id) {
+  const confirmed = confirm('Stop this medication? If a dose was already due and missed, your caregiver will still be notified for that dose.');
+  if (!confirmed) return;
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const updated = meds.map(function(m) {
+    if (m.id === id) { m.stopped = true; m.stoppedAt = new Date().toISOString(); }
+    return m;
+  });
+  localStorage.setItem('meds', JSON.stringify(updated));
+  syncToFirestore({ meds: updated });
+  renderMeds();
+}
+
+function toggleCheckin() {
+  const body = document.getElementById('checkin-body');
+  const arrow = document.getElementById('checkin-arrow');
+  const isOpen = body.style.display === 'block';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.classList.toggle('open', !isOpen);
 }
 
 function checkDueMeds() {
@@ -399,6 +421,7 @@ function renderQuickStats() {
     });
   });
 }
+
 
 function renderHealthRadar() {
   const grid = document.getElementById('radar-grid');
