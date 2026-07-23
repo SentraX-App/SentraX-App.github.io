@@ -46,43 +46,47 @@
   <div class="screen active" id="vitals-screen">
     <div id="due-banner"></div>
 
-    <div class="card score-card">
-      <div class="score-ring" id="score-ring"><b id="score-num">—</b></div>
-      <div class="score-text">
-        <div class="label" id="score-label">Log a reading to see your score</div>
-        <div class="sub" id="score-sub"></div>
+    <div class="card top-row">
+      <div class="score-card" style="flex:1;">
+        <div class="score-ring" id="score-ring"><b id="score-num">—</b></div>
+        <div class="score-text">
+          <div class="label" id="score-label" style="font-size:13px;">Log a reading</div>
+          <div class="sub" id="score-sub"></div>
+        </div>
+      </div>
+      <div class="streak" style="flex:0 0 auto;">
+        <div class="streak-ring"><b id="streak-count">0</b></div>
       </div>
     </div>
 
-    <div class="card streak">
-      <div class="streak-ring"><b id="streak-count">0</b></div>
-      <span class="streak-label">day streak 🔥</span>
-    </div>
-
     <div class="card">
-      <h3>Health Radar</h3>
       <div class="radar-grid" id="radar-grid"></div>
     </div>
 
     <div class="card">
-      <h3>Quick Daily Check-in</h3>
-      <p style="color:#94a3b8;font-size:12px;margin:0 0 10px;">Sleep</p>
-      <div class="quick-row" id="quick-sleep">
-        <button class="quick-btn" onclick="setQuickStat('sleep','poor')" data-val="poor">😴 Poor</button>
-        <button class="quick-btn" onclick="setQuickStat('sleep','ok')" data-val="ok">🙂 OK</button>
-        <button class="quick-btn" onclick="setQuickStat('sleep','good')" data-val="good">😃 Good</button>
+      <div class="checkin-toggle" onclick="toggleCheckin()">
+        <h3 style="margin:0;">Quick Daily Check-in</h3>
+        <span class="fa-arrow" id="checkin-arrow">▼</span>
       </div>
-      <p style="color:#94a3b8;font-size:12px;margin:14px 0 10px;">Activity</p>
-      <div class="quick-row" id="quick-activity">
-        <button class="quick-btn" onclick="setQuickStat('activity','low')" data-val="low">🛋️ Low</button>
-        <button class="quick-btn" onclick="setQuickStat('activity','moderate')" data-val="moderate">🚶 Moderate</button>
-        <button class="quick-btn" onclick="setQuickStat('activity','active')" data-val="active">🏃 Active</button>
-      </div>
-      <p style="color:#94a3b8;font-size:12px;margin:14px 0 10px;">Mood</p>
-      <div class="quick-row" id="quick-mood">
-        <button class="quick-btn" onclick="setQuickStat('mood','low')" data-val="low">😔 Low</button>
-        <button class="quick-btn" onclick="setQuickStat('mood','okay')" data-val="okay">😐 Okay</button>
-        <button class="quick-btn" onclick="setQuickStat('mood','good')" data-val="good">😊 Good</button>
+      <div id="checkin-body" style="display:none;">
+        <p style="color:#94a3b8;font-size:12px;margin:10px 0 8px;">Sleep</p>
+        <div class="quick-row" id="quick-sleep">
+          <button class="quick-btn" onclick="setQuickStat('sleep','poor')" data-val="poor">😴 Poor</button>
+          <button class="quick-btn" onclick="setQuickStat('sleep','ok')" data-val="ok">🙂 OK</button>
+          <button class="quick-btn" onclick="setQuickStat('sleep','good')" data-val="good">😃 Good</button>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;margin:12px 0 8px;">Activity</p>
+        <div class="quick-row" id="quick-activity">
+          <button class="quick-btn" onclick="setQuickStat('activity','low')" data-val="low">🛋️ Low</button>
+          <button class="quick-btn" onclick="setQuickStat('activity','moderate')" data-val="moderate">🚶 Moderate</button>
+          <button class="quick-btn" onclick="setQuickStat('activity','active')" data-val="active">🏃 Active</button>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;margin:12px 0 8px;">Mood</p>
+        <div class="quick-row" id="quick-mood">
+          <button class="quick-btn" onclick="setQuickStat('mood','low')" data-val="low">😔 Low</button>
+          <button class="quick-btn" onclick="setQuickStat('mood','okay')" data-val="okay">😐 Okay</button>
+          <button class="quick-btn" onclick="setQuickStat('mood','good')" data-val="good">😊 Good</button>
+        </div>
       </div>
     </div>
 
@@ -301,4 +305,4 @@
 <script src="script.js"></script>
 <script src="auth.js"></script>
 </body>
-</html>
+        </html>
