@@ -222,11 +222,19 @@ function renderMedHistory() {
   if (!list) return;
   const history = JSON.parse(localStorage.getItem('medHistory') || '[]');
   if (history.length === 0) { list.innerHTML = '<div class="empty">No completed medications yet</div>'; return; }
-  list.innerHTML = history.map(function(h) {
+  list.innerHTML = '<div class="med-history-scroll">' + history.map(function(h) {
     const startText = h.startDate ? new Date(h.startDate).toLocaleDateString() : '—';
     const expiryText = h.expiryDate ? new Date(h.expiryDate).toLocaleDateString() : '—';
-    return '<div class="history-row"><b>' + h.name + '</b><br><small>Started: ' + startText + ' · Ended: ' + expiryText + ' · ' + (h.completed ? '✅ Completed' : '') + '</small></div>';
-  }).join('');
+    const statusText = h.completed ? 'Completed' : 'Ended';
+    return '<div class="med-history-card">' +
+        '<div class="med-history-name">💊 ' + h.name + '</div>' +
+        '<div class="med-history-details">' +
+          '<div class="med-history-row"><span class="med-history-icon">📅</span><span class="med-history-label">Started:</span><span class="med-history-value">' + startText + '</span></div>' +
+          '<div class="med-history-row"><span class="med-history-icon">⏳</span><span class="med-history-label">Expired:</span><span class="med-history-value">' + expiryText + '</span></div>' +
+          '<div class="med-history-row"><span class="med-history-icon">✅</span><span class="med-history-label">Status:</span><span class="med-history-badge">' + statusText + '</span></div>' +
+        '</div>' +
+      '</div>';
+  }).join('') + '</div>';
 }
 
 function toggleMedHistory() {
