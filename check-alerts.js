@@ -178,6 +178,10 @@ async function checkUser(doc) {
       const endDate = new Date(med.startDate);
       endDate.setDate(endDate.getDate() + med.durationDays);
       if (new Date() > endDate) continue;
+    } else if (!med.durationDays) {
+      // No duration was entered — treat as short-term and expire 1 hour after creation.
+      const created = med.createdAt || parseInt(med.id, 10) || 0;
+      if (created && (Date.now() - created) > 60 * 60 * 1000) continue;
     }
     const overdueBy = nowMin - timeToMinutes(med.time);
     const key = med.id + '_' + today;
