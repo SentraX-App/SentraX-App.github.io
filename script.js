@@ -122,14 +122,31 @@ function alertCaregiverNow(sys, dia, level) {
 function addMed() {
   const name = document.getElementById('med-name').value.trim();
   const time = document.getElementById('med-time').value;
-  if (!name || !time) { alert('Please enter both a medication name and time.'); return; }
+  const duration = parseInt(document.getElementById('med-duration').value);
+  if (!name || !time || !duration || duration < 1) { alert('Please enter the medication name, time, and how many days it was prescribed for.'); return; }
   const meds = JSON.parse(localStorage.getItem('meds') || '[]');
-  meds.push({ id: Date.now().toString(), name: name, time: time });
+  meds.push({ id: Date.now().toString(), name: name, time: time, startDate: todayStr(), durationDays: duration });
   localStorage.setItem('meds', JSON.stringify(meds));
   document.getElementById('med-name').value = '';
   document.getElementById('med-time').value = '';
+  document.getElementById('med-duration').value = '';
   renderMeds();
   syncToFirestore({ meds: meds });
+}
+
+function isMedActive(m) {
+  if (!m.startDate || !m.durationDays) return true;
+  const end = new Date(m.startDate);
+  end.setDate(end.getDate() + m.durationDays);
+  return new Date() <= end;
+}
+
+function daysLeft(m) {
+  if (!m.startDate || !m.durationDays) return null;
+  const end = new Date(m.startDate);
+  end.setDate(end.getDate() + m.durationDays);
+  const diff = Math.ceil((end - new Date()) / 86400000);
+  return diff > 0 ? diff : 0;
 }
 
 function toggleTaken(id) {
@@ -148,26 +165,16 @@ function renderMeds() {
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
   const today = todayStr();
   const list = document.getElementById('med-list');
-  const activeMeds = meds.filter(function(m) { return !m.stopped; });
+  const activeMeds = meds.filter(isMedActive);
   if (activeMeds.length === 0) { list.innerHTML = '<div class="empty">No medications added yet</div>'; return; }
   list.innerHTML = activeMeds.map(function(m) {
     const taken = logs[today] && logs[today][m.id];
-    return '<div class="med-row"><span>' + m.name + ' — ' + m.time + '</span><div style="display:flex;gap:6px;"><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? '✓ Taken' : 'Mark Taken') + '</button><button class="danger" style="width:auto;padding:8px 12px;" onclick="deleteMed(\'' + m.id + '\')">✕</button></div></div>';
+    const left = daysLeft(m);
+    let leftText = '';
+    if (left !== null) { leftText = ' <small style="color:#94a3b8;">(' + left + (left === 1 ? ' day left)' : ' days left)') + '</small>'; }
+    return '<div class="med-row"><span>' + m.name + ' — ' + m.time + leftText + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? '✓ Taken' : 'Mark Taken') + '</button></div>';
   }).join('');
   checkDueMeds();
-}
-
-function deleteMed(id) {
-  const confirmed = confirm('Stop this medication? If a dose was already due and missed, your caregiver will still be notified for that dose.');
-  if (!confirmed) return;
-  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
-  const updated = meds.map(function(m) {
-    if (m.id === id) { m.stopped = true; m.stoppedAt = new Date().toISOString(); }
-    return m;
-  });
-  localStorage.setItem('meds', JSON.stringify(updated));
-  syncToFirestore({ meds: updated });
-  renderMeds();
 }
 
 function toggleCheckin() {
@@ -179,7 +186,7 @@ function toggleCheckin() {
 }
 
 function checkDueMeds() {
-  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]').filter(isMedActive);
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
   const today = todayStr();
   const now = nowMinutes();
