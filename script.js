@@ -158,12 +158,9 @@ function addMed() {
   const name = document.getElementById('med-name').value.trim();
   const time = document.getElementById('med-time').value;
   const durationText = document.getElementById('med-duration').value.trim();
-  if (!name || !time) { alert('Please enter the medication name and time.'); return; }
-  let durationDays = null;
-  if (durationText) {
-    durationDays = parseDurationToDays(durationText);
-    if (durationDays === null) { alert('Please enter a valid duration like "5 days", "2 weeks", or "1 month" — or leave it blank.'); return; }
-  }
+  if (!name || !time || !durationText) { alert('Please enter the medication name, time, and duration.'); return; }
+  const durationDays = parseDurationToDays(durationText);
+  if (durationDays === null) { alert('Please enter a valid duration like "5 days", "2 weeks", or "1 month".'); return; }
   const meds = JSON.parse(localStorage.getItem('meds') || '[]');
   meds.push({ id: Date.now().toString(), name: name, time: time, startDate: todayStr(), createdAt: Date.now(), durationDays: durationDays });
   localStorage.setItem('meds', JSON.stringify(meds));
