@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sentrax-8d06d7e';
+const CACHE_NAME = 'sentrax-b8cbfe1';
 const CORE_ASSETS = ['index.html', 'style.css', 'script.js', 'auth.js', 'manifest.json', 'logo-header.png', 'icon-192-1.png', 'icon-512.png'];
 
 self.addEventListener('install', function(event) {
