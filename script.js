@@ -246,13 +246,14 @@ function toggleTaken(id) {
   const today = todayStr();
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
   if (!logs[today]) logs[today] = {};
-  logs[today][id] = !logs[today][id];
+  const currentlyTaken = !!logs[today][id];
+  if (currentlyTaken && !confirm('Mark this medication as not taken?')) return;
+  logs[today][id] = !currentlyTaken;
   localStorage.setItem('medLogs', JSON.stringify(logs));
   updateStreak();
   renderMeds();
   syncToFirestore({ medLogs: logs, streak: localStorage.getItem('streak'), lastActive: localStorage.getItem('lastActive') });
 }
-
 function renderMeds() {
   const meds = JSON.parse(localStorage.getItem('meds') || '[]');
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
