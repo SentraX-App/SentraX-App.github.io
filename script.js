@@ -19,16 +19,16 @@ const BADGES = [
 ];
 
 function showScreen(name) {
+  expireOldMeds();
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.querySelectorAll('nav button').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
   if (name === 'meds') renderMeds();
-  if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); }
+  if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); renderMedHistory(); }
   if (name === 'family') renderCaregiverNote();
   if (name === 'passport') renderPassport();
-}
-
+  }
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]) * 60 + parseInt(parts[1]); }
@@ -119,13 +119,53 @@ function alertCaregiverNow(sys, dia, level) {
   window.open(url, '_blank');
 }
 
+// Parses a flexible duration string like "5 days", "2 weeks", "1 month", or a
+// bare number (treated as days). Returns a whole number of days, or null if
+// the text is empty/unparseable.
+function parseDurationToDays(text) {
+  if (!text) return null;
+  const t = text.trim().toLowerCase();
+  if (!t) return null;
+  const match = t.match(/^(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)?$/);
+  if (!match) return null;
+  const num = parseFloat(match[1]);
+  if (isNaN(num) || num <= 0) return null;
+  const unit = match[2] || 'day';
+  if (unit.indexOf('week') === 0) return Math.round(num * 7);
+  if (unit.indexOf('month') === 0) return Math.round(num * 30);
+  return Math.round(num);
+}
+
+// One hour, in ms — how long a medication stays active when no duration is given.
+const SHORT_TERM_MED_MS = 60 * 60 * 1000;
+
+// Returns the Date a medication expires on, or null if it can't be determined.
+function getMedExpiry(m) {
+  if (m.durationDays && m.startDate) {
+    const end = new Date(m.startDate);
+    end.setDate(end.getDate() + m.durationDays);
+    return end;
+  }
+  if (!m.durationDays) {
+    const created = m.createdAt || parseInt(m.id, 10) || null;
+    if (!created) return null;
+    return new Date(created + SHORT_TERM_MED_MS);
+  }
+  return null;
+}
+
 function addMed() {
   const name = document.getElementById('med-name').value.trim();
   const time = document.getElementById('med-time').value;
-  const duration = parseInt(document.getElementById('med-duration').value);
-  if (!name || !time || !duration || duration < 1) { alert('Please enter the medication name, time, and how many days it was prescribed for.'); return; }
+  const durationText = document.getElementById('med-duration').value.trim();
+  if (!name || !time) { alert('Please enter the medication name and time.'); return; }
+  let durationDays = null;
+  if (durationText) {
+    durationDays = parseDurationToDays(durationText);
+    if (durationDays === null) { alert('Please enter a valid duration like "5 days", "2 weeks", or "1 month" — or leave it blank.'); return; }
+  }
   const meds = JSON.parse(localStorage.getItem('meds') || '[]');
-  meds.push({ id: Date.now().toString(), name: name, time: time, startDate: todayStr(), durationDays: duration });
+  meds.push({ id: Date.now().toString(), name: name, time: time, startDate: todayStr(), createdAt: Date.now(), durationDays: durationDays });
   localStorage.setItem('meds', JSON.stringify(meds));
   document.getElementById('med-name').value = '';
   document.getElementById('med-time').value = '';
@@ -135,10 +175,9 @@ function addMed() {
 }
 
 function isMedActive(m) {
-  if (!m.startDate || !m.durationDays) return true;
-  const end = new Date(m.startDate);
-  end.setDate(end.getDate() + m.durationDays);
-  return new Date() <= end;
+  const expiry = getMedExpiry(m);
+  if (!expiry) return true;
+  return new Date() <= expiry;
 }
 
 function daysLeft(m) {
@@ -149,6 +188,55 @@ function daysLeft(m) {
   return diff > 0 ? diff : 0;
 }
 
+// Moves any medication past its expiry (duration-based, or the 1-hour default
+// for meds with no duration) out of the active list and into Medication
+// History. Called at app open, on screen change, and whenever reminders are
+// checked — never on a per-second timer.
+function expireOldMeds() {
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const active = [];
+  const expired = [];
+  meds.forEach(function(m) { (isMedActive(m) ? active : expired).push(m); });
+  if (expired.length === 0) return false;
+
+  const history = JSON.parse(localStorage.getItem('medHistory') || '[]');
+  expired.forEach(function(m) {
+    const expiry = getMedExpiry(m);
+    history.unshift({
+      id: m.id,
+      name: m.name,
+      startDate: m.startDate || null,
+      expiryDate: expiry ? expiry.toISOString() : null,
+      completed: true
+    });
+  });
+
+  localStorage.setItem('meds', JSON.stringify(active));
+  localStorage.setItem('medHistory', JSON.stringify(history));
+  syncToFirestore({ meds: active, medHistory: history });
+  return true;
+}
+
+function renderMedHistory() {
+  const list = document.getElementById('med-history-list');
+  if (!list) return;
+  const history = JSON.parse(localStorage.getItem('medHistory') || '[]');
+  if (history.length === 0) { list.innerHTML = '<div class="empty">No completed medications yet</div>'; return; }
+  list.innerHTML = history.map(function(h) {
+    const startText = h.startDate ? new Date(h.startDate).toLocaleDateString() : '—';
+    const expiryText = h.expiryDate ? new Date(h.expiryDate).toLocaleDateString() : '—';
+    return '<div class="history-row"><b>' + h.name + '</b><br><small>Started: ' + startText + ' · Ended: ' + expiryText + ' · ' + (h.completed ? '✅ Completed' : '') + '</small></div>';
+  }).join('');
+}
+
+function toggleMedHistory() {
+  const body = document.getElementById('med-history-body');
+  const arrow = document.getElementById('med-history-arrow');
+  const isOpen = body.style.display === 'block';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.classList.toggle('open', !isOpen);
+  if (!isOpen) renderMedHistory();
+}
 function toggleTaken(id) {
   const today = todayStr();
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
@@ -186,6 +274,7 @@ function toggleCheckin() {
 }
 
 function checkDueMeds() {
+  expireOldMeds();
   const meds = JSON.parse(localStorage.getItem('meds') || '[]').filter(isMedActive);
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
   const today = todayStr();
@@ -601,5 +690,6 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 
+expireOldMeds();
 refreshAllUI();
 setInterval(checkDueMeds, 60000);
