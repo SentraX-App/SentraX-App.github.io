@@ -1,11 +1,17 @@
-const CACHE_NAME = 'sentrax-v1';
+const CACHE_NAME = 'sentrax-v2';
 const CORE_ASSETS = ['index.html', 'style.css', 'script.js', 'auth.js', 'manifest.json', 'logo-header.png', 'icon-192-1.png', 'icon-512.png'];
 
 self.addEventListener('install', function(event) {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
-      return cache.addAll(CORE_ASSETS).catch(function() {});
+      return Promise.all(
+        CORE_ASSETS.map(function(url) {
+          return fetch(url, { cache: 'reload' }).then(function(response) {
+            return cache.put(url, response);
+          }).catch(function() {});
+        })
+      );
     })
   );
 });
