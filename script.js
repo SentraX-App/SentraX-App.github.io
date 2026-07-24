@@ -244,11 +244,23 @@ function toggleMedHistory() {
 }
 function toggleTaken(id) {
   const today = todayStr();
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const med = meds.find(function(m) { return m.id === id; });
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
   if (!logs[today]) logs[today] = {};
   const currentlyTaken = !!logs[today][id];
-  if (currentlyTaken && !confirm('Mark this medication as not taken?')) return;
-  logs[today][id] = !currentlyTaken;
+
+  if (!currentlyTaken) {
+    if (med && timeToMinutes(med.time) > nowMinutes()) {
+      alert('This medication isn\'t due yet — you can mark it taken starting at ' + med.time + '.');
+      return;
+    }
+    logs[today][id] = Date.now();
+  } else {
+    if (!confirm('Mark this medication as not taken?')) return;
+    delete logs[today][id];
+  }
+
   localStorage.setItem('medLogs', JSON.stringify(logs));
   updateStreak();
   renderMeds();
