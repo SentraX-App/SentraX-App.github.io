@@ -127,7 +127,7 @@
       <h3>Add a Medication</h3>
       <input type="text" id="med-name" placeholder="Medication name">
       <input type="time" id="med-time">
-      <input type="number" id="med-duration" placeholder="How many days did the doctor prescribe? (e.g. 30)">
+      <input type="text" id="med-duration" placeholder="Duration (optional) — e.g. 5 days, 2 weeks, 1 month">
       <button onclick="addMed()">Add Medication</button>
       <button class="ghost" onclick="enableReminders()" id="enable-btn">🔔 Enable Reminder Alerts</button>
     </div>
@@ -153,6 +153,15 @@
     <div class="card">
       <h3>Your History</h3>
       <div id="history-list"><div class="empty">No readings logged yet</div></div>
+    </div>
+    <div class="card">
+      <div class="checkin-toggle" onclick="toggleMedHistory()">
+        <h3 style="margin:0;">📋 Medication History</h3>
+        <span class="fa-arrow" id="med-history-arrow">▼</span>
+      </div>
+      <div id="med-history-body" style="display:none;">
+        <div id="med-history-list" style="margin-top:10px;"><div class="empty">No completed medications yet</div></div>
+      </div>
     </div>
   </div>
 
