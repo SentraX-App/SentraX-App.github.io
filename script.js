@@ -28,6 +28,7 @@ function showScreen(name) {
   if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); renderMedHistory(); }
   if (name === 'family') renderCaregiverNote();
   if (name === 'passport') renderPassport();
+  if (name === 'ai') renderAiWelcome();
   }
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
@@ -711,3 +712,52 @@ if ('serviceWorker' in navigator) {
 expireOldMeds();
 refreshAllUI();
 setInterval(checkDueMeds, 60000);
+
+const AI_WORKER_URL = 'https://sentrax-ai.alecedoh1994.workers.dev/';
+let aiHistory = [];
+
+function renderAiWelcome() {
+  const log = document.getElementById('ai-chat-log');
+  if (log.children.length === 0) {
+    appendAiMessage('bot', "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 112.");
+  }
+}
+
+function appendAiMessage(role, text) {
+  const log = document.getElementById('ai-chat-log');
+  const div = document.createElement('div');
+  div.className = 'ai-msg ' + (role === 'user' ? 'user' : 'bot');
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+
+function sendAiMessage() {
+  const input = document.getElementById('ai-chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  appendAiMessage('user', text);
+  aiHistory.push({ role: 'user', content: text });
+
+  const typingEl = appendAiMessage('bot', 'Thinking...');
+  typingEl.classList.add('typing');
+
+  fetch(AI_WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: aiHistory })
+  })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      typingEl.remove();
+      appendAiMessage('bot', data.reply);
+      aiHistory.push({ role: 'assistant', content: data.reply });
+    })
+    .catch(function() {
+      typingEl.remove();
+      appendAiMessage('bot', "Sorry, I couldn't connect. Please check your internet connection and try again.");
+    });
+}
