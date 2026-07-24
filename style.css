@@ -158,6 +158,11 @@ nav button.active .icon { filter: none; }
 #auth-overlay p { color: #93c5fd; font-size: 14px; margin-top: 0; }
 #auth-overlay input { background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.15); }
 #auth-overlay .error { color: #fca5a5; font-size: 13px; margin-top: 6px; min-height: 16px; }
+
+.ai-msg { max-width: 80%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; }
+.ai-msg.user { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+.ai-msg.bot { align-self: flex-start; background: #1e293b; color: #e2e8f0; border-bottom-left-radius: 4px; }
+.ai-msg.typing { opacity: 0.6; font-style: italic; }
 #auth-overlay .switch { background: none; color: #93c5fd; font-weight: 500; box-shadow: none; margin-top: 10px; padding: 8px; }
 .fa-card { padding: 0; overflow: hidden; }
 .fa-header {
@@ -182,3 +187,4 @@ nav button.active .icon { filter: none; }
 .checkin-toggle { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
 .radar-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
 .radar-grid .radar-item { flex: 1 1 28%; padding: 8px 4px; }
+  
