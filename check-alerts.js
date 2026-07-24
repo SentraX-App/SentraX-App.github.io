@@ -22,6 +22,10 @@ console.log('Diagnostic - TERMII_API_KEY present:', !!TERMII_API_KEY, 'length:',
 // so we shift "now" forward by 60 minutes to match the local time patients enter.
 const NIGERIA_OFFSET_MINUTES = 60;
 
+// How many minutes a medication can be overdue before we alert the caregiver.
+// Single source of truth — do not hardcode this number elsewhere.
+const REMINDER_DELAY_MINUTES = 10;
+
 function todayStr() {
   return new Date().toISOString().split('T')[0];
 }
@@ -177,8 +181,8 @@ async function checkUser(doc) {
     }
     const overdueBy = nowMin - timeToMinutes(med.time);
     const key = med.id + '_' + today;
-    if (overdueBy >= 30 && !medAlertsSent[key]) {
-      const medMessage = (data.userName || 'Your loved one') + ' has not taken their medication "' + med.name + '" (due at ' + med.time + '). It has been overdue for over 30 minutes.';
+    if (overdueBy >= REMINDER_DELAY_MINUTES && !medAlertsSent[key]) {
+      const medMessage = (data.userName || 'Your loved one') + ' has not taken their medication "' + med.name + '" (due at ' + med.time + '). It has been overdue for over ' + REMINDER_DELAY_MINUTES + ' minutes.';
       const ok = await sendEmail(data.cgEmail, data.userName || 'Your loved one', data.cgName, medMessage);
       if (data.cgPhone) await sendSMS(data.cgPhone, 'SentraX Alert: ' + medMessage);
       if (ok) {
