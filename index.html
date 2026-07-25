@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Sentra-X</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
@@ -301,14 +301,19 @@
     </div>
   </div>
 
+  <div id="more-sheet-backdrop" onclick="closeMoreMenu()" style="display:none;"></div>
+  <div id="more-sheet" style="display:none;">
+    <button onclick="showScreen('firstaid')" id="nav-firstaid"><span class="icon">🚑</span>First Aid</button>
+    <button onclick="showScreen('passport')" id="nav-passport"><span class="icon">🪪</span>Passport</button>
+    <button onclick="showScreen('ai')" id="nav-ai"><span class="icon">💬</span>Assistant</button>
+  </div>
+
   <nav>
     <button class="active" onclick="showScreen('vitals')" id="nav-vitals"><span class="icon">💓</span>Vitals</button>
     <button onclick="showScreen('meds')" id="nav-meds"><span class="icon">💊</span>Meds</button>
     <button onclick="showScreen('history')" id="nav-history"><span class="icon">📈</span>History</button>
     <button onclick="showScreen('family')" id="nav-family"><span class="icon">👪</span>Family</button>
-    <button onclick="showScreen('firstaid')" id="nav-firstaid"><span class="icon">🚑</span>First Aid</button>
-    <button onclick="showScreen('passport')" id="nav-passport"><span class="icon">🪪</span>Passport</button>
-    <button onclick="showScreen('ai')" id="nav-ai"><span class="icon">💬</span>Assistant</button>
+    <button onclick="toggleMoreMenu()" id="nav-more"><span class="icon">⋯</span>More</button>
   </nav>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
