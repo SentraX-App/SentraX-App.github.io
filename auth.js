@@ -93,19 +93,40 @@
     if (user) {
       console.log('Sentra-X: auth state -> logged in as', user.email);
       window.hideAuthScreen();
-      window.loadFromFirestore(user.uid).then(function() {
-        const onboarding = document.getElementById('onboarding-overlay');
-        if (onboarding) {
-          onboarding.style.display = localStorage.getItem('userName') ? 'none' : 'flex';
+
+      // Check whether this account is a linked caregiver before loading the
+      // normal patient flow. Existing patients simply won't have this doc,
+      // so this adds one extra read and falls through unchanged for them.
+      firebase.firestore().collection('caregiverLinks').doc(user.uid).get().then(function(linkDoc) {
+        if (linkDoc.exists) {
+          const patientUid = linkDoc.data().patientUid;
+          if (typeof window.showCaregiverMode === 'function') window.showCaregiverMode(patientUid);
+          return;
         }
-        if (typeof window.refreshAllUI === 'function') {
-          window.refreshAllUI();
-        } else {
-          console.warn('Sentra-X: refreshAllUI() not found — check that script.js loaded before auth.js.');
-        }
+        loadPatientFlow();
+      }).catch(function(err) {
+        console.error('Sentra-X: caregiver link check failed:', err.message);
+        // Fail safe: a Firestore hiccup here should never lock a real
+        // patient out of their own app — fall through to normal flow.
+        loadPatientFlow();
       });
+
+      function loadPatientFlow() {
+        window.loadFromFirestore(user.uid).then(function() {
+          const onboarding = document.getElementById('onboarding-overlay');
+          if (onboarding) {
+            onboarding.style.display = localStorage.getItem('userName') ? 'none' : 'flex';
+          }
+          if (typeof window.refreshAllUI === 'function') {
+            window.refreshAllUI();
+          } else {
+            console.warn('Sentra-X: refreshAllUI() not found — check that script.js loaded before auth.js.');
+          }
+        });
+      }
     } else {
       console.log('Sentra-X: auth state -> logged out');
+      if (typeof window.hideCaregiverMode === 'function') window.hideCaregiverMode();
       window.showAuthScreen();
       const onboarding = document.getElementById('onboarding-overlay');
       if (onboarding) onboarding.style.display = 'none';
