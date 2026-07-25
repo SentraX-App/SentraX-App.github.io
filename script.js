@@ -882,21 +882,48 @@ function finishHeartRateMeasure() {
 function calculateBpmFromSamples(samples) {
   if (samples.length < 20) return null;
 
-  const values = samples.map(function (s) { return s.v; });
-  const avg = values.reduce(function (a, b) { return a + b; }, 0) / values.length;
+  // Discard the first second: camera auto-exposure/white-balance is still
+  // stabilizing right after the flash turns on, and that swing isn't part
+  // of the pulse signal.
+  const settleMs = 1000;
+  const startT = samples[0].t;
+  const usable = samples.filter(function (s) { return s.t - startT > settleMs; });
+  if (usable.length < 20) return null;
 
+  const values = usable.map(function (s) { return s.v; });
+
+  // Rolling baseline instead of one flat average for the whole window — a
+  // single global average lets slow lighting drift dominate the threshold
+  // and throws off peak counting.
+  const windowSize = 15;
+  const baseline = values.map(function (_, i) {
+    const start = Math.max(0, i - windowSize);
+    const slice = values.slice(start, i + 1);
+    return slice.reduce(function (a, b) { return a + b; }, 0) / slice.length;
+  });
+
+  // Peak detection with a refractory period: a real pulse can't repeat
+  // faster than ~300ms (200bpm — the same ceiling already enforced below),
+  // so a crossing sooner than that is noise, not a beat.
+  const REFRACTORY_MS = 300;
   let peaks = 0;
   let rising = false;
+  let lastPeakT = -Infinity;
   for (let i = 1; i < values.length; i++) {
-    if (values[i] > avg && values[i] > values[i - 1] && !rising) {
+    const above = values[i] > baseline[i];
+    if (above && values[i] > values[i - 1] && !rising) {
       rising = true;
-      peaks++;
-    } else if (values[i] < avg) {
+      const t = usable[i].t;
+      if (t - lastPeakT >= REFRACTORY_MS) {
+        peaks++;
+        lastPeakT = t;
+      }
+    } else if (!above) {
       rising = false;
     }
   }
 
-  const durationMinutes = (samples[samples.length - 1].t - samples[0].t) / 60000;
+  const durationMinutes = (usable[usable.length - 1].t - usable[0].t) / 60000;
   if (durationMinutes <= 0) return null;
 
   const bpm = Math.round(peaks / durationMinutes);
