@@ -109,6 +109,14 @@
       <input type="number" id="systolic" placeholder="Top number (Systolic)">
       <input type="number" id="diastolic" placeholder="Bottom number (Diastolic)">
       <input type="number" id="heartrate" placeholder="Heart rate (optional)">
+      <button type="button" class="ghost" onclick="measureHeartRate()">📷 Check Heart Rate (Camera)</button>
+<div id="hr-measure-box" style="display:none;">
+  <video id="hr-video" autoplay playsinline muted style="width:1px;height:1px;position:absolute;opacity:0;"></video>
+  <canvas id="hr-canvas" width="50" height="50" style="display:none;"></canvas>
+  <p style="font-size:13px;color:#94a3b8;text-align:center;margin:8px 0 4px;">Cover the rear camera and flash fully with your fingertip. Hold still for 20 seconds.</p>
+  <p id="hr-status" style="text-align:center;font-size:14px;color:#93c5fd;">Starting camera…</p>
+  <button type="button" class="secondary" onclick="cancelHeartRateMeasure()">Cancel</button>
+</div>
       <input type="number" id="weight" placeholder="Weight in kg (optional)">
       <button onclick="checkBP()">Save & Check My Risk</button>
       <div id="result"></div>
