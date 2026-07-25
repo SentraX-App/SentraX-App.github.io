@@ -799,3 +799,120 @@ function sendAiMessage() {
       appendAiMessage('bot', "Sorry, I couldn't connect. Please check your internet connection and try again.");
     });
 }
+// ---- Camera Heart Rate Check (estimates heart rate only — NOT blood pressure) ----
+let hrStream = null;
+let hrRafId = null;
+let hrSamples = [];
+let hrStartTime = 0;
+const HR_DURATION_MS = 20000;
+
+function measureHeartRate() {
+  const box = document.getElementById('hr-measure-box');
+  const status = document.getElementById('hr-status');
+  box.style.display = 'block';
+  status.textContent = 'Starting camera…';
+  hrSamples = [];
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+    .then(function (stream) {
+      hrStream = stream;
+      const video = document.getElementById('hr-video');
+      video.srcObject = stream;
+
+      const track = stream.getVideoTracks()[0];
+      if (track && track.applyConstraints) {
+        track.applyConstraints({ advanced: [{ torch: true }] }).catch(function () {});
+      }
+
+      video.onloadedmetadata = function () {
+        video.play();
+        status.textContent = 'Measuring… hold still for 20 seconds';
+        hrStartTime = Date.now();
+        hrTick();
+      };
+    })
+    .catch(function () {
+      status.textContent = 'Could not access camera. Check permissions and try again.';
+    });
+}
+
+function hrTick() {
+  const video = document.getElementById('hr-video');
+  const canvas = document.getElementById('hr-canvas');
+  if (!hrStream || !video || video.readyState < 2) {
+    hrRafId = requestAnimationFrame(hrTick);
+    return;
+  }
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const frame = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+  let sum = 0;
+  for (let i = 0; i < frame.length; i += 4) { sum += frame[i]; }
+  const avgRed = sum / (frame.length / 4);
+  hrSamples.push({ t: Date.now(), v: avgRed });
+
+  const elapsed = Date.now() - hrStartTime;
+  if (elapsed < HR_DURATION_MS) {
+    hrRafId = requestAnimationFrame(hrTick);
+  } else {
+    finishHeartRateMeasure();
+  }
+}
+
+function finishHeartRateMeasure() {
+  const status = document.getElementById('hr-status');
+  const bpm = calculateBpmFromSamples(hrSamples);
+  stopHeartRateCamera();
+
+  if (bpm) {
+    document.getElementById('heartrate').value = bpm;
+    status.textContent = 'Estimated heart rate: ' + bpm + ' bpm (added below)';
+  } else {
+    status.textContent = 'Could not get a clear reading. Try again, holding still.';
+  }
+
+  setTimeout(function () {
+    document.getElementById('hr-measure-box').style.display = 'none';
+  }, 2500);
+}
+
+function calculateBpmFromSamples(samples) {
+  if (samples.length < 20) return null;
+
+  const values = samples.map(function (s) { return s.v; });
+  const avg = values.reduce(function (a, b) { return a + b; }, 0) / values.length;
+
+  let peaks = 0;
+  let rising = false;
+  for (let i = 1; i < values.length; i++) {
+    if (values[i] > avg && values[i] > values[i - 1] && !rising) {
+      rising = true;
+      peaks++;
+    } else if (values[i] < avg) {
+      rising = false;
+    }
+  }
+
+  const durationMinutes = (samples[samples.length - 1].t - samples[0].t) / 60000;
+  if (durationMinutes <= 0) return null;
+
+  const bpm = Math.round(peaks / durationMinutes);
+  if (bpm < 40 || bpm > 200) return null;
+  return bpm;
+}
+
+function stopHeartRateCamera() {
+  if (hrRafId) { cancelAnimationFrame(hrRafId); hrRafId = null; }
+  if (hrStream) {
+    hrStream.getTracks().forEach(function (t) { t.stop(); });
+    hrStream = null;
+  }
+}
+
+function cancelHeartRateMeasure() {
+  stopHeartRateCamera();
+  document.getElementById('hr-status').textContent = 'Cancelled.';
+  document.getElementById('hr-measure-box').style.display = 'none';
+    }
