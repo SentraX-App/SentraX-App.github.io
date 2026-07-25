@@ -9,7 +9,36 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="caregiver-overlay" style="display:none;">
+  <div class="cgv-wrap">
+    <div class="cgv-brand">
+      <span class="cgv-brand-mark">✚</span> Sentra-X
+      <span class="cgv-tag">Caregiver</span>
+    </div>
 
+    <div class="card">
+      <h3 class="cgv-h3">Latest Reading</h3>
+      <div id="cgv-bp"><div class="empty">No readings yet</div></div>
+    </div>
+
+    <div class="card">
+      <h3 class="cgv-h3">Today's Medications</h3>
+      <div id="cgv-meds"><div class="empty">No medications added yet</div></div>
+    </div>
+
+    <div class="card">
+      <h3 class="cgv-h3">This Week</h3>
+      <div class="cgv-stat-grid">
+        <div class="cgv-stat"><b id="cgv-streak">—</b><span>Day streak</span></div>
+        <div class="cgv-stat"><b id="cgv-adherence">—</b><span>Meds taken</span></div>
+        <div class="cgv-stat"><b id="cgv-readings">—</b><span>Readings logged</span></div>
+      </div>
+    </div>
+
+    <button onclick="logOut()">Sign Out</button>
+    <div class="cgv-last-sync" id="cgv-last-sync"></div>
+  </div>
+</div>
   <div id="auth-overlay">
     <div class="box">
       <h2>Welcome Back</h2>
