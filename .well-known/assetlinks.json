@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.sentrax_app.twa",
+      "sha256_cert_fingerprints": ["EC:3C:D0:29:E9:B3:6D:02:BB:A2:7A:A3:D1:C3:BE:FA:5F:36:9E:A4:95:77:2B:29:94:98:3F:38:B2:AA:EA:45"]
+    }
+  }
+]
