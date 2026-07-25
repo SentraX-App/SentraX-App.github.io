@@ -206,5 +206,27 @@ nav button.active .icon { filter: none; }
 .checkin-toggle { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
 .radar-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
 .radar-grid .radar-item { flex: 1 1 28%; padding: 8px 4px; }
-
+#caregiver-overlay {
+  position: fixed; inset: 0; z-index: 998; display: none;
+  overflow-y: auto; padding: 24px 18px 60px;
+  background: radial-gradient(120% 90% at 50% -10%, #16233d 0%, #0f172a 45%, #060a13 100%);
+}
+.cgv-wrap { max-width: 480px; margin: 0 auto; }
+.cgv-brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 17px; margin-bottom: 22px; color: #f4f6fb; }
+.cgv-brand-mark { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #38bdf8, #1d4ed8); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.cgv-tag { font-size: 11.5px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; color: #fb923c; background: rgba(251,146,60,0.14); border: 1px solid rgba(251,146,60,0.3); padding: 4px 10px; border-radius: 100px; margin-left: auto; }
+.cgv-h3 { margin: 0 0 14px; font-size: 12.5px; letter-spacing: 0.4px; text-transform: uppercase; color: #93a0b8; }
+.cgv-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; color: #f4f6fb; }
+.cgv-row:last-child { border-bottom: none; }
+.cgv-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 100px; }
+.cgv-badge-taken { background: rgba(52,211,153,0.18); color: #86efac; border: 1px solid rgba(52,211,153,0.35); }
+.cgv-badge-missed { background: rgba(248,113,113,0.16); color: #fca5a5; border: 1px solid rgba(248,113,113,0.32); }
+.cgv-bp-num { font-size: 30px; font-weight: 800; color: #f4f6fb; }
+.cgv-bp-level { font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 100px; display: inline-block; margin-top: 8px; color: #0f172a; }
+.cgv-bp-meta { color: #93a0b8; font-size: 12.5px; margin-top: 8px; }
+.cgv-stat-grid { display: flex; gap: 12px; }
+.cgv-stat { flex: 1; text-align: center; }
+.cgv-stat b { display: block; font-size: 21px; color: #38bdf8; }
+.cgv-stat span { font-size: 11px; color: #93a0b8; }
+.cgv-last-sync { text-align: center; color: #5c6b87; font-size: 11.5px; margin-top: 10px; }
              
