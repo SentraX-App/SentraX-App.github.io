@@ -4,7 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "io.github.sentrax_app.twa",
-      "sha256_cert_fingerprints": ["EC:3C:D0:29:E9:B3:6D:02:BB:A2:7A:A3:D1:C3:BE:FA:5F:36:9E:A4:95:77:2B:29:94:98:3F:38:B2:AA:EA:45"]
+      "sha256_cert_fingerprints": ["56:CF:A2:C7:29:40:51:88:6B:E7:78:87:FE:60:2D:E3:BC:36:51:44:28:C2:C8:7C:9C:D5:AF:9F:7A:8F:A2:77"]
     }
   }
 ]
