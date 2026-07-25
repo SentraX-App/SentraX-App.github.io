@@ -32,5 +32,6 @@ jobs:
           else
             git add sw.js
             git commit -m "chore: bump service worker cache version [skip ci]"
+            git pull --rebase origin main
             git push
           fi
