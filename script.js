@@ -560,8 +560,12 @@ function generateInviteCode() {
     expiresAt: expiresAt,
     usedBy: null
   }).then(function () {
+    const link = 'https://sentrax-app.github.io/caregiver.html?code=' + code;
     document.getElementById('invite-code-box').style.display = 'block';
     document.getElementById('invite-code-text').textContent = code;
+    const name = localStorage.getItem('userName') || 'I';
+    const msg = name + ' would like you to help keep track of their health on Sentra-X. Tap this link to link your account: ' + link;
+    document.getElementById('invite-share-link').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
   }).catch(function (err) {
     alert('Could not generate invite code: ' + err.message);
   });
