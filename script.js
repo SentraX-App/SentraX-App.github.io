@@ -22,14 +22,52 @@ function showScreen(name) {
   expireOldMeds();
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.querySelectorAll('nav button').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('nav-firstaid').classList.remove('active');
+  document.getElementById('nav-passport').classList.remove('active');
+  document.getElementById('nav-ai').classList.remove('active');
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'firstaid' || name === 'passport' || name === 'ai') {
+    document.getElementById('nav-more').classList.add('active');
+  }
+  closeMoreMenu();
   if (name === 'meds') renderMeds();
   if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); renderMedHistory(); }
   if (name === 'family') renderCaregiverNote();
   if (name === 'passport') renderPassport();
   if (name === 'ai') renderAiWelcome();
   }
+
+// Opens/closes the "More" overflow sheet (First Aid, Passport, Assistant),
+// which exists because a 7-item bottom nav was too cramped for mobile.
+// Opening it pushes a history entry so Android's back button/gesture closes
+// the sheet instead of leaving the app or navigating the underlying page.
+function toggleMoreMenu() {
+  const sheet = document.getElementById('more-sheet');
+  const isOpen = sheet.style.display === 'block';
+  if (isOpen) {
+    closeMoreMenu();
+  } else {
+    sheet.style.display = 'block';
+    document.getElementById('more-sheet-backdrop').style.display = 'block';
+    history.pushState({ moreSheet: true }, '');
+  }
+}
+
+function closeMoreMenu() {
+  const sheet = document.getElementById('more-sheet');
+  if (sheet.style.display === 'block' && history.state && history.state.moreSheet) {
+    history.back();
+  } else {
+    sheet.style.display = 'none';
+    document.getElementById('more-sheet-backdrop').style.display = 'none';
+  }
+}
+
+window.addEventListener('popstate', function() {
+  document.getElementById('more-sheet').style.display = 'none';
+  document.getElementById('more-sheet-backdrop').style.display = 'none';
+});
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]) * 60 + parseInt(parts[1]); }
