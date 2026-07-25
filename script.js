@@ -72,7 +72,69 @@ function todayStr() { return new Date().toISOString().split('T')[0]; }
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]) * 60 + parseInt(parts[1]); }
 function dayOfYear(d) { return Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000); }
+let caregiverUnsub = null;
 
+function renderCaregiverDashboard(data) {
+  const bpBox = document.getElementById('cgv-bp');
+  const vitals = data.vitals || [];
+  if (vitals.length === 0) {
+    bpBox.innerHTML = '<div class="empty">No readings yet</div>';
+  } else {
+    const v = vitals[0];
+    bpBox.innerHTML =
+      '<div class="cgv-bp-num">' + v.sys + '/' + v.dia + '</div>' +
+      '<div class="cgv-bp-level" style="background:' + v.color + '">' + v.level + '</div>' +
+      '<div class="cgv-bp-meta">' + v.date + (v.hr ? ' · HR ' + v.hr : '') + '</div>';
+  }
+
+  const medsBox = document.getElementById('cgv-meds');
+  const meds = data.meds || [];
+  const logs = (data.medLogs || {})[todayStr()] || {};
+  if (meds.length === 0) {
+    medsBox.innerHTML = '<div class="empty">No medications added yet</div>';
+  } else {
+    medsBox.innerHTML = meds.map(function (m) {
+      const taken = !!logs[m.id];
+      return '<div class="cgv-row"><span>' + m.name + ' — ' + m.time + '</span>' +
+        '<span class="cgv-badge ' + (taken ? 'cgv-badge-taken' : 'cgv-badge-missed') + '">' + (taken ? '✓ Taken' : 'Not yet') + '</span></div>';
+    }).join('');
+  }
+
+  document.getElementById('cgv-streak').textContent = data.streak || '0';
+  const weekAgo = Date.now() - 7 * 86400000;
+  const weekVitals = vitals.filter(function (v) { return new Date(v.dateISO || v.date).getTime() >= weekAgo; });
+  document.getElementById('cgv-readings').textContent = weekVitals.length;
+
+  const medLogs = data.medLogs || {};
+  let totalPossible = 0, totalTaken = 0;
+  if (meds.length > 0) {
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+      const dayLog = medLogs[d] || {};
+      meds.forEach(function (m) { totalPossible++; if (dayLog[m.id]) totalTaken++; });
+    }
+  }
+  document.getElementById('cgv-adherence').textContent = totalPossible > 0 ? Math.round((totalTaken / totalPossible) * 100) + '%' : '—';
+  document.getElementById('cgv-last-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+function showCaregiverMode(patientUid) {
+  document.getElementById('caregiver-overlay').style.display = 'block';
+  caregiverUnsub = firebase.firestore().collection('users').doc(patientUid)
+    .onSnapshot(function (doc) {
+      if (doc.exists) renderCaregiverDashboard(doc.data());
+    }, function (err) {
+      console.error('Sentra-X: caregiver read failed:', err.message);
+    });
+}
+window.showCaregiverMode = showCaregiverMode;
+
+function hideCaregiverMode() {
+  if (caregiverUnsub) { caregiverUnsub(); caregiverUnsub = null; }
+  const el = document.getElementById('caregiver-overlay');
+  if (el) el.style.display = 'none';
+}
+window.hideCaregiverMode = hideCaregiverMode;
 function completeOnboarding() {
   const name = document.getElementById('ob-name').value.trim();
   const condition = document.getElementById('ob-condition').value;
