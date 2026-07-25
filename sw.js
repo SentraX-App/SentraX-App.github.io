@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sentrax-980c11f';
+const CACHE_NAME = 'sentrax-e032918';
 const CORE_ASSETS = [
   './',
   'index.html',
