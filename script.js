@@ -868,20 +868,26 @@ function sendAiMessage() {
   typingEl.classList.add('typing');
 
   fetch(AI_WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: aiHistory })
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ messages: aiHistory })
+})
+  .then(function(res) {
+    if (!res.ok) {
+      return res.text().then(function(t) { throw new Error('Server error (' + res.status + '): ' + t.slice(0, 150)); });
+    }
+    return res.json();
   })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-      typingEl.remove();
-      appendAiMessage('bot', data.reply);
-      aiHistory.push({ role: 'assistant', content: data.reply });
-    })
-    .catch(function() {
-      typingEl.remove();
-      appendAiMessage('bot', "Sorry, I couldn't connect. Please check your internet connection and try again.");
-    });
+  .then(function(data) {
+    typingEl.remove();
+    appendAiMessage('bot', data.reply);
+    aiHistory.push({ role: 'assistant', content: data.reply });
+  })
+  .catch(function(err) {
+    typingEl.remove();
+    console.error('Sentra-X AI error:', err.message);
+    appendAiMessage('bot', "Sorry, the assistant isn't available right now. Please try again in a moment.");
+  });
 }
 // ---- Camera Heart Rate Check (estimates heart rate only — NOT blood pressure) ----
 let hrStream = null;
