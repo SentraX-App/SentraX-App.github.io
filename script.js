@@ -486,7 +486,24 @@ function saveCaregiver() {
   renderCaregiverNote();
   syncToFirestore({ cgName: name, cgPhone: phone, cgEmail: email });
 }
-
+function generateInviteCode() {
+  const user = firebase.auth().currentUser;
+  if (!user) { alert('Please log in first.'); return; }
+  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+  firebase.firestore().collection('invites').doc(code).set({
+    patientUid: user.uid,
+    patientName: localStorage.getItem('userName') || '',
+    createdAt: Date.now(),
+    expiresAt: expiresAt,
+    usedBy: null
+  }).then(function () {
+    document.getElementById('invite-code-box').style.display = 'block';
+    document.getElementById('invite-code-text').textContent = code;
+  }).catch(function (err) {
+    alert('Could not generate invite code: ' + err.message);
+  });
+}
 function renderCaregiverNote() {
   const name = localStorage.getItem('cgName');
   const note = document.getElementById('cg-saved-note');
