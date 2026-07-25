@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentra-X — Caregiver View</title>
+<meta name="theme-color" content="#0f172a">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: -apple-system, sans-serif;
+    background: radial-gradient(120% 90% at 50% -10%, #16233d 0%, #0f172a 45%, #060a13 100%);
+    color: #f4f6fb;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 18px 60px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 17px; margin-bottom: 26px; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #38bdf8, #1d4ed8); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .tag { font-size: 11.5px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; color: #fb923c; background: rgba(251,146,60,0.14); border: 1px solid rgba(251,146,60,0.3); padding: 4px 10px; border-radius: 100px; margin-left: auto; }
+
+  .card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 20px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 14px; font-size: 12.5px; letter-spacing: 0.4px; text-transform: uppercase; color: #93a0b8; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+  .tab { flex: 1; text-align: center; padding: 10px; border-radius: 10px; font-size: 13.5px; font-weight: 700; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); color: #93a0b8; }
+  .tab.active { background: rgba(56,189,248,0.14); border-color: rgba(56,189,248,0.4); color: #38bdf8; }
+
+  input { width: 100%; padding: 13px 14px; margin-bottom: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #fff; font-size: 15px; }
+  input#cg-code { text-transform: uppercase; letter-spacing: 2px; }
+  input::placeholder { color: #7c8aa5; }
+  button { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: 700; font-size: 15px; cursor: pointer; }
+  .btn-primary { background: linear-gradient(135deg, #38bdf8, #1d4ed8); color: #fff; }
+  .btn-primary:disabled { opacity: 0.6; }
+  .btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; margin-top: 8px; }
+  .error { color: #fca5a5; font-size: 13px; min-height: 18px; margin-bottom: 4px; }
+  .hint { font-size: 12.5px; color: #93a0b8; margin: -4px 0 14px; }
+
+  .empty { color: #7c8aa5; font-size: 13.5px; text-align: center; padding: 10px 0; }
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
+  .row:last-child { border-bottom: none; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 100px; }
+  .badge-taken { background: rgba(52,211,153,0.18); color: #86efac; border: 1px solid rgba(52,211,153,0.35); }
+  .badge-missed { background: rgba(248,113,113,0.16); color: #fca5a5; border: 1px solid rgba(248,113,113,0.32); }
+
+  .bp-num { font-size: 30px; font-weight: 800; }
+  .bp-level { font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 100px; display: inline-block; margin-top: 8px; color: #0f172a; }
+  .bp-meta { color: #93a0b8; font-size: 12.5px; margin-top: 8px; }
+
+  .stat-grid { display: flex; gap: 12px; }
+  .stat { flex: 1; text-align: center; }
+  .stat b { display: block; font-size: 21px; color: #38bdf8; }
+  .stat span { font-size: 11px; color: #93a0b8; }
+
+  #login-view, #dashboard-view, #no-link-view { display: none; }
+  .last-sync { text-align: center; color: #5c6b87; font-size: 11.5px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <span class="brand-mark">✚</span> Sentra-X
+    <span class="tag">Caregiver</span>
+  </div>
+
+  <div id="login-view">
+    <div class="card">
+      <div class="tabs">
+        <div class="tab active" id="tab-join" onclick="cgSwitchTab('join')">I have a code</div>
+        <div class="tab" id="tab-signin" onclick="cgSwitchTab('signin')">Sign In</div>
+      </div>
+
+      <div id="join-form">
+        <p class="hint">Create your own caregiver account using the invite code the patient shared with you.</p>
+        <input type="text" id="cg-code" placeholder="Invite code, e.g. AB12CD" maxlength="10">
+        <input type="email" id="cg-join-email" placeholder="Your email address">
+        <input type="password" id="cg-join-password" placeholder="Choose a password">
+        <div class="error" id="cg-join-error"></div>
+        <button class="btn-primary" id="cg-join-btn" onclick="cgSignUpWithCode()">Link My Account</button>
+      </div>
+
+      <div id="signin-form" style="display:none;">
+        <p class="hint">Already linked before? Sign back in with your caregiver account.</p>
+        <input type="email" id="cg-email" placeholder="Your email address">
+        <input type="password" id="cg-password" placeholder="Your password">
+        <div class="error" id="cg-error"></div>
+        <button class="btn-primary" onclick="cgLogIn()">Sign In</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="no-link-view">
+    <div class="card">
+      <h3>No linked patient yet</h3>
+      <p class="hint" style="margin-bottom:0;">Your account exists but isn't linked to a patient. Ask them for a fresh invite code, then use "I have a code" to link it.</p>
+    </div>
+    <button class="btn-ghost" onclick="cgLogOut()">Sign Out</button>
+  </div>
+
+  <div id="dashboard-view">
+    <div class="card">
+      <h3>Latest Reading</h3>
+      <div id="cg-bp"><div class="empty">No readings yet</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Today's Medications</h3>
+      <div id="cg-meds"><div class="empty">No medications added yet</div></div>
+    </div>
+
+    <div class="card">
+      <h3>This Week</h3>
+      <div class="stat-grid">
+        <div class="stat"><b id="cg-streak">—</b><span>Day streak</span></div>
+        <div class="stat"><b id="cg-adherence">—</b><span>Meds taken</span></div>
+        <div class="stat"><b id="cg-readings">—</b><span>Readings logged</span></div>
+      </div>
+    </div>
+
+    <button class="btn-ghost" onclick="cgLogOut()">Sign Out</button>
+    <div class="last-sync" id="cg-last-sync"></div>
+  </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyCHeWvZzGZVa79m2JvvpkX5Xlvmj8vpdPc",
+    authDomain: "sentra-x.firebaseapp.com",
+    projectId: "sentra-x",
+    storageBucket: "sentra-x.firebasestorage.app",
+    messagingSenderId: "5654480364",
+    appId: "1:5654480364:web:bd6dbe766a1c46edb66cc9"
+  });
+
+  let cgUnsub = null;
+
+  function cgSwitchTab(which) {
+    document.getElementById('tab-join').classList.toggle('active', which === 'join');
+    document.getElementById('tab-signin').classList.toggle('active', which === 'signin');
+    document.getElementById('join-form').style.display = which === 'join' ? 'block' : 'none';
+    document.getElementById('signin-form').style.display = which === 'signin' ? 'block' : 'none';
+  }
+
+  function cgLogIn() {
+    const email = document.getElementById('cg-email').value.trim();
+    const password = document.getElementById('cg-password').value;
+    const err = document.getElementById('cg-error');
+    err.textContent = '';
+    if (!email || !password) { err.textContent = 'Please enter both email and password.'; return; }
+    firebase.auth().signInWithEmailAndPassword(email, password)
+      .catch(function (e) { err.textContent = e.message; });
+  }
+
+  // Creates a brand-new caregiver account, then uses the invite code to link
+  // it to a patient. Three steps, each guarded by its own Firestore rule:
+  // 1) claim the invite (usedBy must currently be empty)
+  // 2) record the link on the caregiver's OWN doc
+  // 3) append the caregiver's uid to the patient's caregiverUids array
+  // If any step fails, the caregiver account still exists but stays unlinked
+  // — they land on the "no linked patient" screen and can retry with a code.
+  function cgSignUpWithCode() {
+    const code = document.getElementById('cg-code').value.trim().toUpperCase();
+    const email = document.getElementById('cg-join-email').value.trim();
+    const password = document.getElementById('cg-join-password').value;
+    const err = document.getElementById('cg-join-error');
+    const btn = document.getElementById('cg-join-btn');
+    err.textContent = '';
+    if (!code || !email || !password) { err.textContent = 'Please fill in the code, email, and password.'; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Linking…';
+    let newUid = null;
+
+    firebase.auth().createUserWithEmailAndPassword(email, password)
+      .then(function (cred) {
+        newUid = cred.user.uid;
+        return firebase.firestore().collection('invites').doc(code).get();
+      })
+      .then(function (inviteDoc) {
+        if (!inviteDoc.exists) throw new Error('That invite code was not found.');
+        const invite = inviteDoc.data();
+        if (invite.usedBy) throw new Error('That invite code has already been used.');
+        if (invite.expiresAt && Date.now() > invite.expiresAt) throw new Error('That invite code has expired — ask for a new one.');
+        const patientUid = invite.patientUid;
+
+        return firebase.firestore().collection('invites').doc(code).update({ usedBy: newUid })
+          .then(function () {
+            return firebase.firestore().collection('caregiverLinks').doc(newUid).set({
+              patientUid: patientUid, claimCode: code, linkedAt: Date.now()
+            });
+          })
+          .then(function () {
+            return firebase.firestore().collection('users').doc(patientUid).update({
+              caregiverUids: firebase.firestore.FieldValue.arrayUnion(newUid)
+            });
+          });
+      })
+      .catch(function (e) {
+        err.textContent = e.message;
+        btn.disabled = false;
+        btn.textContent = 'Link My Account';
+      });
+  }
+
+  function cgLogOut() {
+    if (cgUnsub) { cgUnsub(); cgUnsub = null; }
+    firebase.auth().signOut();
+  }
+
+  function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+  function renderDashboard(data) {
+    const bpBox = document.getElementById('cg-bp');
+    const vitals = data.vitals || [];
+    if (vitals.length === 0) {
+      bpBox.innerHTML = '<div class="empty">No readings yet</div>';
+    } else {
+      const v = vitals[0];
+      bpBox.innerHTML =
+        '<div class="bp-num">' + v.sys + '/' + v.dia + '</div>' +
+        '<div class="bp-level" style="background:' + v.color + '">' + v.level + '</div>' +
+        '<div class="bp-meta">' + v.date + (v.hr ? ' · HR ' + v.hr : '') + '</div>';
+    }
+
+    const medsBox = document.getElementById('cg-meds');
+    const meds = data.meds || [];
+    const logs = (data.medLogs || {})[todayStr()] || {};
+    if (meds.length === 0) {
+      medsBox.innerHTML = '<div class="empty">No medications added yet</div>';
+    } else {
+      medsBox.innerHTML = meds.map(function (m) {
+        const taken = !!logs[m.id];
+        return '<div class="row"><span>' + m.name + ' — ' + m.time + '</span>' +
+          '<span class="badge ' + (taken ? 'badge-taken' : 'badge-missed') + '">' + (taken ? '✓ Taken' : 'Not yet') + '</span></div>';
+      }).join('');
+    }
+
+    document.getElementById('cg-streak').textContent = data.streak || '0';
+    const weekAgo = Date.now() - 7 * 86400000;
+    const weekVitals = vitals.filter(function (v) { return new Date(v.dateISO || v.date).getTime() >= weekAgo; });
+    document.getElementById('cg-readings').textContent = weekVitals.length;
+
+    const medLogs = data.medLogs || {};
+    let totalPossible = 0, totalTaken = 0;
+    if (meds.length > 0) {
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+        const dayLog = medLogs[d] || {};
+        meds.forEach(function (m) { totalPossible++; if (dayLog[m.id]) totalTaken++; });
+      }
+    }
+    document.getElementById('cg-adherence').textContent = totalPossible > 0 ? Math.round((totalTaken / totalPossible) * 100) + '%' : '—';
+    document.getElementById('cg-last-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  }
+
+  function showView(name) {
+    ['login-view', 'no-link-view', 'dashboard-view'].forEach(function (v) {
+      document.getElementById(v).style.display = v === name ? 'block' : 'none';
+    });
+  }
+
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (cgUnsub) { cgUnsub(); cgUnsub = null; }
+    if (!user) { showView('login-view'); return; }
+
+    firebase.firestore().collection('caregiverLinks').doc(user.uid).get()
+      .then(function (linkDoc) {
+        if (!linkDoc.exists) { showView('no-link-view'); return; }
+        const patientUid = linkDoc.data().patientUid;
+        showView('dashboard-view');
+        cgUnsub = firebase.firestore().collection('users').doc(patientUid)
+          .onSnapshot(function (doc) {
+            if (doc.exists) renderDashboard(doc.data());
+          }, function (err) {
+            console.error('Sentra-X Caregiver: read failed:', err.message);
+          });
+      })
+      .catch(function (err) {
+        console.error('Sentra-X Caregiver: link lookup failed:', err.message);
+        showView('no-link-view');
+      });
+  });
+</script>
+</body>
+</html>
