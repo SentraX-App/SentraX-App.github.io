@@ -347,7 +347,7 @@ function checkDueMeds() {
     if (Notification.permission === 'granted' && !sessionStorage.getItem('notified-' + today)) {
       if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
         navigator.serviceWorker.getRegistration().then(function(reg) {
-          if (reg) reg.showNotification('Sentra-X reminder', { body: 'Time for: ' + names });
+          if (reg) reg.showNotification('Sentra-X reminder', { body: 'Time for: ' + names, icon: 'icon-192-1.png', badge: 'icon-192-1.png' });
         });
       }
       sessionStorage.setItem('notified-' + today, '1');
@@ -358,6 +358,7 @@ function checkDueMeds() {
 }
 
 function enableReminders() {
+  if ('Notification' in window && Notification.permission === 'granted') { document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled'; }
   if (!('Notification' in window)) { alert('Notifications are not supported on this browser.'); return; }
   Notification.requestPermission().then(function(perm) {
     document.getElementById('enable-btn').textContent = perm === 'granted' ? '🔔 Reminders Enabled' : '🔔 Enable Reminder Alerts';
