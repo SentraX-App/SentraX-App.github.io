@@ -137,6 +137,25 @@ nav button:active { transform: none; }
 nav button .icon { display: block; font-size: 21px; margin-bottom: 2px; filter: grayscale(1) opacity(0.6); }
 nav button.active { color: #60a5fa; border-top: 3px solid #3b82f6; }
 nav button.active .icon { filter: none; }
+#more-sheet-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40;
+}
+#more-sheet {
+  position: fixed; left: 0; right: 0; bottom: 84px; z-index: 41;
+  background: rgba(15, 23, 42, 0.97);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.08); border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 10px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+}
+#more-sheet button {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  background: none; box-shadow: none; color: #cbd5e1;
+  border-radius: 10px; padding: 12px 10px; margin: 2px 0;
+  font-size: 14px; font-weight: 600; text-align: left; border-top: none;
+}
+#more-sheet button .icon { font-size: 18px; margin-bottom: 0; filter: none; display: inline; }
+#more-sheet button.active { background: rgba(96,165,250,0.12); color: #60a5fa; }
 .empty { color: #64748b; text-align: center; padding: 24px 0; font-size: 14px; }
 #onboarding-overlay {
   position: fixed; inset: 0;
@@ -187,4 +206,5 @@ nav button.active .icon { filter: none; }
 .checkin-toggle { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
 .radar-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
 .radar-grid .radar-item { flex: 1 1 28%; padding: 8px 4px; }
+
   
