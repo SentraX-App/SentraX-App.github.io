@@ -20,6 +20,15 @@ const BADGES = [
 
 function showScreen(name) {
   expireOldMeds();
+
+  // One-time notification prompt for existing users who never got asked.
+  // Runs on their first real tap after logging in (not on page load) so it
+  // counts as a genuine user action to the browser.
+  if ('Notification' in window && Notification.permission === 'default' && !localStorage.getItem('notif-auto-prompted')) {
+    localStorage.setItem('notif-auto-prompted', '1');
+    enableReminders();
+  }
+
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.querySelectorAll('nav button').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById('nav-firstaid').classList.remove('active');
@@ -36,8 +45,7 @@ function showScreen(name) {
   if (name === 'family') renderCaregiverNote();
   if (name === 'passport') renderPassport();
   if (name === 'ai') renderAiWelcome();
-  }
-
+}
 // Opens/closes the "More" overflow sheet (First Aid, Passport, Assistant),
 // which exists because a 7-item bottom nav was too cramped for mobile.
 // Opening it pushes a history entry so Android's back button/gesture closes
