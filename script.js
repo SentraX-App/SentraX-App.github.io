@@ -144,6 +144,13 @@ function completeOnboarding() {
   document.getElementById('onboarding-overlay').style.display = 'none';
   renderGreeting();
   syncToFirestore({ userName: name, userCondition: condition });
+
+  // Prompt for notification permission right away, while we're still inside
+  // the tap that just completed onboarding. Browsers require this to be
+  // tied to a real user action, so this is the correct moment to ask.
+  if ('Notification' in window && Notification.permission === 'default') {
+    enableReminders();
+  }
 }
 
 function renderGreeting() {
