@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Sentra-X</title>
+<meta name="theme-color" content="#0f172a">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: -apple-system, sans-serif;
+    background: #0f172a; color: #f1f5f9; line-height: 1.65;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 40px 22px 70px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 17px; margin-bottom: 8px; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #152E4D, #C9A25E); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .updated { color: #94a3b8; font-size: 13px; margin-bottom: 36px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 17px; color: #93c5fd; margin: 36px 0 10px; }
+  p, li { color: #cbd5e1; font-size: 14.5px; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  a { color: #60a5fa; }
+  .note { background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); border-radius: 14px; padding: 16px 18px; font-size: 13.5px; color: #94a3b8; margin: 28px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); color: #cbd5e1; vertical-align: top; }
+  th { color: #93c5fd; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.3px; }
+  footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); color: #94a3b8; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand"><span class="brand-mark">✚</span> Sentra-X</div>
+  <h1>Privacy Policy</h1>
+  <div class="updated">Last updated: July 26, 2026</div>
+
+  <p>Sentra-X ("we," "the app") helps you track vitals, manage medication, and stay connected with a caregiver. This page explains what information the app collects, why, and who it's shared with.</p>
+
+  <div class="note">Sentra-X is currently in testing. This policy will be reviewed and formalized before any wider public release.</div>
+
+  <h2>What We Collect</h2>
+  <p>When you use Sentra-X, we collect information you provide directly:</p>
+  <table>
+    <tr><th>Category</th><th>Examples</th></tr>
+    <tr><td>Account</td><td>Email address, password (handled securely by Firebase Authentication — we never see your raw password)</td></tr>
+    <tr><td>Profile</td><td>Your first name, a general health condition you choose to share</td></tr>
+    <tr><td>Vitals</td><td>Blood pressure, heart rate, weight readings you log, and timestamps</td></tr>
+    <tr><td>Medications</td><td>Medication names, schedules, and whether doses were marked taken</td></tr>
+    <tr><td>Health Passport</td><td>Optional fields you choose to fill in: blood group, genotype, allergies, conditions, medical history, vaccinations, height, physician, insurance info, emergency contact</td></tr>
+    <tr><td>Caregiver info</td><td>A caregiver's name, phone number, and email, if you choose to add one</td></tr>
+    <tr><td>AI Assistant</td><td>Messages you send to the in-app health assistant</td></tr>
+  </table>
+  <p>You choose what to enter. Nothing listed above is required to use the core app beyond an account.</p>
+
+  <h2>How We Use It</h2>
+  <ul>
+    <li>To show you your own data back (vitals history, medication schedule, adherence stats)</li>
+    <li>To send you medication reminders, on your device</li>
+    <li>To alert a caregiver you've added — by SMS, email, or a WhatsApp message you send yourself — if a dose is significantly overdue or a reading is high-risk</li>
+    <li>To let a linked caregiver view (never edit) your data through their own separate account, only if you generate and share an invite code with them</li>
+    <li>To respond to questions you ask the AI health assistant</li>
+  </ul>
+  <p>We do not sell your data, and we do not use it for advertising.</p>
+
+  <h2>Who We Share It With</h2>
+  <p>We use a small number of external services to run the app. Each only receives the specific data needed to do its job:</p>
+  <table>
+    <tr><th>Service</th><th>What it's for</th><th>What it receives</th></tr>
+    <tr><td>Google Firebase</td><td>Account login and data storage</td><td>Your account data and everything you log in the app</td></tr>
+    <tr><td>Anthropic (via a Cloudflare Worker)</td><td>Powers the AI health assistant</td><td>Only the messages you send to the assistant — not your vitals, medications, or account info</td></tr>
+    <tr><td>EmailJS</td><td>Sends caregiver alert emails</td><td>Your caregiver's email address and the alert message</td></tr>
+    <tr><td>Termii</td><td>Sends caregiver alert SMS</td><td>Your caregiver's phone number and the alert message</td></tr>
+    <tr><td>WhatsApp</td><td>Lets you manually send an alert or invite link</td><td>Only what's in the message you choose to send — this opens WhatsApp on your own device, we don't transmit anything to WhatsApp ourselves</td></tr>
+  </table>
+
+  <h2>Data Security</h2>
+  <p>Your data is protected by access rules that only allow your own account (and a caregiver you've explicitly linked) to read it. No one else can access your health data through the app.</p>
+
+  <h2>Your Choices</h2>
+  <ul>
+    <li>Any Health Passport field is optional and can be left blank or cleared at any time</li>
+    <li>You can stop sharing with a caregiver by not generating new invite codes; a linked caregiver's access can currently be removed by contacting us (see below)</li>
+    <li>You can request deletion of your account and all associated data at any time by contacting us</li>
+  </ul>
+
+  <h2>Children's Privacy</h2>
+  <p>Sentra-X is not intended for children under 16. We do not knowingly collect data from children.</p>
+
+  <h2>Changes to This Policy</h2>
+  <p>If this policy changes in a way that affects how your data is used, we'll update the date at the top of this page.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about your data or this policy? Reach out at <a href="mailto:Sentraxhealthsystemsltd@gmail.com">Sentraxhealthsystemsltd@gmail.com</a>.</p>
+
+  <footer>
+    Sentra-X — family health protection. <a href="https://sentrax-app.github.io/">Back to the app →</a>
+  </footer>
+
+</div>
+</body>
+                     </html>
