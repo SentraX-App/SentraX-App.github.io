@@ -41,37 +41,39 @@ self.addEventListener('activate', function (event) {
 self.addEventListener('fetch', function (event) {
   const request = event.request;
 
-  // Only handle same-origin GET requests. Everything else (Firebase auth/
-  // Firestore calls, the CDN qrcode script, POSTs, etc.) is left completely
-  // untouched so a flaky third-party connection never gets turned into a
-  // broken page by this service worker.
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) {
     return;
   }
 
-  // Page navigations (loading "/" or the app itself): try the network, but
-  // ALWAYS fall back to the cached app shell — never to an exact-URL cache
-  // lookup, since a navigation request for "/" never matches the
-  // "index.html" cache entry. That mismatch is what was producing the
-  // intermittent "there was a problem loading this page" error.
   if (request.mode === 'navigate') {
+    const url = new URL(request.url);
+    const isAppShell = url.pathname === '/' || url.pathname.endsWith('/index.html');
+    const cacheKey = isAppShell ? 'index.html' : url.pathname.replace(/^\//, '');
+
     event.respondWith(
       fetch(request).then(function (response) {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then(function (cache) { cache.put('index.html', copy); });
+        caches.open(CACHE_NAME).then(function (cache) { cache.put(cacheKey, copy); });
         return response;
       }).catch(function () {
-        return caches.match('index.html', { ignoreSearch: true }).then(function (cached) {
-          return cached || Response.error();
+        return caches.match(cacheKey, { ignoreSearch: true }).then(function (cached) {
+          if (cached) return cached;
+          // Only the app itself gets an offline app-shell fallback. Other
+          // pages (download.html, caregiver.html, privacy.html) have no
+          // meaningful offline substitute, so let the browser show its own
+          // "no connection" message instead of silently swapping in the app.
+          if (isAppShell) {
+            return caches.match('index.html', { ignoreSearch: true }).then(function (shell) {
+              return shell || Response.error();
+            });
+          }
+          return Response.error();
         });
       })
     );
     return;
   }
 
-  // Other same-origin static assets: network first, cache fallback.
-  // Resolve with Response.error() instead of undefined on a total miss —
-  // resolving a fetch handler with undefined is what was crashing loads.
   event.respondWith(
     fetch(request).then(function (response) {
       const copy = response.clone();
