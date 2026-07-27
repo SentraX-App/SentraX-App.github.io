@@ -17,7 +17,17 @@ const BADGES = [
   { id: 'month', emoji: '🏆', name: '30-Day Streak', test: function(d) { return d.streak >= 30; } },
   { id: 'family', emoji: '👪', name: 'Caregiver Connected', test: function(d) { return !!d.cgPhone; } }
 ];
-
+// Escapes text before it's inserted via innerHTML, so a medication name or
+// other free-text field (which syncs to Firestore and can render in a
+// caregiver's browser) can never be interpreted as HTML/script.
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 function showScreen(name) {
   expireOldMeds();
 
@@ -91,8 +101,8 @@ function renderCaregiverDashboard(data) {
     const v = vitals[0];
     bpBox.innerHTML =
       '<div class="cgv-bp-num">' + v.sys + '/' + v.dia + '</div>' +
-      '<div class="cgv-bp-level" style="background:' + v.color + '">' + v.level + '</div>' +
-      '<div class="cgv-bp-meta">' + v.date + (v.hr ? ' · HR ' + v.hr : '') + '</div>';
+      '<div class="cgv-bp-level" style="background:' + v.color + '">' + escapeHtml(v.level) + '</div>' +
+      '<div class="cgv-bp-meta">' + escapeHtml(v.date) + (v.hr ? ' · HR ' + escapeHtml(v.hr) : '') + '</div>';
   }
 
   const medsBox = document.getElementById('cgv-meds');
@@ -103,7 +113,7 @@ function renderCaregiverDashboard(data) {
   } else {
     medsBox.innerHTML = meds.map(function (m) {
       const taken = !!logs[m.id];
-      return '<div class="cgv-row"><span>' + m.name + ' — ' + m.time + '</span>' +
+      return '<div class="cgv-row"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + '</span>' +
         '<span class="cgv-badge ' + (taken ? 'cgv-badge-taken' : 'cgv-badge-missed') + '">' + (taken ? '✓ Taken' : 'Not yet') + '</span></div>';
     }).join('');
   }
@@ -340,7 +350,7 @@ function renderMedHistory() {
     const expiryText = h.expiryDate ? new Date(h.expiryDate).toLocaleDateString() : '—';
     const statusText = h.completed ? 'Completed' : 'Ended';
     return '<div class="med-history-card">' +
-        '<div class="med-history-name">💊 ' + h.name + '</div>' +
+        '<div class="med-history-name">💊 ' + escapeHtml(h.name) + '</div>' +
         '<div class="med-history-details">' +
           '<div class="med-history-row"><span class="med-history-icon">📅</span><span class="med-history-label">Started:</span><span class="med-history-value">' + startText + '</span></div>' +
           '<div class="med-history-row"><span class="med-history-icon">⏳</span><span class="med-history-label">Expired:</span><span class="med-history-value">' + expiryText + '</span></div>' +
@@ -394,7 +404,7 @@ function renderMeds() {
     const left = daysLeft(m);
     let leftText = '';
     if (left !== null) { leftText = ' <small style="color:#94a3b8;">(' + left + (left === 1 ? ' day left)' : ' days left)') + '</small>'; }
-    return '<div class="med-row"><span>' + m.name + ' — ' + m.time + leftText + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? '✓ Taken' : 'Mark Taken') + '</button></div>';
+    return '<div class="med-row"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + leftText + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? '✓ Taken' : 'Mark Taken') + '</button></div>';
   }).join('');
   checkDueMeds();
 }
@@ -447,7 +457,7 @@ function renderHistory() {
   const list = document.getElementById('history-list');
   if (vitals.length === 0) { list.innerHTML = '<div class="empty">No readings logged yet</div>'; return; }
   list.innerHTML = vitals.map(function(v) {
-    return '<div class="history-row" style="background:' + v.color + '"><b>' + v.sys + '/' + v.dia + '</b> — ' + v.level + '<br><small>' + v.date + (v.hr ? ' · HR ' + v.hr : '') + (v.weight ? ' · ' + v.weight + 'kg' : '') + '</small></div>';
+    return '<div class="history-row" style="background:' + v.color + '"><b>' + v.sys + '/' + v.dia + '</b> — ' + escapeHtml(v.level) + '<br><small>' + escapeHtml(v.date) + (v.hr ? ' · HR ' + escapeHtml(v.hr) : '') + (v.weight ? ' · ' + escapeHtml(v.weight) + 'kg' : '') + '</small></div>';
   }).join('');
 }
 
