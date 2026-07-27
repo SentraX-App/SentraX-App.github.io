@@ -74,6 +74,10 @@ button.call { background: rgba(255,255,255,0.10); color: #fca5a5; box-shadow: no
   border: 1px solid rgba(248,113,113,0.35);
   padding: 13px 16px; border-radius: 14px; margin-bottom: 14px; font-size: 14px; font-weight: 600;
 }
+.alert-banner.caution {
+  background: rgba(251,191,36,0.15); color: #fbbf24;
+  border-color: rgba(251,191,36,0.35);
+}
 .tip-card { background: rgba(52,211,153,0.10); border-color: rgba(52,211,153,0.25); }
 .tip-card h3 { color: #6ee7b7 !important; }
 .tip-card p { margin: 4px 0 0; color: #a7f3d0; font-size: 14px; }
