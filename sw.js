@@ -49,6 +49,7 @@ self.addEventListener('fetch', function (event) {
   if (request.mode === 'navigate') {
     const url = new URL(request.url);
     const isAppShell = url.pathname === '/' || url.pathname.endsWith('/index.html');
+    const isCaregiverPage = url.pathname.endsWith('/caregiver.html');
     const cacheKey = isAppShell ? 'index.html' : url.pathname.replace(/^\//, '');
 
     event.respondWith(
@@ -59,12 +60,19 @@ self.addEventListener('fetch', function (event) {
       }).catch(function () {
         return caches.match(cacheKey, { ignoreSearch: true }).then(function (cached) {
           if (cached) return cached;
-          // Only the app itself gets an offline app-shell fallback. Other
-          // pages (download.html, caregiver.html, privacy.html) have no
-          // meaningful offline substitute, so let the browser show its own
-          // "no connection" message instead of silently swapping in the app.
+          // The app shell and the caregiver page get an offline fallback —
+          // both are static shells that pull live data separately via
+          // Firebase, so serving the cached HTML is safe even when the
+          // network request itself fails. Other pages (download.html,
+          // privacy.html) have no meaningful offline substitute, so let
+          // the browser show its own "no connection" message.
           if (isAppShell) {
             return caches.match('index.html', { ignoreSearch: true }).then(function (shell) {
+              return shell || Response.error();
+            });
+          }
+          if (isCaregiverPage) {
+            return caches.match('caregiver.html', { ignoreSearch: true }).then(function (shell) {
               return shell || Response.error();
             });
           }
