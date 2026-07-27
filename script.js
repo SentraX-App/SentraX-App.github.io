@@ -757,17 +757,22 @@ function renderHealthRadar() {
 
 const BLOOD_GROUPS = ["Don't know", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENOTYPES = ["Don't know", "AA", "AS", "SS", "AC", "SC"];
+const SEXES = ["Prefer not to say", "Female", "Male", "Intersex"];
 
 function populatePassportSelects() {
   const bgSelect = document.getElementById('pp-bloodgroup');
   const gtSelect = document.getElementById('pp-genotype');
+  const sexSelect = document.getElementById('pp-sex');
   if (!bgSelect || !gtSelect) return;
   bgSelect.innerHTML = BLOOD_GROUPS.map(function(g) { return '<option value="' + g + '">' + g + '</option>'; }).join('');
   gtSelect.innerHTML = GENOTYPES.map(function(g) { return '<option value="' + g + '">' + g + '</option>'; }).join('');
+  if (sexSelect) sexSelect.innerHTML = SEXES.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
 }
 
 function savePassport() {
   const passport = {
+    sex: document.getElementById('pp-sex').value,
+    age: document.getElementById('pp-age').value,
     bloodGroup: document.getElementById('pp-bloodgroup').value,
     genotype: document.getElementById('pp-genotype').value,
     allergies: document.getElementById('pp-allergies').value.trim(),
@@ -789,6 +794,8 @@ function savePassport() {
 function renderPassport() {
   const saved = JSON.parse(localStorage.getItem('passport') || '{}');
   populatePassportSelects();
+  if (saved.sex) document.getElementById('pp-sex').value = saved.sex;
+  document.getElementById('pp-age').value = saved.age || '';
   if (saved.bloodGroup) document.getElementById('pp-bloodgroup').value = saved.bloodGroup;
   if (saved.genotype) document.getElementById('pp-genotype').value = saved.genotype;
   document.getElementById('pp-allergies').value = saved.allergies || '';
@@ -810,6 +817,8 @@ function buildPassportSummary() {
   const lines = [
     'SENTRA-X MEDICAL PASSPORT',
     'Name: ' + name,
+    'Sex: ' + (p.sex || 'Not listed'),
+    'Age: ' + (p.age || 'Not listed'),
     'Blood Group: ' + (p.bloodGroup || 'Unknown'),
     'Genotype: ' + (p.genotype || 'Unknown'),
     'Allergies: ' + (p.allergies || 'None listed'),
@@ -927,6 +936,8 @@ function measureHeartRate() {
   box.style.display = 'block';
   status.textContent = 'Starting camera…';
   hrSamples = [];
+  const alertBox = document.getElementById('hr-pattern-alert');
+  if (alertBox) alertBox.style.display = 'none';
 
   navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
     .then(function (stream) {
@@ -978,19 +989,33 @@ function hrTick() {
 
 function finishHeartRateMeasure() {
   const status = document.getElementById('hr-status');
-  const bpm = calculateBpmFromSamples(hrSamples);
+  const alertBox = document.getElementById('hr-pattern-alert');
+  const reading = calculateBpmFromSamples(hrSamples);
   stopHeartRateCamera();
 
-  if (bpm) {
-    document.getElementById('heartrate').value = bpm;
-    status.textContent = 'Estimated heart rate: ' + bpm + ' bpm (added below)';
+  if (alertBox) alertBox.style.display = 'none';
+
+  let patternAbnormal = false;
+  if (reading) {
+    document.getElementById('heartrate').value = reading.bpm;
+    status.textContent = 'Estimated heart rate: ' + reading.bpm + ' bpm (added below)';
+
+    const pattern = analyzeHeartRatePattern(reading.bpm, reading.peakTimes);
+    patternAbnormal = pattern.abnormal;
+    if (patternAbnormal && alertBox) {
+      document.getElementById('hr-pattern-text').textContent =
+        'Your pulse looked ' + pattern.reasons.join(' and ') + ' during this reading. It could be nothing — activity, caffeine, or just holding the phone can cause this — but it\'s worth checking your blood pressure manually to be safe.';
+      alertBox.style.display = 'block';
+    }
   } else {
     status.textContent = 'Could not get a clear reading. Try again, holding still.';
   }
 
-  setTimeout(function () {
-    document.getElementById('hr-measure-box').style.display = 'none';
-  }, 2500);
+  if (!patternAbnormal) {
+    setTimeout(function () {
+      document.getElementById('hr-measure-box').style.display = 'none';
+    }, 2500);
+  }
 }
 
 function calculateBpmFromSamples(samples) {
@@ -1023,6 +1048,7 @@ function calculateBpmFromSamples(samples) {
   let peaks = 0;
   let rising = false;
   let lastPeakT = -Infinity;
+  const peakTimes = [];
   for (let i = 1; i < values.length; i++) {
     const above = values[i] > baseline[i];
     if (above && values[i] > values[i - 1] && !rising) {
@@ -1031,6 +1057,7 @@ function calculateBpmFromSamples(samples) {
       if (t - lastPeakT >= REFRACTORY_MS) {
         peaks++;
         lastPeakT = t;
+        peakTimes.push(t);
       }
     } else if (!above) {
       rising = false;
@@ -1042,7 +1069,40 @@ function calculateBpmFromSamples(samples) {
 
   const bpm = Math.round(peaks / durationMinutes);
   if (bpm < 40 || bpm > 200) return null;
-  return bpm;
+  return { bpm: bpm, peakTimes: peakTimes };
+}
+
+// ---- Heart rate PATTERN analysis (rate + rhythm only) ----
+// Flags a fast/slow/uneven pulse and nudges the user toward a real manual
+// BP reading. This never estimates blood pressure itself.
+const HR_TACHY_BPM = 100;
+const HR_BRADY_BPM = 50;
+const HR_RHYTHM_COV_THRESHOLD = 0.15;
+const HR_MIN_PEAKS_FOR_RHYTHM = 6;
+
+function analyzeHeartRatePattern(bpm, peakTimes) {
+  const reasons = [];
+  if (bpm >= HR_TACHY_BPM) reasons.push('unusually fast (' + bpm + ' bpm)');
+  if (bpm > 0 && bpm < HR_BRADY_BPM) reasons.push('unusually slow (' + bpm + ' bpm)');
+
+  if (peakTimes && peakTimes.length >= HR_MIN_PEAKS_FOR_RHYTHM) {
+    const intervals = [];
+    for (let i = 1; i < peakTimes.length; i++) intervals.push(peakTimes[i] - peakTimes[i - 1]);
+    const mean = intervals.reduce(function(a, b) { return a + b; }, 0) / intervals.length;
+    const variance = intervals.reduce(function(a, b) { return a + Math.pow(b - mean, 2); }, 0) / intervals.length;
+    const cov = mean > 0 ? Math.sqrt(variance) / mean : 0;
+    if (cov > HR_RHYTHM_COV_THRESHOLD) reasons.push('an irregular beat-to-beat rhythm');
+  }
+
+  return { abnormal: reasons.length > 0, reasons: reasons };
+}
+
+function focusBpFields() {
+  const sysField = document.getElementById('systolic');
+  if (sysField) {
+    sysField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    sysField.focus();
+  }
 }
 
 function stopHeartRateCamera() {
@@ -1057,4 +1117,6 @@ function cancelHeartRateMeasure() {
   stopHeartRateCamera();
   document.getElementById('hr-status').textContent = 'Cancelled.';
   document.getElementById('hr-measure-box').style.display = 'none';
-    }
+  const alertBox = document.getElementById('hr-pattern-alert');
+  if (alertBox) alertBox.style.display = 'none';
+}
