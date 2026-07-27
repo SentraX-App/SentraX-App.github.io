@@ -212,6 +212,18 @@
 
   function todayStr() { return new Date().toISOString().split('T')[0]; }
 
+  // Escapes text before it's inserted via innerHTML, so a medication name or
+  // other free-text field the patient entered can never be interpreted as
+  // HTML/script when it renders here in the caregiver's browser.
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function renderDashboard(data) {
     const bpBox = document.getElementById('cg-bp');
     const vitals = data.vitals || [];
@@ -221,8 +233,8 @@
       const v = vitals[0];
       bpBox.innerHTML =
         '<div class="bp-num">' + v.sys + '/' + v.dia + '</div>' +
-        '<div class="bp-level" style="background:' + v.color + '">' + v.level + '</div>' +
-        '<div class="bp-meta">' + v.date + (v.hr ? ' · HR ' + v.hr : '') + '</div>';
+        '<div class="bp-level" style="background:' + v.color + '">' + escapeHtml(v.level) + '</div>' +
+        '<div class="bp-meta">' + escapeHtml(v.date) + (v.hr ? ' · HR ' + escapeHtml(v.hr) : '') + '</div>';
     }
 
     const medsBox = document.getElementById('cg-meds');
@@ -233,7 +245,7 @@
     } else {
       medsBox.innerHTML = meds.map(function (m) {
         const taken = !!logs[m.id];
-        return '<div class="row"><span>' + m.name + ' — ' + m.time + '</span>' +
+        return '<div class="row"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + '</span>' +
           '<span class="badge ' + (taken ? 'badge-taken' : 'badge-missed') + '">' + (taken ? '✓ Taken' : 'Not yet') + '</span></div>';
       }).join('');
     }
