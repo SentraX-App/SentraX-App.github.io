@@ -5,7 +5,6 @@ const CORE_ASSETS = [
   'caregiver.html',
   'privacy.html',
   'style.css',
-  ...
   'script.js',
   'auth.js',
   'manifest.json',
