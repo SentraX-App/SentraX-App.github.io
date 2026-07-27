@@ -143,8 +143,13 @@
   <video id="hr-video" autoplay playsinline muted style="width:1px;height:1px;position:absolute;opacity:0;"></video>
   <canvas id="hr-canvas" width="50" height="50" style="display:none;"></canvas>
   <p style="font-size:13px;color:#94a3b8;text-align:center;margin:8px 0 4px;">Cover the rear camera and flash fully with your fingertip. Hold still for 20 seconds.</p>
-  <p id="hr-status" style="text-align:center;font-size:14px;color:#93c5fd;">Starting camera…</p>
+<p id="hr-status" style="text-align:center;font-size:14px;color:#93c5fd;">Starting camera…</p>
   <button type="button" class="secondary" onclick="cancelHeartRateMeasure()">Cancel</button>
+  <div id="hr-pattern-alert" style="display:none;margin-top:10px;padding:10px;border-radius:10px;background:#3f2d0f;border:1px solid #fbbf24;">
+    <p id="hr-pattern-text" style="font-size:13px;color:#fde68a;margin:0 0 8px;"></p>
+    <p style="font-size:11px;color:#fde68a;opacity:0.85;margin:0 0 8px;">This is based on your pulse rate/rhythm only — it is not a blood pressure reading. If you feel unwell, seek medical care.</p>
+    <button type="button" class="secondary" onclick="focusBpFields()">Check Blood Pressure Now</button>
+  </div>
 </div>
       <input type="number" id="weight" placeholder="Weight in kg (optional)">
       <button onclick="checkBP()">Save & Check My Risk</button>
@@ -314,8 +319,11 @@
     <div class="card">
       <h3>Medical Passport</h3>
       <p style="color:#94a3b8;font-size:13px;margin-top:0;">Kept safely in your account. Fill in what you know — nothing here is required.</p>
-      <label style="font-size:12px;color:#93c5fd;">Blood Group</label>
-      <select id="pp-bloodgroup"></select>
+<label style="font-size:12px;color:#93c5fd;">Sex</label>
+<select id="pp-sex"></select>
+<input type="number" id="pp-age" placeholder="Age">
+<label style="font-size:12px;color:#93c5fd;">Blood Group</label>
+<select id="pp-bloodgroup"></select>
       <label style="font-size:12px;color:#93c5fd;">Genotype</label>
       <select id="pp-genotype"></select>
       <input type="text" id="pp-allergies" placeholder="Allergies (e.g. Penicillin)">
