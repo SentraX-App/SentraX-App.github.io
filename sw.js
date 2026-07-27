@@ -67,6 +67,11 @@ self.addEventListener('fetch', function (event) {
             return response;
           }).catch(function () { return null; });
 
+          // Keep the service worker alive until the background refresh
+          // actually finishes, so the cache reliably gets updated even
+          // after we've already responded from cache.
+          event.waitUntil(networkFetch);
+
           return cached || networkFetch.then(function (r) { return r || Response.error(); });
         })
       );
