@@ -54,6 +54,25 @@ self.addEventListener('fetch', function (event) {
     const isPrivacyPage = url.pathname.endsWith('/privacy.html');
     const cacheKey = isAppShell ? 'index.html' : url.pathname.replace(/^\//, '');
 
+    if (isAppShell) {
+      // Stale-while-revalidate: show the cached shell instantly so the app
+      // opens fast every time, then quietly refresh the cache in the
+      // background for the next open. Trade-off: a fresh push may take one
+      // extra app-open to actually appear on screen.
+      event.respondWith(
+        caches.match(cacheKey, { ignoreSearch: true }).then(function (cached) {
+          const networkFetch = fetch(request).then(function (response) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then(function (cache) { cache.put(cacheKey, copy); });
+            return response;
+          }).catch(function () { return null; });
+
+          return cached || networkFetch.then(function (r) { return r || Response.error(); });
+        })
+      );
+      return;
+    }
+
     event.respondWith(
       fetch(request).then(function (response) {
         const copy = response.clone();
@@ -68,11 +87,6 @@ self.addEventListener('fetch', function (event) {
           // network request itself fails. Other pages (download.html,
           // privacy.html) have no meaningful offline substitute, so let
           // the browser show its own "no connection" message.
-          if (isAppShell) {
-            return caches.match('index.html', { ignoreSearch: true }).then(function (shell) {
-              return shell || Response.error();
-            });
-          }
           if (isCaregiverPage) {
             return caches.match('caregiver.html', { ignoreSearch: true }).then(function (shell) {
               return shell || Response.error();
