@@ -1,9 +1,11 @@
-const CACHE_NAME = 'sentrax-85fb7a6';
+const CACHE_NAME = 'sentrax-c948f41-3';
 const CORE_ASSETS = [
   './',
   'index.html',
   'caregiver.html',
+  'privacy.html',
   'style.css',
+  ...
   'script.js',
   'auth.js',
   'manifest.json',
@@ -50,6 +52,7 @@ self.addEventListener('fetch', function (event) {
     const url = new URL(request.url);
     const isAppShell = url.pathname === '/' || url.pathname.endsWith('/index.html');
     const isCaregiverPage = url.pathname.endsWith('/caregiver.html');
+    const isPrivacyPage = url.pathname.endsWith('/privacy.html');
     const cacheKey = isAppShell ? 'index.html' : url.pathname.replace(/^\//, '');
 
     event.respondWith(
@@ -73,6 +76,11 @@ self.addEventListener('fetch', function (event) {
           }
           if (isCaregiverPage) {
             return caches.match('caregiver.html', { ignoreSearch: true }).then(function (shell) {
+              return shell || Response.error();
+            });
+          }
+          if (isPrivacyPage) {
+            return caches.match('privacy.html', { ignoreSearch: true }).then(function (shell) {
               return shell || Response.error();
             });
           }
