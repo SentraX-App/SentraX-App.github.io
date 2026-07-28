@@ -848,7 +848,18 @@ function generatePassportQR() {
   new QRCode(box, { text: summary, width: 200, height: 200, colorDark: '#0f172a', colorLight: '#ffffff' });
   document.getElementById('qr-hint').style.display = 'block';
 }
-
+// Reuses buildPassportSummary() (already includes Age/Sex) and escapeHtml()
+// so this can never introduce a new injection point. Renders into a
+// print-only area (hidden on screen, shown only inside @media print) so it
+// works the same in a plain browser tab and inside the wrapped Android app,
+// where window.open()-based printing is unreliable.
+function printPassport() {
+  const summary = buildPassportSummary();
+  const area = document.getElementById('passport-print-area');
+  if (!area) return;
+  area.innerHTML = escapeHtml(summary).replace(/\n/g, '<br>');
+  window.print();
+}
 function refreshAllUI() {
   renderGreeting();
   renderTip();
