@@ -1141,26 +1141,16 @@ function analyzeHeartRatePattern(bpm, peakTimes) {
   if (bpm >= HR_TACHY_BPM) reasons.push('unusually fast (' + bpm + ' bpm)');
   if (bpm > 0 && bpm < HR_BRADY_BPM) reasons.push('unusually slow (' + bpm + ' bpm)');
 
-  if (peakTimes && peakTimes.length >= HR_MIN_PEAKS_FOR_RHYTHM) {
-    const intervals = [];
-    for (let i = 1; i < peakTimes.length; i++) intervals.push(peakTimes[i] - peakTimes[i - 1]);
-
-    // Trim the single longest and shortest interval — the detections most
-    // likely to be a one-off missed/doubled beat rather than a real rhythm
-    // change — before judging variability.
-    const sorted = intervals.slice().sort(function (a, b) { return a - b; });
-    const trimmed = sorted.slice(1, sorted.length - 1);
-
-    if (trimmed.length >= HR_MIN_PEAKS_FOR_RHYTHM - 2) {
-      const mean = trimmed.reduce(function(a, b) { return a + b; }, 0) / trimmed.length;
-      const variance = trimmed.reduce(function(a, b) { return a + Math.pow(b - mean, 2); }, 0) / trimmed.length;
-      const cov = mean > 0 ? Math.sqrt(variance) / mean : 0;
-      if (cov > HR_RHYTHM_COV_THRESHOLD) reasons.push('an irregular beat-to-beat rhythm');
-    }
-  }
+  // Rhythm-irregularity detection (beat-to-beat timing variance) is
+  // intentionally not used here. It needs real device debug data to tune
+  // correctly, and shipping another untested threshold risks the same
+  // false-alarm problem again. bpm itself (tachycardia/bradycardia above)
+  // is a plain number comparison, immune to camera/timing noise, so it's
+  // safe to rely on as-is. peakTimes is still passed in and available for
+  // when the rhythm check is properly tuned later.
 
   return { abnormal: reasons.length > 0, reasons: reasons };
-        }
+}
 
 function focusBpFields() {
   const sysField = document.getElementById('systolic');
