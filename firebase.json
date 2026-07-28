@@ -7,7 +7,8 @@
       "**/.git/**",
       "**/.github/**",
       "**/node_modules/**",
-      "README.md"
+      "README.md",
+      "downloads/**"
     ]
   }
 }
