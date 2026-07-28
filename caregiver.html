@@ -136,7 +136,17 @@
   });
 
   let cgUnsub = null;
-
+// If this page was opened from a generated invite link (…/caregiver.html?code=XXXXXX),
+  // pull the code out of the URL so the caregiver doesn't have to type it in.
+  const inviteCodeFromUrl = new URLSearchParams(window.location.search).get('code');
+  if (inviteCodeFromUrl) {
+    const codeUpper = inviteCodeFromUrl.trim().toUpperCase();
+    document.getElementById('cg-code').value = codeUpper;
+    // Best-effort clipboard copy too, so it's already on the clipboard if they need it elsewhere.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(codeUpper).catch(function () {});
+    }
+ }
   function cgSwitchTab(which) {
     document.getElementById('tab-join').classList.toggle('active', which === 'join');
     document.getElementById('tab-signin').classList.toggle('active', which === 'signin');
@@ -276,8 +286,14 @@
 
   firebase.auth().onAuthStateChanged(function (user) {
     if (cgUnsub) { cgUnsub(); cgUnsub = null; }
+    if (inviteCodeFromUrl && user) {
+      // A fresh invite link means someone new wants to link their own account —
+      // clear out whatever session was already active on this device so they
+      // land straight on the sign-up form instead of a "sign out first" screen.
+      firebase.auth().signOut();
+      return;
+    }
     if (!user) { showView('login-view'); return; }
-
     firebase.firestore().collection('caregiverLinks').doc(user.uid).get()
       .then(function (linkDoc) {
         if (!linkDoc.exists) { showView('no-link-view'); return; }
