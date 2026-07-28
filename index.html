@@ -340,6 +340,7 @@
       <input type="text" id="pp-emergency" placeholder="Emergency contact name & number">
       <button onclick="savePassport()">Save Passport</button>
       <div id="pp-saved-note" style="font-size:13px;color:#6ee7b7;margin-top:6px;"></div>
+      <button class="ghost" onclick="printPassport()" style="margin-top:10px;">🖨️ Print / Save as PDF</button>
     </div>
     <div class="card">
       <h3>Emergency QR Code</h3>
@@ -391,7 +392,8 @@
   });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="script.js"></script>
+<div id="passport-print-area" class="print-only"></div>
+  <script src="script.js"></script>
 <script src="auth.js"></script>
 </body>
         </html>
