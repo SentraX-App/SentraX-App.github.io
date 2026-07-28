@@ -972,6 +972,7 @@ function measureHeartRate() {
 }
 
 function hrTick() {
+  
   const video = document.getElementById('hr-video');
   const canvas = document.getElementById('hr-canvas');
   if (!hrStream || !video || video.readyState < 2) {
@@ -1027,6 +1028,31 @@ function finishHeartRateMeasure() {
   }
 }
 
+// A normal pulse waveform has a small secondary bump after the main peak
+// (the "dicrotic notch") — a basic threshold-crossing detector can mistake
+// that for a second beat. Unlike a one-off noise glitch, this can happen on
+// most beats in a reading, producing a systematic alternating short/long
+// pattern that looks like an irregular rhythm even when the real heartbeat
+// is perfectly steady. Fix it structurally: after detecting candidate
+// peaks, merge any peak that lands much closer to the previous one than
+// this reading's own typical spacing — that's almost certainly the same
+// beat counted twice, not a genuinely extra one.
+function mergeDoubleCountedPeaks(peakTimes) {
+  if (peakTimes.length < 3) return peakTimes;
+  const rawIntervals = [];
+  for (let i = 1; i < peakTimes.length; i++) rawIntervals.push(peakTimes[i] - peakTimes[i - 1]);
+  const sorted = rawIntervals.slice().sort(function (a, b) { return a - b; });
+  const median = sorted[Math.floor(sorted.length / 2)];
+
+  const cleaned = [peakTimes[0]];
+  for (let i = 1; i < peakTimes.length; i++) {
+    const gap = peakTimes[i] - cleaned[cleaned.length - 1];
+    if (gap < median * 0.6) continue; // too close to be a separate beat — drop it
+    cleaned.push(peakTimes[i]);
+  }
+  return cleaned;
+}
+
 function calculateBpmFromSamples(samples) {
   if (samples.length < 20) return null;
 
@@ -1067,10 +1093,9 @@ function calculateBpmFromSamples(samples) {
   // cross it.
   const REFRACTORY_MS = 300;
   const PROMINENCE_K = 0.5;
-  let peaks = 0;
   let rising = false;
   let lastPeakT = -Infinity;
-  const peakTimes = [];
+  const rawPeakTimes = [];
   for (let i = 1; i < values.length; i++) {
     const threshold = baseline[i] + PROMINENCE_K * localAmp[i];
     const above = values[i] > threshold;
@@ -1078,19 +1103,20 @@ function calculateBpmFromSamples(samples) {
       rising = true;
       const t = usable[i].t;
       if (t - lastPeakT >= REFRACTORY_MS) {
-        peaks++;
+        rawPeakTimes.push(t);
         lastPeakT = t;
-        peakTimes.push(t);
       }
     } else if (!above) {
       rising = false;
     }
   }
 
+  const peakTimes = mergeDoubleCountedPeaks(rawPeakTimes);
+
   const durationMinutes = (usable[usable.length - 1].t - usable[0].t) / 60000;
   if (durationMinutes <= 0) return null;
 
-  const bpm = Math.round(peaks / durationMinutes);
+  const bpm = Math.round(peakTimes.length / durationMinutes);
   if (bpm < 40 || bpm > 200) return null;
   return { bpm: bpm, peakTimes: peakTimes };
 }
