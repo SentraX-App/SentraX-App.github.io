@@ -215,6 +215,10 @@ async function checkUser(doc) {
 }
 
 async function main() {
+  // TEMPORARY TEST — delete this line once you've confirmed Termii works.
+  // Replace the number below with your own WhatsApp/SMS number, in
+  // international format: 234 followed by the number with no leading 0.
+  await sendSMS('2349137918251', 'SentraX test SMS — if you got this, Termii is working.');
   const snapshot = await db.collection('users').get();
   console.log('Scanning', snapshot.size, 'users...');
   for (const doc of snapshot.docs) {
