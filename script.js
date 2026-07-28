@@ -1042,24 +1042,38 @@ function calculateBpmFromSamples(samples) {
 
   // Rolling baseline instead of one flat average for the whole window — a
   // single global average lets slow lighting drift dominate the threshold
-  // and throws off peak counting.
+  // and throws off peak counting. A rolling local amplitude (stdev) rides
+  // alongside it so peak detection can require a real bump, not just a
+  // sliver above a noisy average — without this, small ripples from sensor
+  // noise or an imperfect fingertip seal get miscounted as extra beats,
+  // which then shows up as fake rhythm irregularity even on a normal pulse.
   const windowSize = 15;
-  const baseline = values.map(function (_, i) {
+  const baseline = [];
+  const localAmp = [];
+  for (let i = 0; i < values.length; i++) {
     const start = Math.max(0, i - windowSize);
     const slice = values.slice(start, i + 1);
-    return slice.reduce(function (a, b) { return a + b; }, 0) / slice.length;
-  });
+    const avg = slice.reduce(function (a, b) { return a + b; }, 0) / slice.length;
+    baseline.push(avg);
+    const variance = slice.reduce(function (s, v) { return s + Math.pow(v - avg, 2); }, 0) / slice.length;
+    localAmp.push(Math.sqrt(variance));
+  }
 
   // Peak detection with a refractory period: a real pulse can't repeat
   // faster than ~300ms (200bpm — the same ceiling already enforced below),
-  // so a crossing sooner than that is noise, not a beat.
+  // so a crossing sooner than that is noise, not a beat. PROMINENCE_K
+  // requires each candidate peak to clear the baseline by a real margin
+  // (relative to the local signal's own noise level), not just barely
+  // cross it.
   const REFRACTORY_MS = 300;
+  const PROMINENCE_K = 0.5;
   let peaks = 0;
   let rising = false;
   let lastPeakT = -Infinity;
   const peakTimes = [];
   for (let i = 1; i < values.length; i++) {
-    const above = values[i] > baseline[i];
+    const threshold = baseline[i] + PROMINENCE_K * localAmp[i];
+    const above = values[i] > threshold;
     if (above && values[i] > values[i - 1] && !rising) {
       rising = true;
       const t = usable[i].t;
@@ -1086,8 +1100,15 @@ function calculateBpmFromSamples(samples) {
 // BP reading. This never estimates blood pressure itself.
 const HR_TACHY_BPM = 100;
 const HR_BRADY_BPM = 50;
-const HR_RHYTHM_COV_THRESHOLD = 0.15;
-const HR_MIN_PEAKS_FOR_RHYTHM = 6;
+// A trimmed coefficient of variation (drops the single longest and shortest
+// interval before computing stdev/mean) above this is flagged as irregular.
+// Trimming matters because even with prominence filtering, camera PPG will
+// still occasionally miss or double-count one beat in an otherwise regular
+// reading — a single bad interval shouldn't be enough to call the whole
+// rhythm irregular. This is set high and un-tuned against real patient
+// data, so treat it as a rough nudge, never as a clinical threshold.
+const HR_RHYTHM_COV_THRESHOLD = 0.30;
+const HR_MIN_PEAKS_FOR_RHYTHM = 11;
 
 function analyzeHeartRatePattern(bpm, peakTimes) {
   const reasons = [];
@@ -1097,14 +1118,23 @@ function analyzeHeartRatePattern(bpm, peakTimes) {
   if (peakTimes && peakTimes.length >= HR_MIN_PEAKS_FOR_RHYTHM) {
     const intervals = [];
     for (let i = 1; i < peakTimes.length; i++) intervals.push(peakTimes[i] - peakTimes[i - 1]);
-    const mean = intervals.reduce(function(a, b) { return a + b; }, 0) / intervals.length;
-    const variance = intervals.reduce(function(a, b) { return a + Math.pow(b - mean, 2); }, 0) / intervals.length;
-    const cov = mean > 0 ? Math.sqrt(variance) / mean : 0;
-    if (cov > HR_RHYTHM_COV_THRESHOLD) reasons.push('an irregular beat-to-beat rhythm');
+
+    // Trim the single longest and shortest interval — the detections most
+    // likely to be a one-off missed/doubled beat rather than a real rhythm
+    // change — before judging variability.
+    const sorted = intervals.slice().sort(function (a, b) { return a - b; });
+    const trimmed = sorted.slice(1, sorted.length - 1);
+
+    if (trimmed.length >= HR_MIN_PEAKS_FOR_RHYTHM - 2) {
+      const mean = trimmed.reduce(function(a, b) { return a + b; }, 0) / trimmed.length;
+      const variance = trimmed.reduce(function(a, b) { return a + Math.pow(b - mean, 2); }, 0) / trimmed.length;
+      const cov = mean > 0 ? Math.sqrt(variance) / mean : 0;
+      if (cov > HR_RHYTHM_COV_THRESHOLD) reasons.push('an irregular beat-to-beat rhythm');
+    }
   }
 
   return { abnormal: reasons.length > 0, reasons: reasons };
-}
+        }
 
 function focusBpFields() {
   const sysField = document.getElementById('systolic');
