@@ -5,6 +5,7 @@ const CORE_ASSETS = [
   './',
   'index.html',
   'caregiver.html',
+  'download.html',
   'privacy.html',
   'style.css',
   'script.js',
@@ -53,6 +54,7 @@ self.addEventListener('fetch', function (event) {
     const url = new URL(request.url);
     const isAppShell = url.pathname === '/' || url.pathname.endsWith('/index.html');
     const isCaregiverPage = url.pathname.endsWith('/caregiver.html');
+    const isDownloadPage = url.pathname.endsWith('/download.html');
     const isPrivacyPage = url.pathname.endsWith('/privacy.html');
     const cacheKey = isAppShell ? 'index.html' : url.pathname.replace(/^\//, '');
 
@@ -88,14 +90,19 @@ self.addEventListener('fetch', function (event) {
       }).catch(function () {
         return caches.match(cacheKey, { ignoreSearch: true }).then(function (cached) {
           if (cached) return cached;
-          // The app shell and the caregiver page get an offline fallback —
-          // both are static shells that pull live data separately via
-          // Firebase, so serving the cached HTML is safe even when the
-          // network request itself fails. Other pages (download.html,
-          // privacy.html) have no meaningful offline substitute, so let
-          // the browser show its own "no connection" message.
+          // The app shell, caregiver page, download page, and privacy page
+          // are all static shells (download.html and privacy.html don't
+          // pull any live data at all), so serving the cached HTML is safe
+          // even when the network request itself fails — a brief mobile
+          // signal drop shouldn't dump the user onto the browser's raw
+          // "can't be reached" error page.
           if (isCaregiverPage) {
             return caches.match('caregiver.html', { ignoreSearch: true }).then(function (shell) {
+              return shell || new Response(OFFLINE_FALLBACK, { headers: { 'Content-Type': 'text/html' } });
+            });
+          }
+          if (isDownloadPage) {
+            return caches.match('download.html', { ignoreSearch: true }).then(function (shell) {
               return shell || new Response(OFFLINE_FALLBACK, { headers: { 'Content-Type': 'text/html' } });
             });
           }
