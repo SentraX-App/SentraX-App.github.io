@@ -147,6 +147,8 @@
       navigator.clipboard.writeText(codeUpper).catch(function () {});
     }
  }
+  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
+
   function cgSwitchTab(which) {
     document.getElementById('tab-join').classList.toggle('active', which === 'join');
     document.getElementById('tab-signin').classList.toggle('active', which === 'signin');
