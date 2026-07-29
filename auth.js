@@ -39,6 +39,8 @@
       });
   };
 
+  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
+
   window.logIn = function() {
     const emailEl = document.getElementById('auth-email');
     const passwordEl = document.getElementById('auth-password');
