@@ -8,8 +8,7 @@
       "**/.github/**",
       "**/node_modules/**",
       "README.md",
-      "downloads/**",
-      "**/*.apk"
+      "downloads/**"
     ],
     "headers": [
       {
@@ -18,6 +17,12 @@
           { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
           { "key": "Cache-Control", "value": "no-cache" },
           { "key": "Service-Worker-Allowed", "value": "/" }
+        ]
+      },
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          { "key": "Content-Type", "value": "application/json; charset=utf-8" }
         ]
       }
     ]
