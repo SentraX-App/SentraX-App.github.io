@@ -18,7 +18,7 @@
   h1 { font-size: 26px; margin: 0 0 6px; }
   h2 { font-size: 17px; color: #93c5fd; margin: 36px 0 10px; }
   p, li { color: #cbd5e1; font-size: 14.5px; }
-  ul { padding-left: 20px; }
+  ul, ol { padding-left: 20px; }
   li { margin-bottom: 6px; }
   a { color: #60a5fa; }
   .note { background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); border-radius: 14px; padding: 16px 18px; font-size: 13.5px; color: #94a3b8; margin: 28px 0; }
@@ -33,71 +33,79 @@
 
   <div class="brand"><span class="brand-mark">✚</span> Sentra-X</div>
   <h1>Privacy Policy</h1>
-  <div class="updated">Last updated: July 26, 2026</div>
+  <div class="updated">Last updated: July 29, 2026</div>
 
-  <p>Sentra-X ("we," "the app") helps you track vitals, manage medication, and stay connected with a caregiver. This page explains what information the app collects, why, and who it's shared with.</p>
+  <p>At SentraX Forte Limited, we are committed to protecting your personal and health information. SentraX Forte Limited is a digital health platform designed for continuous chronic disease management, connecting patients, caregivers, and healthcare providers.</p>
 
-  <div class="note">Sentra-X is currently in testing. This policy will be reviewed and formalized before any wider public release.</div>
-
-  <h2>What We Collect</h2>
-  <p>When you use Sentra-X, we collect information you provide directly:</p>
-  <table>
-    <tr><th>Category</th><th>Examples</th></tr>
-    <tr><td>Account</td><td>Email address, password (handled securely by Firebase Authentication — we never see your raw password)</td></tr>
-    <tr><td>Profile</td><td>Your first name, a general health condition you choose to share</td></tr>
-    <tr><td>Vitals</td><td>Blood pressure, heart rate, weight readings you log, and timestamps</td></tr>
-    <tr><td>Medications</td><td>Medication names, schedules, and whether doses were marked taken</td></tr>
-    <tr><td>Health Passport</td><td>Optional fields you choose to fill in: sex, age, blood group, genotype, allergies, conditions, medical history, vaccinations, height, physician, insurance info, emergency contact</td></tr>
-    <tr><td>Caregiver info</td><td>A caregiver's name, phone number, and email, if you choose to add one</td></tr>
-    <tr><td>AI Assistant</td><td>Messages you send to the in-app health assistant</td></tr>
-  </table>
-  <p>You choose what to enter. Nothing listed above is required to use the core app beyond an account.</p>
-
-  <h2>How We Use It</h2>
+  <h2>1. Information We Collect</h2>
+  <p>To provide our services, we collect:</p>
   <ul>
-    <li>To show you your own data back (vitals history, medication schedule, adherence stats)</li>
-    <li>To send you medication reminders, on your device</li>
-    <li>To alert a caregiver you've added — by SMS, email, or a WhatsApp message you send yourself — if a dose is significantly overdue or a reading is high-risk</li>
-    <li>To let a linked caregiver view (never edit) your data through their own separate account, only if you generate and share an invite code with them</li>
-    <li>To respond to questions you ask the AI health assistant</li>
-  </ul>
-  <p>We do not sell your data, and we do not use it for advertising.</p>
-
-  <h2>Who We Share It With</h2>
-  <p>We use a small number of external services to run the app. Each only receives the specific data needed to do its job:</p>
-  <table>
-    <tr><th>Service</th><th>What it's for</th><th>What it receives</th></tr>
-    <tr><td>Google Firebase</td><td>Account login and data storage</td><td>Your account data and everything you log in the app</td></tr>
-    <tr><td>Anthropic (via a Cloudflare Worker)</td><td>Powers the AI health assistant</td><td>Only the messages you send to the assistant — not your vitals, medications, or account info</td></tr>
-    <tr><td>EmailJS</td><td>Sends caregiver alert emails</td><td>Your caregiver's email address and the alert message</td></tr>
-    <tr><td>Termii</td><td>Sends caregiver alert SMS</td><td>Your caregiver's phone number and the alert message</td></tr>
-    <tr><td>WhatsApp</td><td>Lets you manually send an alert or invite link</td><td>Only what's in the message you choose to send — this opens WhatsApp on your own device, we don't transmit anything to WhatsApp ourselves</td></tr>
-  </table>
-<h2>Camera Heart Rate Check</h2>
-<p>The in-app camera heart rate check estimates your pulse rate from your fingertip and looks at its rate and rhythm only. It does not measure, and cannot measure, blood pressure. If it detects a fast, slow, or irregular pulse pattern, it will suggest you take a manual blood pressure reading using the form in the app — this is a prompt, not a diagnosis, and you're never required to act on it.</p>
-  <h2>Data Security</h2>
-  <p>Your data is protected by access rules that only allow your own account (and a caregiver you've explicitly linked) to read it. No one else can access your health data through the app.</p>
-
-  <h2>Your Choices</h2>
-  <ul>
-    <li>Any Health Passport field is optional and can be left blank or cleared at any time</li>
-    <li>You can stop sharing with a caregiver by not generating new invite codes; a linked caregiver's access can currently be removed by contacting us (see below)</li>
-    <li>You can request deletion of your account and all associated data at any time by contacting us</li>
+    <li><b>Personal Information:</b> Name, phone number, email address, age, gender</li>
+    <li><b>Health Data:</b> Blood pressure, heart rate, weight, vital signs, clinical notes, diagnosis, prescriptions, medication adherence logs</li>
+    <li><b>Account Data:</b> Patient role, caregiver links, doctor assignments, appointment history</li>
+    <li><b>Device & Usage Data:</b> App activity, login status, emergency alerts triggered, IP address, device type</li>
+    <li><b>Storage:</b> All data is stored with local storage for offline functionality, and synced when online</li>
   </ul>
 
-  <h2>Children's Privacy</h2>
-  <p>Sentra-X is not intended for children under 16. We do not knowingly collect data from children.</p>
+  <h2>2. How We Use Your Information</h2>
+  <p>We use your data to:</p>
+  <ol>
+    <li>Monitor and manage chronic conditions such as hypertension, diabetes, and cardiovascular disease</li>
+    <li>Generate risk alerts based on vital sign thresholds: Green, Yellow, Orange, Red, Red Flash</li>
+    <li>Notify caregivers and doctors in real-time during emergency health events</li>
+    <li>Provide dashboards and trend analysis for patients and healthcare providers</li>
+    <li>Schedule appointments and send follow-up reminders</li>
+    <li>Improve SentraX Forte Limited services and enable offline-friendly healthcare in low-connectivity areas</li>
+    <li>Support public health goals: reduce hospital admissions and complications</li>
+  </ol>
+  <p>We do NOT use your health data for advertising.</p>
 
-  <h2>Changes to This Policy</h2>
-  <p>If this policy changes in a way that affects how your data is used, we'll update the date at the top of this page.</p>
+  <h2>3. Data Sharing and Disclosure</h2>
+  <p>We respect your privacy. Your data may only be shared with:</p>
+  <ul>
+    <li><b>Your consent:</b> With linked caregivers and assigned doctors on the platform</li>
+    <li><b>Healthcare providers:</b> For treatment, diagnosis, and emergency escalation</li>
+    <li><b>Legal authorities:</b> If required by law or for public health reporting, with de-identified data</li>
+    <li><b>Service providers:</b> Technical vendors who help operate the app, bound by confidentiality agreements</li>
+  </ul>
+  <p>We do not sell your personal or health data to third parties.</p>
 
-  <h2>Contact</h2>
-  <p>Questions about your data or this policy? Reach out at <a href="mailto:Sentraxhealthsystemsltd@gmail.com">Sentraxhealthsystemsltd@gmail.com</a>.</p>
+  <h2>4. Data Security</h2>
+  <p>We implement:</p>
+  <ul>
+    <li>User authentication and role-based access: Patient, Caregiver, Doctor</li>
+    <li>Encrypted data storage and transmission</li>
+    <li>Offline-first architecture to ensure data safety in low connectivity environments</li>
+    <li>Access controls so only authorized users can view patient information</li>
+  </ul>
+
+  <h2>5. Your Rights</h2>
+  <p>As a SentraX Forte Limited user, you have the right to:</p>
+  <ul>
+    <li>Access and download your health records</li>
+    <li>Request correction of inaccurate health data</li>
+    <li>Unlink caregivers or doctors from your account</li>
+    <li>Request deletion of your account, subject to medical record retention laws</li>
+    <li>Opt-out of non-essential notifications</li>
+  </ul>
+
+  <h2>6. Data Retention</h2>
+  <p>Patient health records are retained to support continuous care. You may request deletion at any time, except where we are required to retain data for legal or medical purposes.</p>
+
+  <h2>7. Children's Privacy</h2>
+  <p>SentraX Forte Limited is intended for use by adults and caregivers. For patients under 18, a parent or guardian must provide consent and manage the account.</p>
+
+  <h2>8. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy. We will notify users via the app and email when significant changes are made.</p>
+
+  <h2>9. Contact Us</h2>
+  <p>For questions, data requests, or concerns about your privacy, contact:</p>
+  <p><b>SentraX Forte Limited Team</b><br>Email: <a href="mailto:sentraxforteltd@gmail.com">sentraxforteltd@gmail.com</a></p>
 
   <footer>
-    Sentra-X — family health protection. <a href="https://sentrax-app.github.io/">Back to the app →</a>
+    Sentra-X — family health protection. <a href="https://sentra-x.web.app/">Back to the app →</a>
   </footer>
 
 </div>
 </body>
-                     </html>
+</html>
