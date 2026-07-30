@@ -195,11 +195,13 @@
     let newUid = null;
 
     firebase.auth().createUserWithEmailAndPassword(email, password)
-      .then(function (cred) {
-        newUid = cred.user.uid;
-        return firebase.firestore().collection('invites').doc(code).get()
-          .catch(function (e) { throw new Error('[Step: read invite] ' + e.message); });
-      })
+  .then(function (cred) {
+    newUid = cred.user.uid;
+    return cred.user.getIdToken(true);
+  })
+  .then(function () {
+    return firebase.firestore().collection('invites').doc(code).get();
+  })
       .then(function (inviteDoc) {
         if (!inviteDoc.exists) throw new Error('That invite code was not found.');
         const invite = inviteDoc.data();
