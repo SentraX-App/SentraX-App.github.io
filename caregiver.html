@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+ <script>
+  window.addEventListener('error', function (e) {
+    var box = document.createElement('div');
+    box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fff;padding:14px;font-size:13px;font-family:monospace;white-space:pre-wrap;max-height:60vh;overflow:auto;';
+    box.textContent = 'DEBUG ERROR: ' + e.message + ' (line ' + e.lineno + ', col ' + e.colno + ')';
+    document.body ? document.body.prepend(box) : document.addEventListener('DOMContentLoaded', function(){ document.body.prepend(box); });
+  });
+ </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Sentra-X — Caregiver View</title>
