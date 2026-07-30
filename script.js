@@ -454,8 +454,15 @@ function checkDueMeds() {
 }
 
 function enableReminders() {
-  if ('Notification' in window && Notification.permission === 'granted') { document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled'; }
   if (!('Notification' in window)) { alert('Notifications are not supported on this browser.'); return; }
+  if (Notification.permission === 'granted') {
+    document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled';
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    alert('Notifications are blocked for Sentra-X. To enable them: open your phone Settings → Apps → Sentra-X → Notifications, and turn them on there.');
+    return;
+  }
   Notification.requestPermission().then(function(perm) {
     document.getElementById('enable-btn').textContent = perm === 'granted' ? '🔔 Reminders Enabled' : '🔔 Enable Reminder Alerts';
   });
