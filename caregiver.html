@@ -197,7 +197,8 @@
     firebase.auth().createUserWithEmailAndPassword(email, password)
       .then(function (cred) {
         newUid = cred.user.uid;
-        return firebase.firestore().collection('invites').doc(code).get();
+        return firebase.firestore().collection('invites').doc(code).get()
+          .catch(function (e) { throw new Error('[Step: read invite] ' + e.message); });
       })
       .then(function (inviteDoc) {
         if (!inviteDoc.exists) throw new Error('That invite code was not found.');
@@ -207,15 +208,16 @@
         const patientUid = invite.patientUid;
 
         return firebase.firestore().collection('invites').doc(code).update({ usedBy: newUid })
+          .catch(function (e) { throw new Error('[Step: mark invite used] ' + e.message); })
           .then(function () {
             return firebase.firestore().collection('caregiverLinks').doc(newUid).set({
               patientUid: patientUid, claimCode: code, linkedAt: Date.now()
-            });
+            }).catch(function (e) { throw new Error('[Step: create caregiverLinks] ' + e.message); });
           })
           .then(function () {
             return firebase.firestore().collection('users').doc(patientUid).update({
               caregiverUids: firebase.firestore.FieldValue.arrayUnion(newUid)
-            });
+            }).catch(function (e) { throw new Error('[Step: update patient users doc] ' + e.message); });
           });
       })
       .catch(function (e) {
