@@ -1,0 +1,60 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      // Unchanged — owner keeps full read/write, exactly as before.
+      allow read, write: if request.auth != null
+                          && request.auth.uid == userId;
+
+      // NEW: a linked caregiver can read (never write) this patient's data.
+      allow read: if request.auth != null
+                  && request.auth.uid in resource.data.get('caregiverUids', []);
+
+      // NEW: a caregiver may add themselves to caregiverUids ONLY if their
+      // own caregiverLinks doc proves they claimed a valid invite for this
+      // exact patient. Nothing else on this document can be touched by them.
+      allow update: if request.auth != null
+                    && request.auth.uid != userId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caregiverUids'])
+                    && request.auth.uid in request.resource.data.caregiverUids
+                    && !(request.auth.uid in resource.data.get('caregiverUids', []))
+                    && request.resource.data.caregiverUids.size() == resource.data.get('caregiverUids', []).size() + 1
+                    && exists(/databases/$(database)/documents/caregiverLinks/$(request.auth.uid))
+                    && get(/databases/$(database)/documents/caregiverLinks/$(request.auth.uid)).data.patientUid == userId;
+    }
+
+    match /invites/{code} {
+      // Patient can only create an invite naming themselves as the patient.
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.patientUid;
+
+      // Any signed-in user can read an invite by its code (needed to check
+      // validity before claiming). Codes are random 6-character strings, so
+      // this isn't practically guessable/enumerable.
+      allow read: if request.auth != null;
+
+      // Claiming: can only move usedBy from empty to your own uid — nothing
+      // else on the invite can be changed, and it can't be re-claimed.
+      allow update: if request.auth != null
+                    && resource.data.usedBy == null
+                    && request.resource.data.usedBy == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy']);
+    }
+
+    match /caregiverLinks/{caregiverUid} {
+      allow read: if request.auth != null && request.auth.uid == caregiverUid;
+
+      // Can only create your OWN link doc, and only if it points at the
+      // patient whose invite you just successfully claimed.
+      allow create: if request.auth != null
+                    && request.auth.uid == caregiverUid
+                    && request.resource.data.patientUid is string
+                    && request.resource.data.claimCode is string
+                    && get(/databases/$(database)/documents/invites/$(request.resource.data.claimCode)).data.usedBy == request.auth.uid
+                    && get(/databases/$(database)/documents/invites/$(request.resource.data.claimCode)).data.patientUid == request.resource.data.patientUid;
+    }
+
+  }
+}
