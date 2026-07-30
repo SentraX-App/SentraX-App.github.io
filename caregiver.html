@@ -217,6 +217,8 @@
               caregiverUids: firebase.firestore.FieldValue.arrayUnion(newUid)
             });
           });
+      })
+      .catch(function (e) {
       .catch(function (e) {
         err.textContent = e.message;
         btn.disabled = false;
