@@ -218,14 +218,12 @@
             });
           });
       })
-      })
       .catch(function (e) {
         err.textContent = e.message;
         btn.disabled = false;
         btn.textContent = 'Link My Account';
       });
-  }
-
+         }
   function cgLogOut() {
     if (cgUnsub) { cgUnsub(); cgUnsub = null; }
     firebase.auth().signOut();
