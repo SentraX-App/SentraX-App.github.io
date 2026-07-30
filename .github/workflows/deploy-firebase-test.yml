@@ -23,10 +23,10 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           projectId: sentra-x
           channelId: live
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+
       - name: Deploy Firestore rules
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/firebase-key.json
-          npx firebase-tools deploy --only firestore:rules --project sentra-x --non-interactive
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: npx firebase-tools deploy --only firestore:rules --project sentra-x --non-interactive
