@@ -199,17 +199,17 @@
         const patientUid = invite.patientUid;
 
         return firebase.firestore().collection('invites').doc(code).update({ usedBy: newUid })
+          .catch(function (e) { throw new Error('Step 1 (claiming invite) failed: ' + e.message); })
           .then(function () {
             return firebase.firestore().collection('caregiverLinks').doc(newUid).set({
               patientUid: patientUid, claimCode: code, linkedAt: Date.now()
-            });
+            }).catch(function (e) { throw new Error('Step 2 (creating caregiver link) failed: ' + e.message); });
           })
           .then(function () {
             return firebase.firestore().collection('users').doc(patientUid).update({
               caregiverUids: firebase.firestore.FieldValue.arrayUnion(newUid)
-            });
+            }).catch(function (e) { throw new Error('Step 3 (linking to patient record) failed: ' + e.message); });
           });
-      })
       .catch(function (e) {
         err.textContent = e.message;
         btn.disabled = false;
