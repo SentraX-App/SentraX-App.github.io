@@ -137,8 +137,6 @@
 
   let cgUnsub = null;
   let isLinking = false;
-  // If this page was opened from a generated invite link (…/caregiver.html?code=XXXXXX),
-  // pull the code out of the URL so the caregiver doesn't have to type it in.
   const inviteCodeFromUrl = new URLSearchParams(window.location.search).get('code');
   if (inviteCodeFromUrl) {
     const codeUpper = inviteCodeFromUrl.trim().toUpperCase();
@@ -168,9 +166,10 @@
 
   // Creates a brand-new caregiver account (or signs back in if this email was
   // already used in a prior attempt), then uses the invite code to link it to
-  // a patient. The isLinking flag stops the onAuthStateChanged listener below
-  // from treating this in-progress signup as a stale session and signing it
-  // back out mid-flow.
+  // a patient. isLinking stops onAuthStateChanged from treating this in-progress
+  // signup as a stale session and signing it back out mid-flow. On success, it
+  // shows the dashboard directly instead of reloading — a reload would lose the
+  // session entirely since persistence is set to NONE below.
   function cgSignUpWithCode() {
     const code = document.getElementById('cg-code').value.trim().toUpperCase();
     const email = document.getElementById('cg-join-email').value.trim();
@@ -216,11 +215,20 @@
             return firebase.firestore().collection('users').doc(patientUid).update({
               caregiverUids: firebase.firestore.FieldValue.arrayUnion(newUid)
             });
+          })
+          .then(function () {
+            return patientUid;
           });
       })
-      .then(function () {
+      .then(function (patientUid) {
         isLinking = false;
-        window.location.reload();
+        showView('dashboard-view');
+        cgUnsub = firebase.firestore().collection('users').doc(patientUid)
+          .onSnapshot(function (doc) {
+            if (doc.exists) renderDashboard(doc.data());
+          }, function (err2) {
+            console.error('Sentra-X Caregiver: read failed:', err2.message);
+          });
       })
       .catch(function (e) {
         isLinking = false;
@@ -323,4 +331,4 @@
   });
 </script>
 </body>
-                                                                                </html>
+</html>
