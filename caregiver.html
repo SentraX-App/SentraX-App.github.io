@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- <script>
-  window.addEventListener('error', function (e) {
-    var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fff;padding:14px;font-size:13px;font-family:monospace;white-space:pre-wrap;max-height:60vh;overflow:auto;';
-    box.textContent = 'DEBUG ERROR: ' + e.message + ' (line ' + e.lineno + ', col ' + e.colno + ')';
-    document.body ? document.body.prepend(box) : document.addEventListener('DOMContentLoaded', function(){ document.body.prepend(box); });
-  });
- </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Sentra-X — Caregiver View</title>
@@ -144,17 +136,17 @@
   });
 
   let cgUnsub = null;
-// If this page was opened from a generated invite link (…/caregiver.html?code=XXXXXX),
+  let isLinking = false;
+  // If this page was opened from a generated invite link (…/caregiver.html?code=XXXXXX),
   // pull the code out of the URL so the caregiver doesn't have to type it in.
   const inviteCodeFromUrl = new URLSearchParams(window.location.search).get('code');
   if (inviteCodeFromUrl) {
     const codeUpper = inviteCodeFromUrl.trim().toUpperCase();
     document.getElementById('cg-code').value = codeUpper;
-    // Best-effort clipboard copy too, so it's already on the clipboard if they need it elsewhere.
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(codeUpper).catch(function () {});
     }
- }
+  }
   firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
 
   function cgSwitchTab(which) {
@@ -174,13 +166,11 @@
       .catch(function (e) { err.textContent = e.message; });
   }
 
-  // Creates a brand-new caregiver account, then uses the invite code to link
-  // it to a patient. Three steps, each guarded by its own Firestore rule:
-  // 1) claim the invite (usedBy must currently be empty)
-  // 2) record the link on the caregiver's OWN doc
-  // 3) append the caregiver's uid to the patient's caregiverUids array
-  // If any step fails, the caregiver account still exists but stays unlinked
-  // — they land on the "no linked patient" screen and can retry with a code.
+  // Creates a brand-new caregiver account (or signs back in if this email was
+  // already used in a prior attempt), then uses the invite code to link it to
+  // a patient. The isLinking flag stops the onAuthStateChanged listener below
+  // from treating this in-progress signup as a stale session and signing it
+  // back out mid-flow.
   function cgSignUpWithCode() {
     const code = document.getElementById('cg-code').value.trim().toUpperCase();
     const email = document.getElementById('cg-join-email').value.trim();
@@ -192,42 +182,54 @@
 
     btn.disabled = true;
     btn.textContent = 'Linking…';
+    isLinking = true;
     let newUid = null;
 
     firebase.auth().createUserWithEmailAndPassword(email, password)
-  .then(function (cred) {
-    newUid = cred.user.uid;
-    return cred.user.getIdToken(true);
-  })
-  .then(function () {
-    return firebase.firestore().collection('invites').doc(code).get();
-  })
+      .catch(function (e) {
+        if (e.code === 'auth/email-already-in-use') {
+          return firebase.auth().signInWithEmailAndPassword(email, password);
+        }
+        throw e;
+      })
+      .then(function (cred) {
+        newUid = cred.user.uid;
+        return cred.user.getIdToken(true);
+      })
+      .then(function () {
+        return firebase.firestore().collection('invites').doc(code).get();
+      })
       .then(function (inviteDoc) {
         if (!inviteDoc.exists) throw new Error('That invite code was not found.');
         const invite = inviteDoc.data();
-        if (invite.usedBy) throw new Error('That invite code has already been used.');
+        if (invite.usedBy && invite.usedBy !== newUid) throw new Error('That invite code has already been used.');
         if (invite.expiresAt && Date.now() > invite.expiresAt) throw new Error('That invite code has expired — ask for a new one.');
         const patientUid = invite.patientUid;
 
         return firebase.firestore().collection('invites').doc(code).update({ usedBy: newUid })
-          .catch(function (e) { throw new Error('[Step: mark invite used] ' + e.message); })
           .then(function () {
             return firebase.firestore().collection('caregiverLinks').doc(newUid).set({
               patientUid: patientUid, claimCode: code, linkedAt: Date.now()
-            }).catch(function (e) { throw new Error('[Step: create caregiverLinks] ' + e.message); });
+            });
           })
           .then(function () {
             return firebase.firestore().collection('users').doc(patientUid).update({
               caregiverUids: firebase.firestore.FieldValue.arrayUnion(newUid)
-            }).catch(function (e) { throw new Error('[Step: update patient users doc] ' + e.message); });
+            });
           });
       })
+      .then(function () {
+        isLinking = false;
+        window.location.reload();
+      })
       .catch(function (e) {
+        isLinking = false;
         err.textContent = e.message;
         btn.disabled = false;
         btn.textContent = 'Link My Account';
       });
-         }
+  }
+
   function cgLogOut() {
     if (cgUnsub) { cgUnsub(); cgUnsub = null; }
     firebase.auth().signOut();
@@ -235,9 +237,6 @@
 
   function todayStr() { return new Date().toISOString().split('T')[0]; }
 
-  // Escapes text before it's inserted via innerHTML, so a medication name or
-  // other free-text field the patient entered can never be interpreted as
-  // HTML/script when it renders here in the caregiver's browser.
   function escapeHtml(str) {
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;')
@@ -299,10 +298,8 @@
 
   firebase.auth().onAuthStateChanged(function (user) {
     if (cgUnsub) { cgUnsub(); cgUnsub = null; }
+    if (isLinking) return;
     if (inviteCodeFromUrl && user) {
-      // A fresh invite link means someone new wants to link their own account —
-      // clear out whatever session was already active on this device so they
-      // land straight on the sign-up form instead of a "sign out first" screen.
       firebase.auth().signOut();
       return;
     }
@@ -326,4 +323,4 @@
   });
 </script>
 </body>
-</html>
+                                                                                </html>
