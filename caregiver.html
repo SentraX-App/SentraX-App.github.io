@@ -484,22 +484,26 @@
       return;
     }
     if (!user) { showView('login-view'); return; }
-    firebase.firestore().collection('caregiverLinks').doc(user.uid).get()
-      .then(function (linkDoc) {
-        if (!linkDoc.exists) { showView('no-link-view'); return; }
-        const patientUid = linkDoc.data().patientUid;
-        showView('dashboard-view');
-        cgUnsub = firebase.firestore().collection('users').doc(patientUid)
-          .onSnapshot(function (doc) {
-            if (doc.exists) renderDashboard(doc.data());
-          }, function (err) {
-            console.error('Sentra-X Caregiver: read failed:', err.message);
-          });
-      })
-      .catch(function (err) {
-        console.error('Sentra-X Caregiver: link lookup failed:', err.message);
-        showView('no-link-view');
+user.getIdToken(true).then(function () {
+  return firebase.firestore().collection('caregiverLinks').doc(user.uid).get();
+})
+  .then(function (linkDoc) {
+    if (!linkDoc.exists) { showView('no-link-view'); return; }
+    const patientUid = linkDoc.data().patientUid;
+    showView('dashboard-view');
+    cgUnsub = firebase.firestore().collection('users').doc(patientUid)
+      .onSnapshot(function (doc) {
+        if (doc.exists) renderDashboard(doc.data());
+      }, function (err) {
+        console.error('Sentra-X Caregiver: read failed:', err.message);
       });
+  })
+  .catch(function (err) {
+    console.error('Sentra-X Caregiver: link lookup failed:', err.message);
+    showView('login-view');
+    const errBox = document.getElementById('cg-error');
+    if (errBox) errBox.textContent = 'Something went wrong loading your account — please try signing in again.';
+  });
   });
 </script>
 </body>
