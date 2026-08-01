@@ -197,8 +197,31 @@
     const err = document.getElementById('cg-error');
     err.textContent = '';
     if (!email || !password) { err.textContent = 'Please enter both email and password.'; return; }
+    isLinking = true;
     firebase.auth().signInWithEmailAndPassword(email, password)
-      .catch(function (e) { err.textContent = e.message; });
+      .then(function () {
+        isLinking = false;
+        if (inviteCodeFromUrl) { location.href = location.pathname; return; }
+        const user = firebase.auth().currentUser;
+        user.getIdToken(true).then(function () {
+          return firebase.firestore().collection('caregiverLinks').doc(user.uid).get();
+        }).then(function (linkDoc) {
+          if (!linkDoc.exists) { showView('no-link-view'); return; }
+          const patientUid = linkDoc.data().patientUid;
+          showView('dashboard-view');
+          cgUnsub = firebase.firestore().collection('users').doc(patientUid)
+            .onSnapshot(function (doc) {
+              if (doc.exists) renderDashboard(doc.data());
+            }, function (e) { console.error('Sentra-X Caregiver: read failed:', e.message); });
+        }).catch(function (e) {
+          console.error('Sentra-X Caregiver: link lookup failed:', e.message);
+          err.textContent = 'Something went wrong loading your account — please try again.';
+        });
+      })
+      .catch(function (e) {
+        isLinking = false;
+        err.textContent = e.message;
+      });
   }
 
   function cgSignUpWithCode() {
