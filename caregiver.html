@@ -66,6 +66,9 @@
 
   #login-view, #dashboard-view, #no-link-view { display: none; }
   .last-sync { text-align: center; color: #5c6b87; font-size: 11.5px; margin-top: 6px; }
+
+  .cg-greeting { font-size: 15px; color: #93c5fd; font-weight: 700; margin: 0 0 14px; text-align: center; }
+  .cg-alert-banner { display: none; background: rgba(248,113,113,0.14); border: 1px solid rgba(248,113,113,0.35); border-radius: 14px; padding: 12px 16px; font-size: 13.5px; color: #fca5a5; font-weight: 700; margin-bottom: 14px; text-align: center; }
 </style>
 </head>
 <body>
@@ -111,6 +114,18 @@
   </div>
 
   <div id="dashboard-view">
+    <div class="cg-greeting" id="cg-greeting"></div>
+    <div class="cg-alert-banner" id="cg-alert-banner"></div>
+
+    <div class="card">
+      <h3>This Week</h3>
+      <div class="stat-grid">
+        <div class="stat"><b id="cg-streak">—</b><span>Day streak</span></div>
+        <div class="stat"><b id="cg-adherence">—</b><span>Meds taken</span></div>
+        <div class="stat"><b id="cg-readings">—</b><span>Readings logged</span></div>
+      </div>
+    </div>
+
     <div class="card">
       <h3>Latest Reading</h3>
       <div id="cg-bp"><div class="empty">No readings yet</div></div>
@@ -134,15 +149,6 @@
     <div class="card">
       <h3>Medication History</h3>
       <div id="cg-med-history"><div class="empty">No medication history yet</div></div>
-    </div>
-
-    <div class="card">
-      <h3>This Week</h3>
-      <div class="stat-grid">
-        <div class="stat"><b id="cg-streak">—</b><span>Day streak</span></div>
-        <div class="stat"><b id="cg-adherence">—</b><span>Meds taken</span></div>
-        <div class="stat"><b id="cg-readings">—</b><span>Readings logged</span></div>
-      </div>
     </div>
 
     <button class="btn-ghost" onclick="cgLogOut()">Sign Out</button>
@@ -195,12 +201,6 @@
       .catch(function (e) { err.textContent = e.message; });
   }
 
-  // Creates a brand-new caregiver account (or signs back in if this email was
-  // already used in a prior attempt), then uses the invite code to link it to
-  // a patient. isLinking stops onAuthStateChanged from treating this in-progress
-  // signup as a stale session and signing it back out mid-flow. On success, it
-  // shows the dashboard directly instead of reloading — a reload would lose the
-  // session entirely since persistence is set to NONE below.
   function cgSignUpWithCode() {
     const code = document.getElementById('cg-code').value.trim().toUpperCase();
     const email = document.getElementById('cg-join-email').value.trim();
@@ -275,6 +275,8 @@
   }
 
   function todayStr() { return new Date().toISOString().split('T')[0]; }
+  function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+  function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]) * 60 + parseInt(parts[1]); }
 
   function escapeHtml(str) {
     return String(str == null ? '' : str)
@@ -285,9 +287,6 @@
       .replace(/'/g, '&#39;');
   }
 
-  // Same expiry logic as the main app (script.js), replicated here since this
-  // page doesn't share that file. A med expires after its set duration, or —
-  // for meds with no set duration (short-term/PRN) — 1 hour after being added.
   const SHORT_TERM_MED_MS = 60 * 60 * 1000;
   function getMedExpiry(m) {
     if (m.durationDays && m.startDate) {
@@ -314,8 +313,6 @@
     return { text: 'Ends in ' + daysLeft + ' days', cls: '' };
   }
 
-  // Builds one point per day for the last 7 days (averaging same-day readings),
-  // for a clean at-a-glance trend rather than a noisy point-per-reading chart.
   function buildWeekPoints(vitals) {
     const points = [];
     for (let i = 6; i >= 0; i--) {
@@ -361,8 +358,6 @@
       '<path d="' + pathD + '" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>' +
       dots + labels + '</svg>';
 
-    // Compare this week's average vs the 7 days before it, so a caregiver can
-    // see at a glance whether things are trending better or worse.
     const now = Date.now();
     const avgSys = function (arr) { return Math.round(arr.reduce(function (s, v) { return s + Number(v.sys); }, 0) / arr.length); };
     const avgDia = function (arr) { return Math.round(arr.reduce(function (s, v) { return s + Number(v.dia); }, 0) / arr.length); };
@@ -387,8 +382,38 @@
     box.innerHTML += compareHtml;
   }
 
+  function renderGreetingAndAlert(data) {
+    const greetingBox = document.getElementById('cg-greeting');
+    greetingBox.textContent = data.userName ? (data.userName + "'s Health Overview") : 'Health Overview';
+
+    const alertBox = document.getElementById('cg-alert-banner');
+    const vitals = data.vitals || [];
+    const meds = (data.meds || []).filter(function (m) { return !m.durationDays || getMedExpiry(m) === null || getMedExpiry(m) > new Date(); });
+    const logs = (data.medLogs || {})[todayStr()] || {};
+    const now = nowMinutes();
+    const overdueMeds = meds.filter(function (m) {
+      return !logs[m.id] && timeToMinutes(m.time) <= now;
+    });
+    const latest = vitals[0];
+    const highSeverity = latest && (latest.severity || 0) >= 3;
+
+    const messages = [];
+    if (highSeverity) messages.push('Latest reading was ' + escapeHtml(latest.level) + '.');
+    if (overdueMeds.length > 0) {
+      messages.push(overdueMeds.length + ' medication' + (overdueMeds.length > 1 ? 's' : '') + ' overdue today.');
+    }
+    if (messages.length > 0) {
+      alertBox.textContent = '⚠️ ' + messages.join(' ');
+      alertBox.style.display = 'block';
+    } else {
+      alertBox.style.display = 'none';
+    }
+  }
+
   function renderDashboard(data) {
     window.__cgLastData = data;
+    renderGreetingAndAlert(data);
+
     const bpBox = document.getElementById('cg-bp');
     const vitals = data.vitals || [];
     if (vitals.length === 0) {
@@ -484,26 +509,26 @@
       return;
     }
     if (!user) { showView('login-view'); return; }
-user.getIdToken(true).then(function () {
-  return firebase.firestore().collection('caregiverLinks').doc(user.uid).get();
-})
-  .then(function (linkDoc) {
-    if (!linkDoc.exists) { showView('no-link-view'); return; }
-    const patientUid = linkDoc.data().patientUid;
-    showView('dashboard-view');
-    cgUnsub = firebase.firestore().collection('users').doc(patientUid)
-      .onSnapshot(function (doc) {
-        if (doc.exists) renderDashboard(doc.data());
-      }, function (err) {
-        console.error('Sentra-X Caregiver: read failed:', err.message);
+    user.getIdToken(true).then(function () {
+      return firebase.firestore().collection('caregiverLinks').doc(user.uid).get();
+    })
+      .then(function (linkDoc) {
+        if (!linkDoc.exists) { showView('no-link-view'); return; }
+        const patientUid = linkDoc.data().patientUid;
+        showView('dashboard-view');
+        cgUnsub = firebase.firestore().collection('users').doc(patientUid)
+          .onSnapshot(function (doc) {
+            if (doc.exists) renderDashboard(doc.data());
+          }, function (err) {
+            console.error('Sentra-X Caregiver: read failed:', err.message);
+          });
+      })
+      .catch(function (err) {
+        console.error('Sentra-X Caregiver: link lookup failed:', err.message);
+        showView('login-view');
+        const errBox = document.getElementById('cg-error');
+        if (errBox) errBox.textContent = 'Something went wrong loading your account — please try signing in again.';
       });
-  })
-  .catch(function (err) {
-    console.error('Sentra-X Caregiver: link lookup failed:', err.message);
-    showView('login-view');
-    const errBox = document.getElementById('cg-error');
-    if (errBox) errBox.textContent = 'Something went wrong loading your account — please try signing in again.';
-  });
   });
 </script>
 </body>
