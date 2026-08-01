@@ -45,6 +45,20 @@
   .bp-level { font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 100px; display: inline-block; margin-top: 8px; color: #0f172a; }
   .bp-meta { color: #93a0b8; font-size: 12.5px; margin-top: 8px; }
 
+  .trend-svg { width: 100%; height: 92px; display: block; }
+  .trend-compare { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 13px; color: #93a0b8; text-align: center; }
+  .trend-compare b { color: #f4f6fb; font-size: 15px; }
+  .trend-up { color: #fca5a5; font-weight: 800; }
+  .trend-down { color: #86efac; font-weight: 800; }
+  .trend-flat { color: #93a0b8; font-weight: 800; }
+
+  .med-name-col { display: flex; flex-direction: column; gap: 3px; }
+  .med-expiry { font-size: 11px; color: #93a0b8; }
+  .med-expiry.ending-soon { color: #fcd34d; }
+  .med-expiry.expired { color: #fca5a5; }
+
+  .show-more { text-align: center; font-size: 12.5px; color: #38bdf8; font-weight: 700; padding-top: 10px; cursor: pointer; }
+
   .stat-grid { display: flex; gap: 12px; }
   .stat { flex: 1; text-align: center; }
   .stat b { display: block; font-size: 21px; color: #38bdf8; }
@@ -103,8 +117,23 @@
     </div>
 
     <div class="card">
+      <h3>Weekly BP Trend</h3>
+      <div id="cg-trend"><div class="empty">Not enough readings yet</div></div>
+    </div>
+
+    <div class="card">
       <h3>Today's Medications</h3>
       <div id="cg-meds"><div class="empty">No medications added yet</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Vitals History</h3>
+      <div id="cg-vitals-history"><div class="empty">No readings yet</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Medication History</h3>
+      <div id="cg-med-history"><div class="empty">No medication history yet</div></div>
     </div>
 
     <div class="card">
@@ -137,6 +166,8 @@
 
   let cgUnsub = null;
   let isLinking = false;
+  let vitalsHistExpanded = false;
+  let medHistExpanded = false;
   const inviteCodeFromUrl = new URLSearchParams(window.location.search).get('code');
   if (inviteCodeFromUrl) {
     const codeUpper = inviteCodeFromUrl.trim().toUpperCase();
@@ -254,7 +285,110 @@
       .replace(/'/g, '&#39;');
   }
 
+  // Same expiry logic as the main app (script.js), replicated here since this
+  // page doesn't share that file. A med expires after its set duration, or —
+  // for meds with no set duration (short-term/PRN) — 1 hour after being added.
+  const SHORT_TERM_MED_MS = 60 * 60 * 1000;
+  function getMedExpiry(m) {
+    if (m.durationDays && m.startDate) {
+      const end = new Date(m.startDate);
+      end.setDate(end.getDate() + m.durationDays);
+      return end;
+    }
+    if (!m.durationDays) {
+      const created = m.createdAt || parseInt(m.id, 10) || null;
+      if (!created) return null;
+      return new Date(created + SHORT_TERM_MED_MS);
+    }
+    return null;
+  }
+
+  function expiryLabel(m) {
+    const exp = getMedExpiry(m);
+    if (!exp) return { text: 'Ongoing', cls: '' };
+    const msLeft = exp.getTime() - Date.now();
+    if (msLeft <= 0) return { text: 'Expired', cls: 'expired' };
+    const daysLeft = Math.ceil(msLeft / 86400000);
+    if (daysLeft <= 1) return { text: 'Ends today', cls: 'ending-soon' };
+    if (daysLeft <= 2) return { text: 'Ends tomorrow', cls: 'ending-soon' };
+    return { text: 'Ends in ' + daysLeft + ' days', cls: '' };
+  }
+
+  // Builds one point per day for the last 7 days (averaging same-day readings),
+  // for a clean at-a-glance trend rather than a noisy point-per-reading chart.
+  function buildWeekPoints(vitals) {
+    const points = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000);
+      const key = d.toISOString().split('T')[0];
+      const dayReadings = vitals.filter(function (v) { return (v.dateISO || '').split('T')[0] === key; });
+      let sys = null, dia = null, color = '#38bdf8';
+      if (dayReadings.length > 0) {
+        sys = Math.round(dayReadings.reduce(function (s, v) { return s + Number(v.sys); }, 0) / dayReadings.length);
+        dia = Math.round(dayReadings.reduce(function (s, v) { return s + Number(v.dia); }, 0) / dayReadings.length);
+        color = dayReadings.reduce(function (a, b) { return (b.severity || 0) > (a.severity || 0) ? b : a; }).color || color;
+      }
+      points.push({ label: d.toLocaleDateString(undefined, { weekday: 'short' })[0], sys: sys, dia: dia, color: color });
+    }
+    return points;
+  }
+
+  function renderTrend(vitals) {
+    const box = document.getElementById('cg-trend');
+    const withData = vitals.filter(function (v) { return v.dateISO || v.date; });
+    if (withData.length < 2) { box.innerHTML = '<div class="empty">Not enough readings yet</div>'; return; }
+
+    const points = buildWeekPoints(vitals);
+    const W = 300, H = 92, PAD = 14;
+    const vals = points.filter(function (p) { return p.sys != null; }).map(function (p) { return p.sys; });
+    const minV = Math.min.apply(null, vals) - 8, maxV = Math.max.apply(null, vals) + 8;
+    const xStep = (W - PAD * 2) / 6;
+    function yFor(v) { return H - PAD - ((v - minV) / (maxV - minV)) * (H - PAD * 2); }
+
+    let pathD = '', dots = '', labels = '';
+    let started = false;
+    points.forEach(function (p, i) {
+      const x = PAD + i * xStep;
+      labels += '<text x="' + x + '" y="' + (H - 1) + '" font-size="9" fill="#5c6b87" text-anchor="middle">' + p.label + '</text>';
+      if (p.sys == null) { started = false; return; }
+      const y = yFor(p.sys);
+      pathD += (started ? ' L ' : ' M ') + x + ' ' + y;
+      started = true;
+      dots += '<circle cx="' + x + '" cy="' + y + '" r="4" fill="' + p.color + '" stroke="#0f172a" stroke-width="1.5"/>';
+    });
+
+    box.innerHTML = '<svg class="trend-svg" viewBox="0 0 ' + W + ' ' + H + '">' +
+      '<path d="' + pathD + '" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>' +
+      dots + labels + '</svg>';
+
+    // Compare this week's average vs the 7 days before it, so a caregiver can
+    // see at a glance whether things are trending better or worse.
+    const now = Date.now();
+    const avgSys = function (arr) { return Math.round(arr.reduce(function (s, v) { return s + Number(v.sys); }, 0) / arr.length); };
+    const avgDia = function (arr) { return Math.round(arr.reduce(function (s, v) { return s + Number(v.dia); }, 0) / arr.length); };
+    const thisWeek = vitals.filter(function (v) { return now - new Date(v.dateISO || v.date).getTime() <= 7 * 86400000; });
+    const lastWeek = vitals.filter(function (v) {
+      const age = now - new Date(v.dateISO || v.date).getTime();
+      return age > 7 * 86400000 && age <= 14 * 86400000;
+    });
+    let compareHtml = '';
+    if (thisWeek.length > 0 && lastWeek.length > 0) {
+      const thisAvg = avgSys(thisWeek), lastAvg = avgSys(lastWeek);
+      const diff = thisAvg - lastAvg;
+      let arrow = '→', cls = 'trend-flat', word = 'about the same as';
+      if (diff >= 3) { arrow = '↑'; cls = 'trend-up'; word = 'higher than'; }
+      else if (diff <= -3) { arrow = '↓'; cls = 'trend-down'; word = 'lower than'; }
+      compareHtml += '<div class="trend-compare">This week\'s avg <b>' + thisAvg + '</b> is <span class="' + cls + '">' + arrow + ' ' + word + '</span> last week\'s <b>' + lastAvg + '</b></div>';
+    }
+    const thisMonth = vitals.filter(function (v) { return now - new Date(v.dateISO || v.date).getTime() <= 30 * 86400000; });
+    if (thisMonth.length > 0) {
+      compareHtml += '<div class="trend-compare" style="margin-top:6px;padding-top:6px;border-top:none;font-size:12px;">30-day average: <b>' + avgSys(thisMonth) + '/' + avgDia(thisMonth) + '</b></div>';
+    }
+    box.innerHTML += compareHtml;
+  }
+
   function renderDashboard(data) {
+    window.__cgLastData = data;
     const bpBox = document.getElementById('cg-bp');
     const vitals = data.vitals || [];
     if (vitals.length === 0) {
@@ -267,6 +401,8 @@
         '<div class="bp-meta">' + escapeHtml(v.date) + (v.hr ? ' · HR ' + escapeHtml(v.hr) : '') + '</div>';
     }
 
+    renderTrend(vitals);
+
     const medsBox = document.getElementById('cg-meds');
     const meds = data.meds || [];
     const logs = (data.medLogs || {})[todayStr()] || {};
@@ -275,60 +411,5 @@
     } else {
       medsBox.innerHTML = meds.map(function (m) {
         const taken = !!logs[m.id];
-        return '<div class="row"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + '</span>' +
-          '<span class="badge ' + (taken ? 'badge-taken' : 'badge-missed') + '">' + (taken ? '✓ Taken' : 'Not yet') + '</span></div>';
-      }).join('');
-    }
-
-    document.getElementById('cg-streak').textContent = data.streak || '0';
-    const weekAgo = Date.now() - 7 * 86400000;
-    const weekVitals = vitals.filter(function (v) { return new Date(v.dateISO || v.date).getTime() >= weekAgo; });
-    document.getElementById('cg-readings').textContent = weekVitals.length;
-
-    const medLogs = data.medLogs || {};
-    let totalPossible = 0, totalTaken = 0;
-    if (meds.length > 0) {
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
-        const dayLog = medLogs[d] || {};
-        meds.forEach(function (m) { totalPossible++; if (dayLog[m.id]) totalTaken++; });
-      }
-    }
-    document.getElementById('cg-adherence').textContent = totalPossible > 0 ? Math.round((totalTaken / totalPossible) * 100) + '%' : '—';
-    document.getElementById('cg-last-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
-  }
-
-  function showView(name) {
-    ['login-view', 'no-link-view', 'dashboard-view'].forEach(function (v) {
-      document.getElementById(v).style.display = v === name ? 'block' : 'none';
-    });
-  }
-
-  firebase.auth().onAuthStateChanged(function (user) {
-    if (cgUnsub) { cgUnsub(); cgUnsub = null; }
-    if (isLinking) return;
-    if (inviteCodeFromUrl && user) {
-      firebase.auth().signOut();
-      return;
-    }
-    if (!user) { showView('login-view'); return; }
-    firebase.firestore().collection('caregiverLinks').doc(user.uid).get()
-      .then(function (linkDoc) {
-        if (!linkDoc.exists) { showView('no-link-view'); return; }
-        const patientUid = linkDoc.data().patientUid;
-        showView('dashboard-view');
-        cgUnsub = firebase.firestore().collection('users').doc(patientUid)
-          .onSnapshot(function (doc) {
-            if (doc.exists) renderDashboard(doc.data());
-          }, function (err) {
-            console.error('Sentra-X Caregiver: read failed:', err.message);
-          });
-      })
-      .catch(function (err) {
-        console.error('Sentra-X Caregiver: link lookup failed:', err.message);
-        showView('no-link-view');
-      });
-  });
-</script>
-</body>
-</html>
+        const exp = expiryLabel(m);
+        return '<div class="row"><div class="med-name-col"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.ti
