@@ -412,4 +412,95 @@
       medsBox.innerHTML = meds.map(function (m) {
         const taken = !!logs[m.id];
         const exp = expiryLabel(m);
-        return '<div class="row"><div class="med-name-col"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.ti
+        return '<div class="row"><div class="med-name-col"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + '</span>' +
+          '<span class="med-expiry ' + exp.cls + '">' + exp.text + '</span></div>' +
+          '<span class="badge ' + (taken ? 'badge-taken' : 'badge-missed') + '">' + (taken ? '✓ Taken' : 'Not yet') + '</span></div>';
+      }).join('');
+    }
+
+    const vHistBox = document.getElementById('cg-vitals-history');
+    if (vitals.length === 0) {
+      vHistBox.innerHTML = '<div class="empty">No readings yet</div>';
+    } else {
+      const vShown = vitalsHistExpanded ? vitals.slice(0, 15) : vitals.slice(0, 3);
+      vHistBox.innerHTML = vShown.map(function (v) {
+        return '<div class="row"><span>' + v.sys + '/' + v.dia + ' — ' + escapeHtml(v.level) +
+          (v.hr ? ' · HR ' + escapeHtml(v.hr) : '') + (v.weight ? ' · ' + escapeHtml(v.weight) + 'kg' : '') + '</span>' +
+          '<span class="badge" style="background:' + v.color + ';color:#0f172a;">' + escapeHtml(v.date) + '</span></div>';
+      }).join('');
+      if (vitals.length > 3) {
+        vHistBox.innerHTML += '<div class="show-more" onclick="vitalsHistExpanded = !vitalsHistExpanded; renderDashboard(window.__cgLastData);">' +
+          (vitalsHistExpanded ? 'Show less ↑' : 'Show all ' + Math.min(vitals.length, 15) + ' readings ↓') + '</div>';
+      }
+    }
+
+    const medHistBox = document.getElementById('cg-med-history');
+    const medHistory = data.medHistory || [];
+    if (medHistory.length === 0) {
+      medHistBox.innerHTML = '<div class="empty">No medication history yet</div>';
+    } else {
+      const mShown = medHistExpanded ? medHistory.slice(0, 15) : medHistory.slice(0, 3);
+      medHistBox.innerHTML = mShown.map(function (h) {
+        const startText = h.startDate ? new Date(h.startDate).toLocaleDateString() : '—';
+        const endText = h.expiryDate ? new Date(h.expiryDate).toLocaleDateString() : '—';
+        return '<div class="row"><span>💊 ' + escapeHtml(h.name) + ' · ' + startText + ' – ' + endText + '</span>' +
+          '<span class="badge ' + (h.completed ? 'badge-taken' : 'badge-missed') + '">' + (h.completed ? 'Completed' : 'Ended') + '</span></div>';
+      }).join('');
+      if (medHistory.length > 3) {
+        medHistBox.innerHTML += '<div class="show-more" onclick="medHistExpanded = !medHistExpanded; renderDashboard(window.__cgLastData);">' +
+          (medHistExpanded ? 'Show less ↑' : 'Show all ' + Math.min(medHistory.length, 15) + ' →') + '</div>';
+      }
+    }
+
+    document.getElementById('cg-streak').textContent = data.streak || '0';
+    const weekAgo = Date.now() - 7 * 86400000;
+    const weekVitals = vitals.filter(function (v) { return new Date(v.dateISO || v.date).getTime() >= weekAgo; });
+    document.getElementById('cg-readings').textContent = weekVitals.length;
+
+    const medLogs = data.medLogs || {};
+    let totalPossible = 0, totalTaken = 0;
+    if (meds.length > 0) {
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+        const dayLog = medLogs[d] || {};
+        meds.forEach(function (m) { totalPossible++; if (dayLog[m.id]) totalTaken++; });
+      }
+    }
+    document.getElementById('cg-adherence').textContent = totalPossible > 0 ? Math.round((totalTaken / totalPossible) * 100) + '%' : '—';
+    document.getElementById('cg-last-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  }
+
+  function showView(name) {
+    ['login-view', 'no-link-view', 'dashboard-view'].forEach(function (v) {
+      document.getElementById(v).style.display = v === name ? 'block' : 'none';
+    });
+  }
+
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (cgUnsub) { cgUnsub(); cgUnsub = null; }
+    if (isLinking) return;
+    if (inviteCodeFromUrl && user) {
+      firebase.auth().signOut();
+      return;
+    }
+    if (!user) { showView('login-view'); return; }
+    firebase.firestore().collection('caregiverLinks').doc(user.uid).get()
+      .then(function (linkDoc) {
+        if (!linkDoc.exists) { showView('no-link-view'); return; }
+        const patientUid = linkDoc.data().patientUid;
+        showView('dashboard-view');
+        cgUnsub = firebase.firestore().collection('users').doc(patientUid)
+          .onSnapshot(function (doc) {
+            if (doc.exists) renderDashboard(doc.data());
+          }, function (err) {
+            console.error('Sentra-X Caregiver: read failed:', err.message);
+          });
+      })
+      .catch(function (err) {
+        console.error('Sentra-X Caregiver: link lookup failed:', err.message);
+        showView('no-link-view');
+      });
+  });
+</script>
+</body>
+</html>
