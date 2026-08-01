@@ -259,6 +259,10 @@
         if (invite.expiresAt && Date.now() > invite.expiresAt) throw new Error('That invite code has expired — ask for a new one.');
         const patientUid = invite.patientUid;
 
+        if (invite.usedBy === newUid) {
+          return patientUid;
+        }
+
         return firebase.firestore().collection('invites').doc(code).update({ usedBy: newUid })
           .then(function () {
             return firebase.firestore().collection('caregiverLinks').doc(newUid).set({
