@@ -19,6 +19,39 @@
     if (el) el.style.display = 'none';
   };
 
+  // Tracks whether the shared login/signup screen is currently in "log in"
+  // or "sign up" mode, so the consent checkbox only ever shows when someone
+  // is actually creating an account — never during an ordinary login.
+  let authMode = 'login';
+
+  window.toggleAuthMode = function() {
+    authMode = authMode === 'login' ? 'signup' : 'login';
+    const heading = document.getElementById('auth-heading');
+    const subheading = document.getElementById('auth-subheading');
+    const consentRow = document.getElementById('auth-consent-row');
+    const submitBtn = document.getElementById('auth-submit-btn');
+    const switchBtn = document.querySelector('#auth-overlay .switch');
+    const errorEl = document.getElementById('auth-error');
+    if (errorEl) errorEl.textContent = '';
+    if (authMode === 'signup') {
+      if (heading) heading.textContent = 'Create Account';
+      if (subheading) subheading.textContent = 'Set up your Sentra-X account.';
+      if (consentRow) consentRow.style.display = 'flex';
+      if (submitBtn) submitBtn.textContent = 'Sign Up';
+      if (switchBtn) switchBtn.textContent = 'Already have an account? Log In';
+    } else {
+      if (heading) heading.textContent = 'Welcome Back';
+      if (subheading) subheading.textContent = 'Log in or create your Sentra-X account.';
+      if (consentRow) consentRow.style.display = 'none';
+      if (submitBtn) submitBtn.textContent = 'Log In';
+      if (switchBtn) switchBtn.textContent = "Don't have an account? Sign Up";
+    }
+  };
+
+  window.submitAuth = function() {
+    if (authMode === 'signup') { window.signUp(); } else { window.logIn(); }
+  };
+
   window.signUp = function() {
     const emailEl = document.getElementById('auth-email');
     const passwordEl = document.getElementById('auth-password');
