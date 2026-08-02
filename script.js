@@ -1,12 +1,3 @@
-(function checkDisplayMode() {
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    || window.matchMedia('(display-mode: minimal-ui)').matches
-    || window.navigator.standalone === true;
-  if (!isStandalone) {
-    const banner = document.getElementById('browser-mode-banner');
-    if (banner) banner.style.display = 'block';
-  }
-})();
 const TIPS = [
   "A short 10-minute walk after meals can help keep blood pressure steady.",
   "Try to cut down on added salt this week — season with herbs and spice instead.",
