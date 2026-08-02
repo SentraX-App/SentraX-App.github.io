@@ -236,7 +236,8 @@
     const btn = document.getElementById('cg-join-btn');
     err.textContent = '';
     if (!code || !email || !password) { err.textContent = 'Please fill in the code, email, and password.'; return; }
-
+const consentEl = document.getElementById('cg-join-consent');
+    if (consentEl && !consentEl.checked) { err.textContent = 'Please agree to the Privacy Policy to create an account.'; return; }
     btn.disabled = true;
     btn.textContent = 'Linking…';
     isLinking = true;
