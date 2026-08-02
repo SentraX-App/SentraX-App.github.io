@@ -1,0 +1,30 @@
+name: Deploy Preview (staging)
+
+on:
+  push:
+    branches:
+      - staging
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stamp CACHE_NAME with commit SHA
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          sed -i "s/const CACHE_NAME = '.*';/const CACHE_NAME = 'sentrax-${SHORT_SHA}';/" sw.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: sentra-x
+          expires: 7d
