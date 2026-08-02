@@ -45,19 +45,20 @@
 </div>
   <div id="auth-overlay">
     <div class="box">
-      <h2>Welcome Back</h2>
-      <p>Log in or create your Sentra-X account.</p>
+      <h2 id="auth-heading">Welcome Back</h2>
+      <p id="auth-subheading">Log in or create your Sentra-X account.</p>
       <input type="email" id="auth-email" placeholder="Email address">
       <input type="password" id="auth-password" placeholder="Password">
-      <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#94a3b8;margin:10px 0;text-align:left;">
+      <label id="auth-consent-row" style="display:none;align-items:flex-start;gap:8px;font-size:12.5px;color:#94a3b8;margin:10px 0;text-align:left;width:100%;box-sizing:border-box;">
         <input type="checkbox" id="auth-consent" style="margin-top:3px;flex-shrink:0;">
-        <span>I consent to Sentra-X collecting and processing my health data as described in the <a href="privacy.html" target="_blank" style="color:#60a5fa;">Privacy Policy</a>, in line with the Nigeria Data Protection Act.</span>
+        <span style="flex:1;">I consent to Sentra-X collecting and processing my health data as described in the <a href="privacy.html" target="_blank" style="color:#60a5fa;">Privacy Policy</a>, in line with the Nigeria Data Protection Act.</span>
       </label>
       <div class="error" id="auth-error"></div>
-      <button onclick="logIn()">Log In</button>
-      <button class="switch" onclick="signUp()">Don't have an account? Sign Up</button>
+      <button id="auth-submit-btn" onclick="submitAuth()">Log In</button>
+      <button class="switch" onclick="toggleAuthMode()">Don't have an account? Sign Up</button>
     </div>
   </div>
+
 
   <div id="onboarding-overlay">
     <div class="box">
