@@ -30,7 +30,8 @@
     errorEl.textContent = '';
 
     if (!email || !password) { errorEl.textContent = 'Please enter both email and password.'; return; }
-
+const consentEl = document.getElementById('auth-consent');
+    if (consentEl && !consentEl.checked) { errorEl.textContent = 'Please agree to the Privacy Policy to create an account.'; return; }
     firebase.auth().createUserWithEmailAndPassword(email, password)
       .then(function() { console.log('Sentra-X: sign up successful.'); })
       .catch(function(err) {
