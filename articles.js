@@ -51,6 +51,32 @@
     Sleep: '😴', Diabetes: '🩸', Wellness: '🧘', Caregiving: '🤝'
   };
 
+  // Real photos per topic, hotlinked from Wikimedia Commons (freely-licensed,
+  // no key or hosting needed). Not every tag has a verified photo yet — a
+  // missing entry here just means that tag keeps its existing gradient+emoji
+  // cover. onerror on the <img> itself (see coverHtml()) also falls back to
+  // the gradient+emoji look if a linked photo ever fails to load live.
+  const TAG_PHOTO = {
+    Hypertension: 'https://commons.wikimedia.org/wiki/Special:FilePath/Blood%20pressure%20monitoring.jpg?width=500',
+    Diet: 'https://commons.wikimedia.org/wiki/Special:FilePath/Food-healthy-vegetables-potatoes%20(23958160949).jpg?width=500',
+    Medication: 'https://commons.wikimedia.org/wiki/Special:FilePath/201707%20medicine%20tablets%20elliptical.svg?width=500',
+    Activity: 'https://commons.wikimedia.org/wiki/Special:FilePath/Walkingexercise.jpg?width=500'
+  };
+
+  // Builds the cover markup for a card: a real photo if this tag has one
+  // (with a graceful fallback to the emoji cover if the image fails to
+  // load), otherwise the existing gradient+emoji cover unchanged.
+  function coverHtml(tag, sizeStyle) {
+    const emoji = TAG_EMOJI[tag] || '📰';
+    const photo = TAG_PHOTO[tag];
+    if (photo) {
+      return '<div class="art-cover art-cover-photo" data-tag="' + tag + '"' + (sizeStyle ? ' style="' + sizeStyle + '"' : '') + '>' +
+        '<img src="' + photo + '" alt="" loading="lazy" onerror="this.parentElement.classList.add(\'art-cover-fallback\');this.remove();">' +
+        '<span class="art-tag">' + tag + '</span></div>';
+    }
+    return '<div class="art-cover" data-tag="' + tag + '"' + (sizeStyle ? ' style="' + sizeStyle + '"' : '') + '><span class="art-tag">' + tag + '</span>' + emoji + '</div>';
+  }
+
   function excerptFrom(body, maxChars) {
     if (body.length <= maxChars) return body;
     return body.slice(0, maxChars).replace(/\s+\S*$/, '') + '…';
@@ -153,9 +179,8 @@
 
     let html = '<div id="live-news-section"><p style="font-size:12px;color:#64748b;text-align:center;">Loading latest health news…</p></div><div style="height:14px;"></div>';
     order.forEach(function (a) {
-      const emoji = TAG_EMOJI[a.tag] || '📰';
       html += '<div class="art-card" onclick="SentraXArticles.open(\'' + a.id + '\')">' +
-        '<div class="art-cover" data-tag="' + a.tag + '"><span class="art-tag">' + a.tag + '</span>' + emoji + '</div>' +
+        coverHtml(a.tag) +
         '<div class="art-body">' +
         '<h4>' + a.title + '</h4>' +
         '<p class="art-excerpt">' + excerptFrom(a.body, 90) + '</p>' +
@@ -178,22 +203,23 @@
       overlay.id = 'article-reader-overlay';
       document.body.appendChild(overlay);
     }
+    const hasPhoto = !!TAG_PHOTO[article.tag];
     const emoji = TAG_EMOJI[article.tag] || '📰';
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXArticles.close()">←</button>' +
-      '<div class="art-reader-cover" data-tag="' + article.tag + '" style="background:var(--art-cover-bg,inherit);font-size:54px;">' +
-      '<span class="art-reader-tag">' + article.tag + '</span></div>' +
+      coverHtml(article.tag, 'height:180px;').replace('art-cover', 'art-cover art-reader-cover') +
       '<div class="art-reader-body">' +
-      '<div style="font-size:44px;margin-bottom:4px;">' + emoji + '</div>' +
+      (hasPhoto ? '' : '<div style="font-size:44px;margin-bottom:4px;">' + emoji + '</div>') +
       '<h2>' + article.title + '</h2>' +
       '<p>' + article.body + '</p>' +
       '<div class="art-reader-footnote">General health information, not medical advice. Talk to your doctor or pharmacist about anything specific to you.</div>' +
       '</div>';
-    // Reuse the same tag-color gradient as the list card for visual continuity.
-    const coverEl = overlay.querySelector('.art-reader-cover');
-    const listCover = document.querySelector('.art-cover[data-tag="' + article.tag + '"]');
-    if (coverEl && listCover) {
-      coverEl.style.background = getComputedStyle(listCover).backgroundImage;
+    if (!hasPhoto) {
+      const coverEl = overlay.querySelector('.art-reader-cover');
+      const listCover = document.querySelector('.art-cover[data-tag="' + article.tag + '"]');
+      if (coverEl && listCover) {
+        coverEl.style.background = getComputedStyle(listCover).backgroundImage;
+      }
     }
     overlay.style.display = 'block';
     overlay.scrollTop = 0;
@@ -204,6 +230,37 @@
     if (overlay) overlay.style.display = 'none';
   }
 
+  // Live CDC items open in the SAME in-app reader overlay as the curated
+  // articles, instead of a new browser tab — kept in a side table (not the
+  // main ARTICLES array) since these are fetched at runtime, not fixed.
+  let liveNewsById = {};
+
+  function openLiveArticle(id) {
+    const item = liveNewsById[id];
+    if (!item) return;
+    let overlay = document.getElementById('article-reader-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'article-reader-overlay';
+      document.body.appendChild(overlay);
+    }
+    const snippet = snippetFrom(item);
+    const photoHtml = item.thumbnail
+      ? '<div class="art-reader-cover" style="height:180px;"><img src="' + item.thumbnail + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove();"><span class="art-reader-tag">CDC Newsroom</span></div>'
+      : '<div class="art-reader-cover" data-tag="Wellness" style="height:120px;"><span class="art-reader-tag">CDC Newsroom</span></div>';
+    overlay.innerHTML =
+      '<button class="art-reader-back" onclick="SentraXArticles.close()">←</button>' +
+      photoHtml +
+      '<div class="art-reader-body">' +
+      '<h2>' + item.title + '</h2>' +
+      (snippet ? '<p>' + snippet + '</p>' : '') +
+      '<p style="margin-top:20px;"><a href="' + item.link + '" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;font-weight:700;text-decoration:none;">Read full article on cdc.gov ↗</a></p>' +
+      '<div class="art-reader-footnote">Summary only — full article is published by the CDC and opens on their site. General health information, not medical advice.</div>' +
+      '</div>';
+    overlay.style.display = 'block';
+    overlay.scrollTop = 0;
+  }
+
   function loadLiveNews() {
     const container = document.getElementById('live-news-section');
     if (!container || typeof fetch === 'undefined') return;
@@ -212,34 +269,37 @@
       .then(function (res) { return res.json(); })
       .then(function (data) {
         if (!data || data.status !== 'ok' || !data.items || !data.items.length) {
-          container.innerHTML = ''; // fail quietly, static articles above still stand
+          container.innerHTML = '';
           return;
         }
         const items = data.items.slice(0, MAX_LIVE_ITEMS);
+        liveNewsById = {};
         let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">📡 Latest Health News</h3><p>Straight from the CDC newsroom</p></div>';
-        items.forEach(function (item) {
+        items.forEach(function (item, i) {
+          const id = 'live-' + i;
+          liveNewsById[id] = item;
           const snippet = snippetFrom(item);
-          html += '<a href="' + item.link + '" target="_blank" rel="noopener noreferrer" style="text-decoration:none;color:inherit;">' +
-            '<div class="art-card" style="display:flex;align-items:center;gap:0;">' +
-            '<div class="art-cover" data-tag="Wellness" style="width:64px;height:64px;flex-shrink:0;font-size:22px;">📡</div>' +
+          const thumb = item.thumbnail
+            ? '<img src="' + item.thumbnail + '" alt="" loading="lazy" style="width:64px;height:64px;object-fit:cover;border-radius:12px;flex-shrink:0;" onerror="this.outerHTML=\'<div class=&quot;art-cover&quot; data-tag=&quot;Wellness&quot; style=&quot;width:64px;height:64px;flex-shrink:0;font-size:22px;&quot;>📡</div>\';">'
+            : '<div class="art-cover" data-tag="Wellness" style="width:64px;height:64px;flex-shrink:0;font-size:22px;">📡</div>';
+          html += '<div class="art-card" style="display:flex;align-items:center;gap:0;cursor:pointer;" onclick="SentraXArticles.openLive(\'' + id + '\')">' +
+            thumb +
             '<div class="art-body" style="padding:12px 14px;">' +
             '<div style="font-size:10px;color:#64748b;">CDC Newsroom</div>' +
             '<div style="font-size:14px;font-weight:700;margin:2px 0 4px;color:#f1f5f9;">' + item.title + '</div>' +
             (snippet ? '<div style="font-size:12px;color:#94a3b8;">' + snippet + '</div>' : '') +
-            '<div class="art-readmore" style="margin-top:6px;">Read full article →</div>' +
-            '</div></div></a>';
+            '<div class="art-readmore" style="margin-top:6px;">Read more →</div>' +
+            '</div></div>';
         });
         container.innerHTML = html;
       })
       .catch(function () {
-        // Offline, feed down, or blocked — fail quietly. The curated
-        // static section already rendered above and works regardless.
         container.innerHTML = '';
       });
   }
 
   if (typeof window !== 'undefined') {
-    window.SentraXArticles = { render: renderArticles, open: openArticle, close: closeArticle, ARTICLES: ARTICLES };
+    window.SentraXArticles = { render: renderArticles, open: openArticle, openLive: openLiveArticle, close: closeArticle, ARTICLES: ARTICLES };
   }
 
   if (typeof module !== 'undefined' && module.exports) {
