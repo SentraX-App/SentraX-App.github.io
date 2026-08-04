@@ -46,7 +46,7 @@ function showScreen(name) {
   document.getElementById('nav-ai').classList.remove('active');
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
-  if (name === 'firstaid' || name === 'passport' || name === 'ai') {
+  if (name === 'firstaid' || name === 'passport' || name === 'ai' || name === 'articles') {
     document.getElementById('nav-more').classList.add('active');
   }
   closeMoreMenu();
