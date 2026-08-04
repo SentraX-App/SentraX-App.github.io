@@ -46,6 +46,16 @@
     return truncate(stripHtml(item.description || item.content || ''), SNIPPET_MAX_CHARS);
   }
 
+  const TAG_EMOJI = {
+    Hypertension: '🩺', Diet: '🥗', Medication: '💊', Activity: '🚶',
+    Sleep: '😴', Diabetes: '🩸', Wellness: '🧘', Caregiving: '🤝'
+  };
+
+  function excerptFrom(body, maxChars) {
+    if (body.length <= maxChars) return body;
+    return body.slice(0, maxChars).replace(/\s+\S*$/, '') + '…';
+  }
+
   const ARTICLES = [
     {
       id: 'bp-basics',
@@ -143,17 +153,55 @@
 
     let html = '<div id="live-news-section"><p style="font-size:12px;color:#64748b;text-align:center;">Loading latest health news…</p></div><div style="height:14px;"></div>';
     order.forEach(function (a) {
-      html += '<div class="card" style="margin-bottom:10px;">' +
-        '<div style="font-size:11px;color:#60a5fa;font-weight:700;text-transform:uppercase;">' + a.tag + '</div>' +
-        '<h3 style="margin:4px 0 6px;">' + a.title + '</h3>' +
-        '<p style="font-size:13px;color:#cbd5e1;line-height:1.5;margin:0;">' + a.body + '</p>' +
-        '</div>';
+      const emoji = TAG_EMOJI[a.tag] || '📰';
+      html += '<div class="art-card" onclick="SentraXArticles.open(\'' + a.id + '\')">' +
+        '<div class="art-cover" data-tag="' + a.tag + '"><span class="art-tag">' + a.tag + '</span>' + emoji + '</div>' +
+        '<div class="art-body">' +
+        '<h4>' + a.title + '</h4>' +
+        '<p class="art-excerpt">' + excerptFrom(a.body, 90) + '</p>' +
+        '<div class="art-readmore">Read more →</div>' +
+        '</div></div>';
     });
     html += '<p style="font-size:11px;color:#64748b;text-align:center;margin-top:6px;">' +
       'General health information, not medical advice. Talk to your doctor or pharmacist about anything specific to you.</p>';
     root.innerHTML = html;
 
     loadLiveNews();
+  }
+
+  function openArticle(id) {
+    const article = ARTICLES.find(function (a) { return a.id === id; });
+    if (!article) return;
+    let overlay = document.getElementById('article-reader-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'article-reader-overlay';
+      document.body.appendChild(overlay);
+    }
+    const emoji = TAG_EMOJI[article.tag] || '📰';
+    overlay.innerHTML =
+      '<button class="art-reader-back" onclick="SentraXArticles.close()">←</button>' +
+      '<div class="art-reader-cover" data-tag="' + article.tag + '" style="background:var(--art-cover-bg,inherit);font-size:54px;">' +
+      '<span class="art-reader-tag">' + article.tag + '</span></div>' +
+      '<div class="art-reader-body">' +
+      '<div style="font-size:44px;margin-bottom:4px;">' + emoji + '</div>' +
+      '<h2>' + article.title + '</h2>' +
+      '<p>' + article.body + '</p>' +
+      '<div class="art-reader-footnote">General health information, not medical advice. Talk to your doctor or pharmacist about anything specific to you.</div>' +
+      '</div>';
+    // Reuse the same tag-color gradient as the list card for visual continuity.
+    const coverEl = overlay.querySelector('.art-reader-cover');
+    const listCover = document.querySelector('.art-cover[data-tag="' + article.tag + '"]');
+    if (coverEl && listCover) {
+      coverEl.style.background = getComputedStyle(listCover).backgroundImage;
+    }
+    overlay.style.display = 'block';
+    overlay.scrollTop = 0;
+  }
+
+  function closeArticle() {
+    const overlay = document.getElementById('article-reader-overlay');
+    if (overlay) overlay.style.display = 'none';
   }
 
   function loadLiveNews() {
@@ -168,16 +216,18 @@
           return;
         }
         const items = data.items.slice(0, MAX_LIVE_ITEMS);
-        let html = '<h3 style="margin:0 0 8px;">📡 Latest Health News</h3>';
+        let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">📡 Latest Health News</h3><p>Straight from the CDC newsroom</p></div>';
         items.forEach(function (item) {
           const snippet = snippetFrom(item);
           html += '<a href="' + item.link + '" target="_blank" rel="noopener noreferrer" style="text-decoration:none;color:inherit;">' +
-            '<div class="card" style="margin-bottom:8px;">' +
+            '<div class="art-card" style="display:flex;align-items:center;gap:0;">' +
+            '<div class="art-cover" data-tag="Wellness" style="width:64px;height:64px;flex-shrink:0;font-size:22px;">📡</div>' +
+            '<div class="art-body" style="padding:12px 14px;">' +
             '<div style="font-size:10px;color:#64748b;">CDC Newsroom</div>' +
-            '<div style="font-size:14px;font-weight:600;margin:2px 0 4px;">' + item.title + '</div>' +
+            '<div style="font-size:14px;font-weight:700;margin:2px 0 4px;color:#f1f5f9;">' + item.title + '</div>' +
             (snippet ? '<div style="font-size:12px;color:#94a3b8;">' + snippet + '</div>' : '') +
-            '<div style="font-size:11px;color:#60a5fa;margin-top:4px;">Read full article →</div>' +
-            '</div></a>';
+            '<div class="art-readmore" style="margin-top:6px;">Read full article →</div>' +
+            '</div></div></a>';
         });
         container.innerHTML = html;
       })
@@ -189,7 +239,7 @@
   }
 
   if (typeof window !== 'undefined') {
-    window.SentraXArticles = { render: renderArticles, ARTICLES: ARTICLES };
+    window.SentraXArticles = { render: renderArticles, open: openArticle, close: closeArticle, ARTICLES: ARTICLES };
   }
 
   if (typeof module !== 'undefined' && module.exports) {
