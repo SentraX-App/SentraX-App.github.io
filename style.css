@@ -54,8 +54,12 @@ header img { height: 30px; width: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0
 .art-card:active { transform: scale(0.98); }
 .art-cover {
   height: 88px; display: flex; align-items: center; justify-content: center;
-  font-size: 34px; position: relative;
+  font-size: 34px; position: relative; overflow: hidden;
 }
+.art-cover-photo img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+}
+.art-cover-fallback { font-size: 34px; }
 .art-cover .art-tag {
   position: absolute; top: 10px; left: 12px;
   font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
