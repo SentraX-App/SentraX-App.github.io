@@ -59,6 +59,11 @@ header img { height: 30px; width: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0
 .art-cover-photo img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
 }
+.art-cover-photo::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.38) 100%);
+  pointer-events: none;
+}
 .art-cover-fallback { font-size: 34px; }
 .art-cover .art-tag {
   position: absolute; top: 10px; left: 12px;
@@ -66,6 +71,12 @@ header img { height: 30px; width: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0
   background: rgba(0,0,0,0.28); color: #fff; padding: 4px 10px; border-radius: 100px;
   backdrop-filter: blur(6px);
 }
+/* Alternating rhythm: every other card gets a gentle blue-tinted body
+   and its tag badge on the right, so the feed reads as designed rather
+   than a monotonous repeating stack, even when two adjacent cards
+   happen to share a topic/photo. */
+.art-card-alt { background: rgba(96,165,250,0.10); border-color: rgba(96,165,250,0.28); }
+.art-cover-alt .art-tag { left: auto; right: 12px; }
 .art-body { padding: 14px 16px 16px; }
 .art-body h4 { margin: 0 0 6px; font-size: 15.5px; color: #f1f5f9; font-weight: 700; line-height: 1.35; }
 .art-excerpt { margin: 0; font-size: 12.5px; color: #94a3b8; line-height: 1.5; }
