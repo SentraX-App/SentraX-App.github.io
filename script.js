@@ -55,6 +55,7 @@ function showScreen(name) {
   if (name === 'family') renderCaregiverNote();
   if (name === 'passport') renderPassport();
   if (name === 'ai') renderAiWelcome();
+  if (name === 'articles' && window.SentraXArticles) window.SentraXArticles.render();
 }
 // Opens/closes the "More" overflow sheet (First Aid, Passport, Assistant),
 // which exists because a 7-item bottom nav was too cramped for mobile.
