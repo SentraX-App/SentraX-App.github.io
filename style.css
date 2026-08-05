@@ -344,3 +344,110 @@ nav button.active .icon { filter: none; }
     white-space: normal;
   }
 }
+/* --- Marketplace: header, category chips, product grid, product reader,
+   cart/checkout sheet. Emerald/gold accent so it reads as its own "shop"
+   section, distinct from the app's default blue. --- */
+.mkt-header {
+  background: linear-gradient(135deg, rgba(16,185,129,0.22), rgba(234,179,8,0.14));
+  border: 1px solid rgba(110,231,183,0.25);
+  border-radius: 22px; padding: 20px 20px 18px; margin-bottom: 14px;
+  position: relative; overflow: hidden;
+}
+.mkt-header::before {
+  content: ''; position: absolute; top: -40px; right: -30px;
+  width: 140px; height: 140px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(52,211,153,0.35), transparent 70%);
+}
+.mkt-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; position: relative; }
+.mkt-header h3 { margin: 0 0 6px; font-size: 20px; color: #f1f5f9; text-transform: none; letter-spacing: 0; font-weight: 800; }
+.mkt-header p { margin: 0; font-size: 12.5px; color: #bbf7d0; max-width: 240px; }
+.mkt-cart-btn {
+  width: 46px; height: 46px; flex-shrink: 0; padding: 0; margin: 0;
+  border-radius: 14px; font-size: 20px; position: relative;
+  background: rgba(255,255,255,0.14); box-shadow: none;
+}
+.mkt-cart-badge {
+  position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px;
+  border-radius: 100px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 800;
+  align-items: center; justify-content: center; padding: 0 5px; border: 2px solid #0f172a;
+}
+.mkt-chip-row { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; scrollbar-width: none; }
+.mkt-chip-row::-webkit-scrollbar { display: none; }
+.mkt-chip {
+  flex-shrink: 0; width: auto; margin: 0; padding: 9px 14px;
+  background: rgba(255,255,255,0.06); color: #cbd5e1; box-shadow: none;
+  border-radius: 100px; font-size: 12.5px; font-weight: 600;
+}
+.mkt-chip.active { background: linear-gradient(135deg, #34d399, #059669); color: #04140c; }
+.mkt-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.mkt-card {
+  border-radius: 18px; overflow: hidden;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.22);
+  -webkit-tap-highlight-color: transparent;
+}
+.mkt-cover {
+  height: 84px; display: flex; align-items: center; justify-content: center;
+  font-size: 32px; cursor: pointer;
+}
+.mkt-cover[data-category="mobility"] { background: linear-gradient(135deg, #6366f1, #4338ca); }
+.mkt-cover[data-category="safety"] { background: linear-gradient(135deg, #f59e0b, #b45309); }
+.mkt-cover[data-category="firstaid"] { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+.mkt-cover[data-category="support"] { background: linear-gradient(135deg, #a855f7, #7e22ce); }
+.mkt-cover[data-category="medaids"] { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.mkt-body { padding: 12px; }
+.mkt-cat-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #6ee7b7; margin-bottom: 4px; }
+.mkt-body h4 { margin: 0 0 6px; font-size: 13.5px; color: #f1f5f9; font-weight: 700; line-height: 1.3; cursor: pointer; }
+.mkt-price { font-size: 14.5px; font-weight: 800; color: #34d399; margin-bottom: 8px; }
+.mkt-add-btn { padding: 9px; font-size: 12px; margin: 0; background: rgba(52,211,153,0.15); color: #6ee7b7; box-shadow: none; }
+
+/* Product detail reader — reuses #article-reader-overlay's fixed-panel
+   layout/back-button styling, with its own cover + a quantity stepper. */
+#product-reader-overlay {
+  position: fixed; inset: 0; z-index: 500; display: none;
+  background: #0b1220; overflow-y: auto;
+}
+.mkt-reader-cover {
+  height: 170px; display: flex; align-items: center; justify-content: center; font-size: 60px;
+}
+.mkt-reader-cover[data-category="mobility"] { background: linear-gradient(135deg, #6366f1, #4338ca); }
+.mkt-reader-cover[data-category="safety"] { background: linear-gradient(135deg, #f59e0b, #b45309); }
+.mkt-reader-cover[data-category="firstaid"] { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+.mkt-reader-cover[data-category="support"] { background: linear-gradient(135deg, #a855f7, #7e22ce); }
+.mkt-reader-cover[data-category="medaids"] { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.mkt-stepper-row { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 18px; font-size: 13px; color: #cbd5e1; }
+.mkt-stepper { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.06); border-radius: 100px; padding: 4px 6px; }
+.mkt-stepper button { width: 32px; height: 32px; border-radius: 50%; padding: 0; margin: 0; font-size: 16px; }
+.mkt-stepper b { font-size: 15px; min-width: 16px; text-align: center; }
+.mkt-stepper-sm button { width: 26px; height: 26px; font-size: 14px; }
+.mkt-stepper-sm b { font-size: 13px; }
+
+/* Cart / checkout / confirmation — one bottom sheet, three swappable steps */
+.mkt-sheet-backdrop {
+  position: fixed; inset: 0; z-index: 600; display: none;
+  background: rgba(0,0,0,0.55);
+}
+.mkt-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: 86vh;
+  background: #101a2e; border-radius: 22px 22px 0 0; overflow-y: auto;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 30px rgba(0,0,0,0.4);
+}
+.mkt-sheet-handle { width: 40px; height: 4px; border-radius: 100px; background: rgba(255,255,255,0.18); margin: 6px auto 14px; }
+.mkt-sheet-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.mkt-sheet-header h3 { margin: 0; font-size: 16px; color: #f1f5f9; font-weight: 800; }
+.mkt-sheet-close { width: 32px; height: 32px; padding: 0; margin: 0; border-radius: 50%; background: rgba(255,255,255,0.08); color: #cbd5e1; font-size: 14px; box-shadow: none; }
+.mkt-cart-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.mkt-cart-emoji { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.mkt-cart-info { flex: 1; min-width: 0; }
+.mkt-cart-name { font-size: 13.5px; color: #f1f5f9; font-weight: 700; }
+.mkt-cart-unit { font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
+.mkt-cart-remove { width: 28px; height: 28px; padding: 0; margin: 0; border-radius: 50%; background: rgba(248,113,113,0.14); color: #fca5a5; font-size: 12px; box-shadow: none; flex-shrink: 0; }
+.mkt-cart-total-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0 4px; font-size: 15px; color: #f1f5f9; }
+.mkt-cart-total-row b { color: #34d399; font-size: 18px; }
+.mkt-back-link { width: auto; background: none; box-shadow: none; color: #93c5fd; font-size: 13px; font-weight: 600; padding: 4px 0 10px; margin: 0; text-align: left; }
+.mkt-checkout-summary { font-size: 13.5px; color: #cbd5e1; margin-bottom: 12px; }
+.mkt-checkout-summary b { color: #34d399; }
+.mkt-paystack-note { font-size: 12px; color: #fcd34d; background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.25); border-radius: 12px; padding: 10px 12px; margin: 10px 0 4px; line-height: 1.5; }
+.mkt-success-check { font-size: 46px; text-align: center; margin: 6px 0 10px; }
+.mkt-success-ref { text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.4px; color: #6ee7b7; margin-bottom: 8px; }
