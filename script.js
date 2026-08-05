@@ -41,9 +41,7 @@ function showScreen(name) {
 
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.querySelectorAll('nav button').forEach(function(b) { b.classList.remove('active'); });
-  document.getElementById('nav-firstaid').classList.remove('active');
-  document.getElementById('nav-passport').classList.remove('active');
-  document.getElementById('nav-ai').classList.remove('active');
+  document.querySelectorAll('#more-sheet button').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
   if (name === 'firstaid' || name === 'passport' || name === 'ai' || name === 'articles' || name === 'marketplace') {
