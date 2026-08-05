@@ -27,8 +27,42 @@
 
   const CDC_FEED_URL = 'https://www.cdc.gov/media/rss.xml';
   const RSS_TO_JSON_ENDPOINT = 'https://api.rss2json.com/v1/api.json?rss_url=';
+  // Optional: set this if/when we get a free rss2json API key — the
+  // anonymous tier is shared globally and gets rate-limited under load.
+  // Leave blank to keep current (no-key) behavior.
+  const RSS_TO_JSON_API_KEY = '';
   const MAX_LIVE_ITEMS = 5;
   const SNIPPET_MAX_CHARS = 160;
+  const LIVE_FETCH_TIMEOUT_MS = 8000;
+  const LIVE_FETCH_RETRIES = 1;
+
+  function fetchWithTimeout(url, timeoutMs) {
+    if (typeof AbortController === 'undefined') return fetch(url);
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+    return fetch(url, { signal: controller.signal }).finally(function () {
+      clearTimeout(timer);
+    });
+  }
+
+  function fetchLiveFeedJson(attemptsLeft) {
+    let url = RSS_TO_JSON_ENDPOINT + encodeURIComponent(CDC_FEED_URL);
+    if (RSS_TO_JSON_API_KEY) url += '&api_key=' + encodeURIComponent(RSS_TO_JSON_API_KEY);
+    return fetchWithTimeout(url, LIVE_FETCH_TIMEOUT_MS)
+      .then(function (res) {
+        if (!res.ok) throw new Error('bad status ' + res.status);
+        return res.json();
+      })
+      .catch(function (err) {
+        if (attemptsLeft > 0) {
+          // Brief pause before the one retry — helps ride out a transient
+          // rate-limit response instead of failing permanently on it.
+          return new Promise(function (resolve) { setTimeout(resolve, 1200); })
+            .then(function () { return fetchLiveFeedJson(attemptsLeft - 1); });
+        }
+        throw err;
+      });
+  }
 
   function stripHtml(html) {
     return String(html || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
@@ -199,8 +233,7 @@
     const container = document.getElementById('live-news-section');
     if (!container || typeof fetch === 'undefined') return;
 
-    fetch(RSS_TO_JSON_ENDPOINT + encodeURIComponent(CDC_FEED_URL))
-      .then(function (res) { return res.json(); })
+    fetchLiveFeedJson(LIVE_FETCH_RETRIES)
       .then(function (data) {
         if (!data || data.status !== 'ok' || !data.items || !data.items.length) {
           container.innerHTML = '';
