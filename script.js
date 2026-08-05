@@ -46,7 +46,7 @@ function showScreen(name) {
   document.getElementById('nav-ai').classList.remove('active');
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
-  if (name === 'firstaid' || name === 'passport' || name === 'ai' || name === 'articles') {
+  if (name === 'firstaid' || name === 'passport' || name === 'ai' || name === 'articles' || name === 'marketplace') {
     document.getElementById('nav-more').classList.add('active');
   }
   closeMoreMenu();
@@ -56,6 +56,7 @@ function showScreen(name) {
   if (name === 'passport') renderPassport();
   if (name === 'ai') renderAiWelcome();
   if (name === 'articles' && window.SentraXArticles) window.SentraXArticles.render();
+  if (name === 'marketplace' && window.SentraXStore) window.SentraXStore.render();
 }
 // Opens/closes the "More" overflow sheet (First Aid, Passport, Assistant),
 // which exists because a 7-item bottom nav was too cramped for mobile.
