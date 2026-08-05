@@ -463,7 +463,7 @@ If low mood persists for weeks rather than easing, or starts noticeably affectin
     const order = todaysOrder();
 
     let html = '<div id="live-news-section"><p style="font-size:12px;color:#64748b;text-align:center;">Loading latest health news…</p></div><div style="height:14px;"></div>' +
-      '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">📚 Guides</h3><p>Vetted, plain-language reads — reshuffled daily</p></div>';
+      '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">📚 Guides</h3><p>Vetted, plain-language reads on managing your condition</p></div>';
     order.forEach(function (a, i) {
       const altClass = i % 2 === 1 ? ' art-card-alt' : '';
       html += '<div class="art-card' + altClass + '" onclick="SentraXArticles.open(\'' + a.id + '\')">' +
