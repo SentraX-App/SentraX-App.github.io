@@ -53,54 +53,27 @@
     { id: 'rollator', name: '3-Wheel Folding Rollator Walker', category: 'mobility', price: 45000, emoji: '🚶',
       short: 'Folds flat, with hand brakes and a seat.',
       long: 'A compact, lightweight three-wheel walker with hand brakes and a fold-down seat for resting on the go — much easier to maneuver through doorways and tight spaces than a standard 4-wheel frame. Folds flat for the car boot.' },
-    { id: 'gait-belt', name: 'Caregiver Transfer & Gait Belt', category: 'mobility', price: 7500, emoji: '🪢',
-      short: 'Helps caregivers safely support a walk or transfer.',
-      long: 'A padded, quick-release belt that gives a caregiver a secure grip when helping someone stand, walk, or transfer between a bed, chair, or car — reduces strain on both of you and lowers fall risk during assisted movement.' },
-    { id: 'grab-bar', name: 'Bathroom Safety Grab Bar', category: 'safety', price: 9500, emoji: '🛁',
-      short: 'Wall-mounted support rail for bath & toilet.',
-      long: 'A sturdy, textured stainless-steel grab bar that mounts securely to the wall to help prevent slips and falls in the bathroom — a simple addition that adds real peace of mind for elderly or recovering household members.' },
-    { id: 'shower-chair', name: 'Folding Shower Chair', category: 'safety', price: 18000, emoji: '🚿',
-      short: 'Non-slip legs, drains freely, folds for storage.',
-      long: 'A sturdy, water-resistant chair that lets someone sit safely while bathing — non-slip rubber feet, drainage holes, and a folding frame that tucks away when not in use.' },
-    { id: 'raised-toilet-seat', name: 'Raised Toilet Seat with Handles', category: 'safety', price: 14000, emoji: '🚽',
-      short: 'Adds height and side handles for safer sit-to-stand.',
-      long: 'Fits over most standard toilets to add extra height and sturdy side handles, making sitting down and standing up significantly safer and easier for anyone with limited mobility or recovering from surgery.' },
-    { id: 'emergency-alarm', name: 'Personal Emergency Alarm Pendant', category: 'safety', price: 13500, emoji: '🆘',
-      short: 'Wearable panic button — one press alerts your caregiver.',
-      long: 'A wearable panic-button pendant for anyone living alone or at fall risk — one press sounds a loud local alarm to bring help immediately. Pairs naturally with the SOS and caregiver-alert habits you already use in Sentra-X.' },
+    { id: 'wheelchair', name: 'Foldable Manual Wheelchair', category: 'mobility', price: 55000, emoji: '🦽',
+      short: 'Lightweight frame, folds for transport.',
+      long: 'A lightweight, foldable manual wheelchair with comfortable armrests and footrests — folds down easily for storage in a car boot, making it practical for both home use and outings.' },
     { id: 'first-aid-kit', name: 'Premium First Aid Kit (120-piece)', category: 'firstaid', price: 12000, emoji: '🧰',
       short: 'Bandages, antiseptic wipes, scissors & more.',
       long: 'A comprehensive 120-piece kit covering everyday cuts, scrapes, sprains, and minor emergencies — bandages, gauze, antiseptic wipes, tape, scissors, and a compact carry case that fits in a bag, car, or kitchen cabinet.' },
-    { id: 'wound-dressing-kit', name: 'Advanced Wound Care Dressing Kit', category: 'firstaid', price: 9000, emoji: '🩹',
-      short: 'Hydrocolloid patches for faster, cleaner healing.',
-      long: 'A set of advanced hydrocolloid and film dressings that create a protective, moisture-balanced healing environment for cuts and grazes — a step up from basic plasters for wounds that need a bit more care.' },
-    { id: 'hotcold-pack', name: 'Reusable Hot & Cold Gel Pack', category: 'firstaid', price: 4500, emoji: '🧊',
-      short: 'Freeze or microwave for pain & swelling relief.',
-      long: 'A flexible gel pack that molds to the body for targeted relief — freeze it for swelling and minor injuries, or warm it for sore muscles and cramps. Reusable, with a soft protective sleeve included.' },
+    { id: 'face-masks', name: 'Disposable Face Masks (Pack of 50)', category: 'firstaid', price: 3000, emoji: '😷',
+      short: '3-ply protection, comfortable ear loops.',
+      long: 'A pack of 50 disposable 3-ply face masks with soft ear loops — a practical everyday essential for hospital visits, caregiving, or general protection at home.' },
+    { id: 'hand-sanitizer', name: 'Hand Sanitizer (Pack of 3)', category: 'firstaid', price: 2500, emoji: '🧴',
+      short: '70% alcohol, travel-size, pack of 3.',
+      long: 'A pack of three 70% alcohol hand sanitizer bottles — everyday essentials for hygiene at home, on the go, or during hospital visits.' },
     { id: 'knee-brace', name: 'Elastic Knee Support Brace', category: 'support', price: 5500, emoji: '🦵',
       short: 'Compression support for aching or weak knees.',
       long: 'A breathable, elastic knee sleeve that provides gentle compression and support for everyday aches, mild strains, or recovery — comfortable enough to wear under clothing throughout the day.' },
     { id: 'wrist-splint', name: 'Adjustable Wrist Splint', category: 'support', price: 6500, emoji: '🖐️',
       short: 'Stabilizes the wrist for strain or repetitive pain.',
       long: 'A rigid-but-comfortable splint that keeps the wrist in a neutral, supported position — helpful for strain, repetitive stress, or recovery, with adjustable straps for a secure, personalized fit.' },
-    { id: 'compression-socks', name: 'Compression Socks (Travel & Circulation)', category: 'support', price: 7000, emoji: '🧦',
-      short: 'Improves circulation — great for long days or travel.',
-      long: 'Graduated compression socks that help support healthy circulation in the legs — useful for long periods of standing or sitting, travel, or as part of a broader recovery and wellness routine.' },
-    { id: 'cervical-pillow', name: 'Cervical Neck Support Pillow', category: 'support', price: 9500, emoji: '🛏️',
-      short: 'Ergonomic contour for neck pain & better sleep posture.',
-      long: 'A contoured memory-foam pillow shaped to cradle and align the neck during sleep — a common recommendation for easing neck stiffness and supporting better spinal posture overnight.' },
-    { id: 'postpartum-belt', name: 'Postpartum Recovery Belt', category: 'support', price: 11000, emoji: '🤱',
-      short: 'Gentle abdominal & back support after birth.',
-      long: 'A soft, adjustable wrap that gives gentle abdominal and lower-back support in the weeks after childbirth — helps with posture and comfort as the body recovers, breathable enough for all-day wear.' },
     { id: 'posture-brace', name: 'Posture Corrector Back Brace', category: 'support', price: 8000, emoji: '🧍',
       short: 'Adjustable straps to support upright posture.',
-      long: 'An adjustable, breathable back brace that gently pulls the shoulders back to encourage healthier posture — comfortable enough for daily wear at a desk or during light activity.' },
-    { id: 'pill-organizer', name: '7-Day AM/PM Pill Organizer', category: 'medaids', price: 4000, emoji: '💊',
-      short: 'Morning & night compartments, 7 days.',
-      long: 'A twice-daily medicine organizer with separate morning and evening compartments for every day of the week — pairs perfectly with Sentra-X reminder alerts for anyone managing more than one medication.' },
-    { id: 'pill-crusher', name: 'Pill Crusher & Splitter', category: 'medaids', price: 3500, emoji: '⚙️',
-      short: 'Crushes or splits tablets for easier dosing.',
-      long: 'A simple, sturdy tool that crushes tablets to powder or splits them precisely in half — useful for anyone who has trouble swallowing pills whole or needs an exact half-dose.' }
+      long: 'An adjustable, breathable back brace that gently pulls the shoulders back to encourage healthier posture — comfortable enough for daily wear at a desk or during light activity.' }
   ];
 
   const productsById = {};
@@ -164,7 +137,9 @@
 
   // ---- Main grid render --------------------------------------------------
   function coverHtml(p) {
-    return '<div class="mkt-cover" data-category="' + p.category + '" onclick="SentraXStore.open(\'' + p.id + '\')">' + p.emoji + '</div>';
+    return '<div class="mkt-cover" data-category="' + p.category + '" onclick="SentraXStore.open(\'' + p.id + '\')">' +
+      '<img class="mkt-cover-img" src="images/products/' + p.id + '.jpg" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';">' +
+      '</div>';
   }
 
   function productCardHtml(p) {
@@ -240,7 +215,7 @@
     const overlay = ensureOverlay('product-reader-overlay');
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXStore.closeProduct()">←</button>' +
-      '<div class="mkt-reader-cover" data-category="' + p.category + '">' + p.emoji + '</div>' +
+      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="images/products/' + p.id + '.jpg" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';"></div>' +
       '<div class="art-reader-body">' +
       '<div class="mkt-cat-tag" style="display:inline-block;">' + CATEGORY_EMOJI[p.category] + ' ' + CATEGORY_NAME[p.category] + '</div>' +
       '<h2>' + esc(p.name) + '</h2>' +
@@ -299,7 +274,7 @@
     const p = productsById[id];
     if (!p) return '';
     return '<div class="mkt-cart-row">' +
-      '<div class="mkt-cart-emoji">' + p.emoji + '</div>' +
+      '<div class="mkt-cart-emoji"><img class="mkt-cart-img" src="images/products/' + p.id + '.jpg" alt="" onerror="this.style.display=\'none\';"></div>' +
       '<div class="mkt-cart-info">' +
       '<div class="mkt-cart-name">' + esc(p.name) + '</div>' +
       '<div class="mkt-cart-unit">' + formatPrice(p.price) + ' each</div>' +
