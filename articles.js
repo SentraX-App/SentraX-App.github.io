@@ -126,7 +126,10 @@
     Medication: ['https://commons.wikimedia.org/wiki/Special:FilePath/201707%20medicine%20tablets%20elliptical.svg?width=500'],
     Activity: ['https://commons.wikimedia.org/wiki/Special:FilePath/Walkingexercise.jpg?width=500'],
     Sleep: ['https://commons.wikimedia.org/wiki/Special:FilePath/Classic%20alarm%20clock%2020180513.jpg?width=500'],
-    Wellness: ['https://commons.wikimedia.org/wiki/Special:FilePath/Meditation%20Session.jpg?width=500'],
+    Wellness: [
+      'https://commons.wikimedia.org/wiki/Special:FilePath/Meditation%20Session.jpg?width=500',
+      'https://commons.wikimedia.org/wiki/Special:FilePath/Kidney%20nephron.jpg?width=500'
+    ],
     Caregiving: ['https://commons.wikimedia.org/wiki/Special:FilePath/Human%20Connection.png?width=500'],
     Diabetes: [
       'https://commons.wikimedia.org/wiki/Special:FilePath/Blausen%200299%20Diabetes%20BloodGlucoseMeter.png?width=500',
