@@ -73,7 +73,26 @@
       long: 'A rigid-but-comfortable splint that keeps the wrist in a neutral, supported position — helpful for strain, repetitive stress, or recovery, with adjustable straps for a secure, personalized fit.' },
     { id: 'posture-brace', name: 'Posture Corrector Back Brace', category: 'support', price: 8000, emoji: '🧍',
       short: 'Adjustable straps to support upright posture.',
-      long: 'An adjustable, breathable back brace that gently pulls the shoulders back to encourage healthier posture — comfortable enough for daily wear at a desk or during light activity.' }
+      long: 'An adjustable, breathable back brace that gently pulls the shoulders back to encourage healthier posture — comfortable enough for daily wear at a desk or during light activity.' },
+    { id: 'pill-organizer', name: 'Weekly Pill Organizer (7-Day, AM/PM)', category: 'medaids', price: 4500, emoji: '💊',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Pilulier%20semainier.JPG?width=500',
+      short: 'Morning & evening compartments for every day of the week.',
+      long: 'A 7-day pill organizer with separate morning and evening compartments for each day, making it easy to see at a glance whether today\'s doses have been taken — helpful for managing several medications at once.' },
+    { id: 'compression-socks', name: 'Compression Socks (Pair)', category: 'support', price: 5000, emoji: '🧦',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Compression%20socks.jpg?width=500',
+      short: 'Graduated compression to support leg circulation.',
+      long: 'A pair of graduated compression socks that gently support circulation in the legs and feet — often worn for long periods of sitting or standing, swelling, or general leg comfort.' },
+    { id: 'hot-cold-pack', name: 'Reusable Hot & Cold Gel Pack', category: 'firstaid', price: 4000, emoji: '🧊',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Cold%20Hot%20Pack.jpg?width=500',
+      short: 'Freeze it or microwave it — flexible, reusable relief.',
+      long: 'A flexible reusable gel pack that can be frozen for cold therapy or warmed for heat therapy — a simple, reusable way to ease minor aches, swelling, or muscle tension at home.' },
+    { id: 'hot-water-bottle', name: 'Rubber Hot Water Bottle', category: 'firstaid', price: 3500, emoji: '🍶',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Hot%20Water%20Bottle.jpg?width=500',
+      short: 'Classic warmth for aches, cramps, or cold nights.',
+      long: 'A traditional rubber hot water bottle for soothing warmth — commonly used for cramps, muscle aches, or simply staying warm on cold nights.' },
+    { id: 'grab-bar', name: 'Bathroom Grab Bar / Safety Rail', category: 'safety', price: 9500, emoji: '🚿',
+      short: 'Wall-mounted support rail for showers, tubs & toilets.',
+      long: 'A sturdy wall-mounted grab bar that gives extra stability when getting in or out of the shower, bath, or toilet — one of the simplest ways to reduce fall risk in the bathroom, where most home falls happen.' }
   ];
 
   const productsById = {};
@@ -137,8 +156,9 @@
 
   // ---- Main grid render --------------------------------------------------
   function coverHtml(p) {
+    const src = p.image || ('images/products/' + p.id + '.jpg');
     return '<div class="mkt-cover" data-category="' + p.category + '" onclick="SentraXStore.open(\'' + p.id + '\')">' +
-      '<img class="mkt-cover-img" src="images/products/' + p.id + '.jpg" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';">' +
+      '<img class="mkt-cover-img" src="' + src + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';">' +
       '</div>';
   }
 
@@ -215,7 +235,7 @@
     const overlay = ensureOverlay('product-reader-overlay');
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXStore.closeProduct()">←</button>' +
-      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="images/products/' + p.id + '.jpg" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';"></div>' +
+      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';"></div>' +
       '<div class="art-reader-body">' +
       '<div class="mkt-cat-tag" style="display:inline-block;">' + CATEGORY_EMOJI[p.category] + ' ' + CATEGORY_NAME[p.category] + '</div>' +
       '<h2>' + esc(p.name) + '</h2>' +
