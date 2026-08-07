@@ -117,7 +117,11 @@
   // picture. Articles are assigned photos round-robin within their
   // tag further down, so consecutive same-tag articles alternate.
   const TAG_PHOTOS = {
-    Hypertension: ['https://commons.wikimedia.org/wiki/Special:FilePath/Blood%20pressure%20monitoring.jpg?width=500'],
+    Hypertension: [
+      'https://commons.wikimedia.org/wiki/Special:FilePath/Blood%20pressure%20monitoring.jpg?width=500',
+      'https://commons.wikimedia.org/wiki/Special:FilePath/Diagram%20of%20the%20human%20heart.svg?width=500',
+      'https://commons.wikimedia.org/wiki/Special:FilePath/Types%20of%20Stroke.jpg?width=500'
+    ],
     Diet: ['https://commons.wikimedia.org/wiki/Special:FilePath/Food-healthy-vegetables-potatoes%20(23958160949).jpg?width=500'],
     Medication: ['https://commons.wikimedia.org/wiki/Special:FilePath/201707%20medicine%20tablets%20elliptical.svg?width=500'],
     Activity: ['https://commons.wikimedia.org/wiki/Special:FilePath/Walkingexercise.jpg?width=500'],
@@ -281,6 +285,7 @@
   }
 
   let medLibraryById = {};
+  let medLibraryPhotoById = {};
 
   function loadMedLibrary() {
     const container = document.getElementById('med-library-section');
@@ -290,6 +295,22 @@
       .then(function (data) {
         if (!data || !data.items || !data.items.length) { container.innerHTML = ''; return; }
         medLibraryById = {};
+        medLibraryPhotoById = {};
+        // Round-robin photo assignment per tag, so items sharing a tag
+        // (e.g. high blood pressure / heart disease / stroke all under
+        // Hypertension) cycle through that tag's photo pool instead of
+        // every one of them showing the exact same first photo.
+        const tagCounters = {};
+        data.items.forEach(function (item) {
+          const tag = MEDLIB_TAG_MAP[item.id] || 'Wellness';
+          const pool = TAG_PHOTOS[tag];
+          if (pool && pool.length) {
+            const n = tagCounters[tag] || 0;
+            medLibraryPhotoById[item.id] = pool[n % pool.length];
+            tagCounters[tag] = n + 1;
+          }
+        });
+
         let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine)</p></div>';
         data.items.forEach(function (item, i) {
           medLibraryById[item.id] = item;
@@ -297,7 +318,7 @@
           const altClass = i % 2 === 1 ? ' art-card-alt' : '';
           const excerpt = truncate(stripHtml(item.summaryHtml), 100);
           html += '<div class="art-card' + altClass + '" onclick="SentraXArticles.openMedLib(\'' + item.id + '\')">' +
-            coverHtml(tag, null, null, i) +
+            coverHtml(tag, medLibraryPhotoById[item.id], null, i) +
             '<div class="art-body">' +
             '<h4>' + item.title + '</h4>' +
             '<p class="art-excerpt">' + excerpt + '</p>' +
@@ -324,7 +345,9 @@
     const safeBody = sanitizeMedlibHtml(item.summaryHtml);
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXArticles.close()">←</button>' +
-      '<div class="art-cover art-reader-cover" data-tag="' + readerTag + '" style="height:180px;"><span class="art-reader-tag">Health Library</span></div>' +
+      coverHtml(readerTag, medLibraryPhotoById[item.id], 'height:180px;', 0)
+        .replace('class="art-cover', 'class="art-cover art-reader-cover')
+        .replace(/<span class="art-tag">[^<]*<\/span>/, '<span class="art-reader-tag">Health Library</span>') +
       '<div class="art-reader-body">' +
       '<h2>' + item.title + '</h2>' +
       safeBody +
