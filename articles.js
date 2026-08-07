@@ -54,7 +54,7 @@
   // ---- Health Library (MedlinePlus, public-domain, full-text) ----------
   // TODO: replace with your deployed medlib-worker.js URL, e.g.
   // 'https://sentrax-medlib.YOUR-SUBDOMAIN.workers.dev/'
-  const MEDLIB_WORKER_URL = '';
+  const MEDLIB_WORKER_URL = 'https://sentrax-medlib.alecedoh1994.workers.dev';
   const MEDLIB_CACHE_KEY = 'sentrax-medlib-cache-v1';
   const MEDLIB_CACHE_MS = 24 * 60 * 60 * 1000; // refresh at most once a day
   const MEDLIB_FETCH_TIMEOUT_MS = 8000;
