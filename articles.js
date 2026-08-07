@@ -1,7 +1,7 @@
 /*
  * articles.js — Sentra-X Health Articles
  * ========================================
- * Two independent sections, kept separate on purpose:
+ * Three independent sections, kept separate on purpose:
  *
  * 1) GUIDES — a vetted, evergreen library of longer explainer articles
  *    (300+ words each). These don't change day to day because they're
@@ -20,11 +20,21 @@
  *    to the original source — never the full article text, since that
  *    isn't ours to redistribute.
  *
+ * 3) HEALTH LIBRARY — real, full-length health topic content pulled
+ *    from MedlinePlus (U.S. National Library of Medicine / NIH). Since
+ *    this is U.S. federal government content, it's public domain and
+ *    safe to display in FULL inside our own in-app reader — unlike
+ *    section 2, no "opens on their site" needed here. Fetched through
+ *    our own Cloudflare Worker proxy (avoids CORS issues + adds
+ *    caching), refreshed at most once a day. No article writing
+ *    required — this section grows/updates itself from a fixed list of
+ *    topic searches.
+ *
  * Isolated from everything else, same pattern as store.js and
  * bp-experimental.js: new file, no edits to script.js.
- * If the live feed is unreachable (offline, service down), it fails
+ * If any live feed is unreachable (offline, service down), it fails
  * quietly — the Guides section still renders fine either way, since
- * the two sections are independent.
+ * all sections are independent.
  */
 
 (function () {
@@ -40,6 +50,14 @@
   const SNIPPET_MAX_CHARS = 160;
   const LIVE_FETCH_TIMEOUT_MS = 8000;
   const LIVE_FETCH_RETRIES = 1;
+
+  // ---- Health Library (MedlinePlus, public-domain, full-text) ----------
+  // TODO: replace with your deployed medlib-worker.js URL, e.g.
+  // 'https://sentrax-medlib.YOUR-SUBDOMAIN.workers.dev/'
+  const MEDLIB_WORKER_URL = '';
+  const MEDLIB_CACHE_KEY = 'sentrax-medlib-cache-v1';
+  const MEDLIB_CACHE_MS = 24 * 60 * 60 * 1000; // refresh at most once a day
+  const MEDLIB_FETCH_TIMEOUT_MS = 8000;
 
   function fetchWithTimeout(url, timeoutMs) {
     if (typeof AbortController === 'undefined') return fetch(url);
@@ -463,6 +481,7 @@ If low mood persists for weeks rather than easing, or starts noticeably affectin
     const order = todaysOrder();
 
     let html = '<div id="live-news-section"><p style="font-size:12px;color:#64748b;text-align:center;">Loading latest health news…</p></div><div style="height:14px;"></div>' +
+      '<div id="med-library-section"></div><div style="height:14px;"></div>' +
       '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">📚 Guides</h3><p>Vetted, plain-language reads on managing your condition</p></div>';
     order.forEach(function (a, i) {
       const altClass = i % 2 === 1 ? ' art-card-alt' : '';
@@ -479,6 +498,7 @@ If low mood persists for weeks rather than easing, or starts noticeably affectin
     root.innerHTML = html;
 
     loadLiveNews();
+    loadMedLibrary();
   }
 
   function openArticle(id) {
@@ -587,8 +607,115 @@ If low mood persists for weeks rather than easing, or starts noticeably affectin
       });
   }
 
+  // Strict allowlist sanitizer for MedlinePlus's FullSummary HTML. Keeps
+  // only safe formatting tags, drops everything else down to plain text
+  // (including the <span class="qt0"> query-highlight wrappers NIH's API
+  // adds around matched terms — we don't need the highlighting, so those
+  // just unwrap to their inner text). No script/style/on*-attribute can
+  // survive this since only a fixed tag whitelist is ever kept.
+  const MEDLIB_ALLOWED_TAGS = { P: 1, UL: 1, OL: 1, LI: 1, B: 1, STRONG: 1, I: 1, EM: 1, BR: 1, A: 1 };
+  function sanitizeMedlibHtml(html) {
+    if (typeof DOMParser === 'undefined') return '';
+    const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+    const root = doc.body.firstChild;
+    if (!root) return '';
+    (function clean(node) {
+      Array.from(node.childNodes).forEach(function (child) {
+        if (child.nodeType === 1) {
+          if (!MEDLIB_ALLOWED_TAGS[child.tagName]) {
+            const text = doc.createTextNode(child.textContent);
+            node.replaceChild(text, child);
+            return;
+          }
+          Array.from(child.attributes).forEach(function (attr) {
+            if (!(child.tagName === 'A' && attr.name === 'href')) child.removeAttribute(attr.name);
+          });
+          if (child.tagName === 'A') {
+            const href = child.getAttribute('href') || '';
+            if (!/^https?:\/\//i.test(href)) child.removeAttribute('href');
+            child.setAttribute('target', '_blank');
+            child.setAttribute('rel', 'noopener noreferrer');
+          }
+          clean(child);
+        }
+      });
+    })(root);
+    return root.innerHTML;
+  }
+
+  function fetchMedLibrary() {
+    if (!MEDLIB_WORKER_URL) return Promise.reject(new Error('MEDLIB_WORKER_URL not configured'));
+    try {
+      const cached = JSON.parse(localStorage.getItem(MEDLIB_CACHE_KEY) || 'null');
+      if (cached && cached.fetchedAt && (Date.now() - cached.fetchedAt) < MEDLIB_CACHE_MS) {
+        return Promise.resolve(cached);
+      }
+    } catch (e) { /* corrupt cache — fall through to a fresh fetch */ }
+
+    return fetchWithTimeout(MEDLIB_WORKER_URL, MEDLIB_FETCH_TIMEOUT_MS)
+      .then(function (res) {
+        if (!res.ok) throw new Error('bad status ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        try { localStorage.setItem(MEDLIB_CACHE_KEY, JSON.stringify(data)); } catch (e) { /* storage full/unavailable — still usable this session */ }
+        return data;
+      });
+  }
+
+  let medLibraryById = {};
+
+  function loadMedLibrary() {
+    const container = document.getElementById('med-library-section');
+    if (!container || !MEDLIB_WORKER_URL) return;
+
+    fetchMedLibrary()
+      .then(function (data) {
+        if (!data || !data.items || !data.items.length) { container.innerHTML = ''; return; }
+        medLibraryById = {};
+        let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine)</p></div>';
+        data.items.forEach(function (item, i) {
+          medLibraryById[item.id] = item;
+          const altClass = i % 2 === 1 ? ' art-card-alt' : '';
+          html += '<div class="art-card' + altClass + '" onclick="SentraXArticles.openMedLib(\'' + item.id + '\')">' +
+            '<div class="art-cover" data-tag="Wellness" style="width:64px;height:64px;flex-shrink:0;font-size:22px;">🏥</div>' +
+            '<div class="art-body">' +
+            '<h4>' + item.title + '</h4>' +
+            '<div class="art-readmore">Read more →</div>' +
+            '</div></div>';
+        });
+        container.innerHTML = html;
+      })
+      .catch(function () {
+        container.innerHTML = ''; // fails quietly — Guides section is unaffected
+      });
+  }
+
+  function openMedLibArticle(id) {
+    const item = medLibraryById[id];
+    if (!item) return;
+    let overlay = document.getElementById('article-reader-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'article-reader-overlay';
+      document.body.appendChild(overlay);
+    }
+    const safeBody = sanitizeMedlibHtml(item.summaryHtml);
+    overlay.innerHTML =
+      '<button class="art-reader-back" onclick="SentraXArticles.close()">←</button>' +
+      '<div class="art-reader-cover" data-tag="Wellness" style="height:120px;"><span class="art-reader-tag">Health Library</span></div>' +
+      '<div class="art-reader-body">' +
+      '<h2>' + item.title + '</h2>' +
+      safeBody +
+      (item.sourceUrl ? '<p style="margin-top:16px;font-size:12px;"><a href="' + item.sourceUrl + '" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">View original on medlineplus.gov ↗</a></p>' : '') +
+      '<div class="art-reader-footnote">Source: MedlinePlus®, U.S. National Library of Medicine (NIH). General health information, not medical advice. Talk to your doctor or pharmacist about anything specific to you.</div>' +
+      '</div>';
+    overlay.style.display = 'block';
+    overlay.scrollTop = 0;
+  }
+
   if (typeof window !== 'undefined') {
-    window.SentraXArticles = { render: renderArticles, open: openArticle, openLive: openLiveArticle, close: closeArticle, ARTICLES: ARTICLES };
+    window.SentraXArticles = { render: renderArticles, open: openArticle, openLive: openLiveArticle, openMedLib: openMedLibArticle, close: closeArticle, ARTICLES: ARTICLES };
   }
 
   if (typeof module !== 'undefined' && module.exports) {
