@@ -58,6 +58,21 @@
   const MEDLIB_CACHE_KEY = 'sentrax-medlib-cache-v1';
   const MEDLIB_CACHE_MS = 24 * 60 * 60 * 1000; // refresh at most once a day
   const MEDLIB_FETCH_TIMEOUT_MS = 8000;
+  // Maps each Health Library topic id to the closest existing Guides tag,
+  // purely so it can reuse the same hand-picked photo pool — MedlinePlus's
+  // API returns no images of its own.
+  const MEDLIB_TAG_MAP = {
+    'high-blood-pressure': 'Hypertension',
+    'diabetes': 'Diabetes',
+    'heart-disease': 'Hypertension',
+    'stroke': 'Hypertension',
+    'kidney-disease': 'Wellness',
+    'taking-medicines': 'Medication',
+    'healthy-aging': 'Wellness',
+    'exercise-for-older-adults': 'Activity',
+    'sleep-disorders': 'Sleep',
+    'caregivers': 'Caregiving'
+  };
 
   function fetchWithTimeout(url, timeoutMs) {
     if (typeof AbortController === 'undefined') return fetch(url);
@@ -676,9 +691,9 @@ If low mood persists for weeks rather than easing, or starts noticeably affectin
         let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine)</p></div>';
         data.items.forEach(function (item, i) {
           medLibraryById[item.id] = item;
-          const altClass = i % 2 === 1 ? ' art-card-alt' : '';
-          html += '<div class="art-card' + altClass + '" onclick="SentraXArticles.openMedLib(\'' + item.id + '\')">' +
-            '<div class="art-cover" data-tag="Wellness" style="width:64px;height:64px;flex-shrink:0;font-size:22px;">🏥</div>' +
+          const tag = MEDLIB_TAG_MAP[item.id] || 'Wellness';
+          html += '<div class="art-card" onclick="SentraXArticles.openMedLib(\'' + item.id + '\')">' +
+            coverHtml(tag, null, 'width:64px;height:64px;flex-shrink:0;', i) +
             '<div class="art-body">' +
             '<h4>' + item.title + '</h4>' +
             '<div class="art-readmore">Read more →</div>' +
@@ -700,10 +715,11 @@ If low mood persists for weeks rather than easing, or starts noticeably affectin
       overlay.id = 'article-reader-overlay';
       document.body.appendChild(overlay);
     }
+    const readerTag = MEDLIB_TAG_MAP[item.id] || 'Wellness';
     const safeBody = sanitizeMedlibHtml(item.summaryHtml);
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXArticles.close()">←</button>' +
-      '<div class="art-reader-cover" data-tag="Wellness" style="height:120px;"><span class="art-reader-tag">Health Library</span></div>' +
+      coverHtml(readerTag, null, 'height:180px;', 0).replace('art-cover', 'art-cover art-reader-cover').replace('<span class="art-tag">' + readerTag + '</span>', '<span class="art-reader-tag">Health Library</span>') +
       '<div class="art-reader-body">' +
       '<h2>' + item.title + '</h2>' +
       safeBody +
