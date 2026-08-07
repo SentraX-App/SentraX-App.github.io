@@ -431,7 +431,7 @@ function checkDueMeds() {
   if (due.length > 0) {
     const names = due.map(function(m){ return m.name; }).join(', ');
     banner.innerHTML = '<div class="alert-banner">⏰ ' + due.length + ' medication' + (due.length > 1 ? 's' : '') + ' due or overdue today: ' + names + '</div>';
-    if (Notification.permission === 'granted' && !sessionStorage.getItem('notified-' + today)) {
+    if (Notification.permission === 'granted' && localStorage.getItem('reminders-muted') !== '1' && !sessionStorage.getItem('notified-' + today)) {
       if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
         navigator.serviceWorker.getRegistration().then(function(reg) {
           if (reg) reg.showNotification('Sentra-X reminder', { body: 'Time for: ' + names, icon: 'icon-192-1.png', badge: 'icon-192-1.png' });
@@ -444,18 +444,43 @@ function checkDueMeds() {
   }
 }
 
+function syncReminderButtonState() {
+  const btn = document.getElementById('enable-btn');
+  if (!btn || !('Notification' in window)) return;
+  const muted = localStorage.getItem('reminders-muted') === '1';
+  if (Notification.permission === 'granted' && !muted) {
+    btn.textContent = '🔔 Reminders Enabled';
+  } else {
+    btn.textContent = '🔔 Enable Reminder Alerts';
+  }
+}
+
 function enableReminders() {
   if (!('Notification' in window)) { alert('Notifications are not supported on this browser.'); return; }
-  if (Notification.permission === 'granted') {
-    document.getElementById('enable-btn').textContent = '🔔 Reminders Enabled';
+  const muted = localStorage.getItem('reminders-muted') === '1';
+
+  if (Notification.permission === 'granted' && !muted) {
+    if (confirm('Turn off medication reminder alerts?')) {
+      localStorage.setItem('reminders-muted', '1');
+      syncReminderButtonState();
+    }
     return;
   }
+
+  if (Notification.permission === 'granted' && muted) {
+    localStorage.setItem('reminders-muted', '0');
+    syncReminderButtonState();
+    return;
+  }
+
   if (Notification.permission === 'denied') {
     alert('Notifications are blocked for Sentra-X. To enable them: open your phone Settings → Apps → Sentra-X → Notifications, and turn them on there.');
     return;
   }
+
   Notification.requestPermission().then(function(perm) {
-    document.getElementById('enable-btn').textContent = perm === 'granted' ? '🔔 Reminders Enabled' : '🔔 Enable Reminder Alerts';
+    if (perm === 'granted') localStorage.setItem('reminders-muted', '0');
+    syncReminderButtonState();
   });
 }
 
@@ -885,6 +910,7 @@ if ('serviceWorker' in navigator) {
 
 expireOldMeds();
 refreshAllUI();
+syncReminderButtonState();
 setInterval(checkDueMeds, 60000);
 
 const AI_WORKER_URL = 'https://sentrax-ai.alecedoh1994.workers.dev/';
