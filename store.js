@@ -91,6 +91,7 @@
       short: 'Classic warmth for aches, cramps, or cold nights.',
       long: 'A traditional rubber hot water bottle for soothing warmth — commonly used for cramps, muscle aches, or simply staying warm on cold nights.' },
     { id: 'grab-bar', name: 'Bathroom Grab Bar / Safety Rail', category: 'safety', price: 9500, emoji: '🚿',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/British%20Museum%20-%20toilet.jpg?width=500',
       short: 'Wall-mounted support rail for showers, tubs & toilets.',
       long: 'A sturdy wall-mounted grab bar that gives extra stability when getting in or out of the shower, bath, or toilet — one of the simplest ways to reduce fall risk in the bathroom, where most home falls happen.' }
   ];
