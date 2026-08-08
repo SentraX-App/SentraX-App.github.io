@@ -44,16 +44,16 @@
   CATEGORIES.forEach(function (c) { CATEGORY_NAME[c.key] = c.name; CATEGORY_EMOJI[c.key] = c.emoji; });
 
   const PRODUCTS = [
-    { id: 'walking-cane', name: 'Adjustable Walking Cane', category: 'mobility', price: 13500, emoji: '🦯',
+    { id: 'walking-cane', name: 'Adjustable Walking Cane', category: 'mobility', price: 8500, emoji: '🦯',
       short: 'Height-adjustable, foldable, non-slip base.',
       long: 'A lightweight, height-adjustable cane with a comfortable ergonomic handle and a wide non-slip rubber tip for stability on most surfaces. Folds down for easy storage and travel.' },
-    { id: 'crutches', name: 'Elbow Crutches (Pair)', category: 'mobility', price: 15000, emoji: '🩼',
+    { id: 'crutches', name: 'Elbow Crutches (Pair)', category: 'mobility', price: 11000, emoji: '🩼',
       short: 'Adjustable height, padded arm cuffs.',
       long: 'A sturdy pair of adjustable elbow crutches with padded, contoured arm cuffs and comfortable hand grips, designed to support recovery from injury or reduced mobility.' },
-    { id: 'rollator', name: '3-Wheel Folding Rollator Walker', category: 'mobility', price: 45000, emoji: '🚶',
+    { id: 'rollator', name: '3-Wheel Folding Rollator Walker', category: 'mobility', price: 48000, emoji: '🚶',
       short: 'Folds flat, with hand brakes and a seat.',
       long: 'A compact, lightweight three-wheel walker with hand brakes and a fold-down seat for resting on the go — much easier to maneuver through doorways and tight spaces than a standard 4-wheel frame. Folds flat for the car boot.' },
-    { id: 'wheelchair', name: 'Foldable Manual Wheelchair', category: 'mobility', price: 55000, emoji: '🦽',
+    { id: 'wheelchair', name: 'Foldable Manual Wheelchair', category: 'mobility', price: 68000, emoji: '🦽',
       short: 'Lightweight frame, folds for transport.',
       long: 'A lightweight, foldable manual wheelchair with comfortable armrests and footrests — folds down easily for storage in a car boot, making it practical for both home use and outings.' },
     { id: 'first-aid-kit', name: 'Premium First Aid Kit (120-piece)', category: 'firstaid', price: 12000, emoji: '🧰',
@@ -91,9 +91,24 @@
       short: 'Classic warmth for aches, cramps, or cold nights.',
       long: 'A traditional rubber hot water bottle for soothing warmth — commonly used for cramps, muscle aches, or simply staying warm on cold nights.' },
     { id: 'grab-bar', name: 'Bathroom Grab Bar / Safety Rail', category: 'safety', price: 9500, emoji: '🚿',
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/British%20Museum%20-%20toilet.jpg?width=500',
       short: 'Wall-mounted support rail for showers, tubs & toilets.',
-      long: 'A sturdy wall-mounted grab bar that gives extra stability when getting in or out of the shower, bath, or toilet — one of the simplest ways to reduce fall risk in the bathroom, where most home falls happen.' }
+      long: 'A sturdy wall-mounted grab bar that gives extra stability when getting in or out of the shower, bath, or toilet — one of the simplest ways to reduce fall risk in the bathroom, where most home falls happen.' },
+    { id: 'raised-toilet-seat', name: 'Raised Toilet Seat with Handles', category: 'safety', price: 15000, emoji: '🚽',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Electric%20raised%20toilet%20seat%20for%20elderly.jpg?width=500',
+      short: 'Adds height and side handles for easier, safer sitting.',
+      long: 'Fits over most standard toilets to raise the seat height and add side handles for extra support — reduces strain on knees and hips when sitting down or standing up, and lowers fall risk in the bathroom.' },
+    { id: 'shower-chair', name: 'Shower Chair / Bath Transfer Bench', category: 'safety', price: 22000, emoji: '🪑',
+      short: 'Stable seated support for safer bathing.',
+      long: 'A sturdy, non-slip chair for the shower or bath, letting you sit safely while washing rather than standing on a wet, slippery surface — widely recommended for reducing fall risk during bathing.' },
+    { id: 'bath-mat', name: 'Non-Slip Bath Mat', category: 'safety', price: 4500, emoji: '🛁',
+      short: 'Textured rubber grip for wet bathroom floors.',
+      long: 'A textured rubber mat that grips the floor of the shower or tub, reducing the risk of slipping on a wet surface — one of the cheapest, simplest ways to make a bathroom safer.' },
+    { id: 'medical-id-bracelet', name: 'Medical Alert ID Bracelet', category: 'safety', price: 6000, emoji: '🆔',
+      short: 'Engraved bracelet for allergies, conditions & emergency contact.',
+      long: 'An engraved stainless steel bracelet listing your condition, allergies, or medications, so emergency responders have vital information even if you can\'t speak for yourself.' },
+    { id: 'large-print-labels', name: 'Large-Print Medication Labels (Pack)', category: 'medaids', price: 2000, emoji: '🔍',
+      short: 'Bold, easy-to-read stick-on labels for pill bottles.',
+      long: 'A pack of bold, large-print stick-on labels for medication bottles — makes it much easier to tell doses apart at a glance, especially helpful for anyone managing several medications or with reduced eyesight.' }
   ];
 
   const productsById = {};
@@ -159,6 +174,7 @@
   function coverHtml(p) {
     const src = p.image || ('images/products/' + p.id + '.jpg');
     return '<div class="mkt-cover" data-category="' + p.category + '" onclick="SentraXStore.open(\'' + p.id + '\')">' +
+      '<span class="mkt-cover-fallback">' + (p.emoji || CATEGORY_EMOJI[p.category] || '📦') + '</span>' +
       '<img class="mkt-cover-img" src="' + src + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';">' +
       '</div>';
   }
@@ -236,7 +252,7 @@
     const overlay = ensureOverlay('product-reader-overlay');
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXStore.closeProduct()">←</button>' +
-      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';"></div>' +
+      '<div class="mkt-reader-cover" data-category="' + p.category + '"><span class="mkt-cover-fallback">' + (p.emoji || CATEGORY_EMOJI[p.category] || '📦') + '</span><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';"></div>' +
       '<div class="art-reader-body">' +
       '<div class="mkt-cat-tag" style="display:inline-block;">' + CATEGORY_EMOJI[p.category] + ' ' + CATEGORY_NAME[p.category] + '</div>' +
       '<h2>' + esc(p.name) + '</h2>' +
@@ -295,7 +311,7 @@
     const p = productsById[id];
     if (!p) return '';
     return '<div class="mkt-cart-row">' +
-      '<div class="mkt-cart-emoji"><img class="mkt-cart-img" src="images/products/' + p.id + '.jpg" alt="" onerror="this.style.display=\'none\';"></div>' +
+      '<div class="mkt-cart-emoji" data-category="' + p.category + '"><span class="mkt-cover-fallback" style="font-size:20px;">' + (p.emoji || CATEGORY_EMOJI[p.category] || '📦') + '</span><img class="mkt-cart-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="" onerror="this.style.display=\'none\';"></div>' +
       '<div class="mkt-cart-info">' +
       '<div class="mkt-cart-name">' + esc(p.name) + '</div>' +
       '<div class="mkt-cart-unit">' + formatPrice(p.price) + ' each</div>' +
