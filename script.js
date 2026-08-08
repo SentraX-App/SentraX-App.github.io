@@ -921,23 +921,124 @@ syncReminderButtonState();
 setInterval(checkDueMeds, 60000);
 
 const AI_WORKER_URL = 'https://sentrax-ai.alecedoh1994.workers.dev/';
-let aiHistory = [];
-try { aiHistory = JSON.parse(localStorage.getItem('ai-chat-history') || '[]'); } catch (e) { aiHistory = []; }
+const AI_MAX_THREADS = 20;
+const AI_MAX_MESSAGES_PER_THREAD = 40;
 
-function saveAiHistory() {
-  if (aiHistory.length > 40) aiHistory = aiHistory.slice(-40);
-  try { localStorage.setItem('ai-chat-history', JSON.stringify(aiHistory)); } catch (e) { /* storage full/unavailable — chat still works this session */ }
+let aiThreads = [];
+let currentAiThreadId = null;
+
+(function loadAiThreads() {
+  try {
+    aiThreads = JSON.parse(localStorage.getItem('ai-chat-threads') || '[]');
+  } catch (e) { aiThreads = []; }
+
+  // One-time migration: anyone who already had the old single-conversation
+  // history gets it moved into their first thread, instead of it just
+  // disappearing when this update ships.
+  if (aiThreads.length === 0) {
+    try {
+      const old = JSON.parse(localStorage.getItem('ai-chat-history') || '[]');
+      if (old.length > 0) {
+        aiThreads = [{ id: 'thread-' + Date.now(), title: aiThreadTitleFrom(old), messages: old, updatedAt: Date.now() }];
+      }
+    } catch (e) { /* nothing to migrate */ }
+  }
+  if (aiThreads.length > 0) currentAiThreadId = aiThreads[0].id;
+})();
+
+function aiThreadTitleFrom(messages) {
+  const firstUser = messages.find(function (m) { return m.role === 'user'; });
+  if (!firstUser) return 'New conversation';
+  return firstUser.content.length > 40 ? firstUser.content.slice(0, 40) + '…' : firstUser.content;
+}
+
+function saveAiThreads() {
+  if (aiThreads.length > AI_MAX_THREADS) aiThreads = aiThreads.slice(0, AI_MAX_THREADS);
+  try { localStorage.setItem('ai-chat-threads', JSON.stringify(aiThreads)); } catch (e) { /* storage full/unavailable — chat still works this session */ }
+}
+
+function getCurrentAiThread() {
+  let thread = aiThreads.find(function (t) { return t.id === currentAiThreadId; });
+  if (!thread) {
+    thread = { id: 'thread-' + Date.now(), title: 'New conversation', messages: [], updatedAt: Date.now() };
+    aiThreads.unshift(thread);
+    currentAiThreadId = thread.id;
+    saveAiThreads();
+  }
+  return thread;
+}
+
+function startNewAiChat() {
+  const thread = { id: 'thread-' + Date.now(), title: 'New conversation', messages: [], updatedAt: Date.now() };
+  aiThreads.unshift(thread);
+  currentAiThreadId = thread.id;
+  saveAiThreads();
+  document.getElementById('ai-chat-log').innerHTML = '';
+  renderAiWelcome();
+  closeAiHistoryList();
+}
+
+function showAiHistoryList() {
+  const list = document.getElementById('ai-history-list');
+  if (aiThreads.length === 0) {
+    list.innerHTML = '<p style="color:#94a3b8;font-size:13px;">No past conversations yet.</p>';
+  } else {
+    list.innerHTML = aiThreads.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; }).map(function (t) {
+      const date = new Date(t.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const active = t.id === currentAiThreadId ? ' style="border-color:#38bdf8;"' : '';
+      return '<div' + active + ' style="display:flex;align-items:center;gap:8px;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;margin-bottom:8px;">' +
+        '<div onclick="openAiThread(\'' + t.id + '\')" style="flex:1;cursor:pointer;">' +
+        '<div style="font-size:14px;color:#f1f5f9;">' + t.title.replace(/</g, '&lt;') + '</div>' +
+        '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + date + '</div></div>' +
+        '<button onclick="deleteAiThread(\'' + t.id + '\')" style="width:auto;padding:6px 10px;background:transparent;border:1px solid rgba(248,113,113,0.3);color:#fca5a5;">🗑️</button>' +
+        '</div>';
+    }).join('') +
+    '<button onclick="clearAllAiHistory()" class="ghost" style="margin-top:10px;color:#fca5a5;">Clear All History</button>';
+  }
+  document.getElementById('ai-history-overlay').style.display = 'block';
+}
+
+function deleteAiThread(id) {
+  if (!confirm('Delete this conversation? This can\'t be undone.')) return;
+  aiThreads = aiThreads.filter(function (t) { return t.id !== id; });
+  saveAiThreads();
+  if (currentAiThreadId === id) {
+    currentAiThreadId = null;
+    document.getElementById('ai-chat-log').innerHTML = '';
+    renderAiWelcome();
+  }
+  showAiHistoryList();
+}
+
+function clearAllAiHistory() {
+  if (!confirm('Delete ALL saved conversations? This can\'t be undone.')) return;
+  aiThreads = [];
+  currentAiThreadId = null;
+  try { localStorage.removeItem('ai-chat-threads'); localStorage.removeItem('ai-chat-history'); } catch (e) { /* best effort */ }
+  document.getElementById('ai-chat-log').innerHTML = '';
+  renderAiWelcome();
+  closeAiHistoryList();
+}
+
+function closeAiHistoryList() {
+  document.getElementById('ai-history-overlay').style.display = 'none';
+}
+
+function openAiThread(id) {
+  currentAiThreadId = id;
+  const thread = getCurrentAiThread();
+  const log = document.getElementById('ai-chat-log');
+  log.innerHTML = '';
+  thread.messages.forEach(function (m) { appendAiMessage(m.role === 'user' ? 'user' : 'bot', m.content); });
+  closeAiHistoryList();
 }
 
 function renderAiWelcome() {
   const log = document.getElementById('ai-chat-log');
   if (log.children.length > 0) return;
-  if (aiHistory.length > 0) {
-    // Restore the real conversation from last time instead of the generic
-    // welcome message, so the assistant "remembers" across app restarts.
-    aiHistory.forEach(function (m) {
-      appendAiMessage(m.role === 'user' ? 'user' : 'bot', m.content);
-    });
+  const thread = getCurrentAiThread();
+  if (thread.messages.length > 0) {
+    thread.messages.forEach(function (m) { appendAiMessage(m.role === 'user' ? 'user' : 'bot', m.content); });
   } else {
     appendAiMessage('bot', "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 112.");
   }
@@ -959,9 +1060,13 @@ function sendAiMessage() {
   if (!text) return;
   input.value = '';
 
+  const thread = getCurrentAiThread();
   appendAiMessage('user', text);
-  aiHistory.push({ role: 'user', content: text });
-  saveAiHistory();
+  thread.messages.push({ role: 'user', content: text });
+  if (thread.messages.length > AI_MAX_MESSAGES_PER_THREAD) thread.messages = thread.messages.slice(-AI_MAX_MESSAGES_PER_THREAD);
+  if (thread.title === 'New conversation') thread.title = aiThreadTitleFrom(thread.messages);
+  thread.updatedAt = Date.now();
+  saveAiThreads();
 
   const typingEl = appendAiMessage('bot', 'Thinking...');
   typingEl.classList.add('typing');
@@ -969,7 +1074,7 @@ function sendAiMessage() {
   fetch(AI_WORKER_URL, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ messages: aiHistory })
+  body: JSON.stringify({ messages: thread.messages })
 })
   .then(function(res) {
     if (!res.ok) {
@@ -980,8 +1085,9 @@ function sendAiMessage() {
   .then(function(data) {
     typingEl.remove();
     appendAiMessage('bot', data.reply);
-    aiHistory.push({ role: 'assistant', content: data.reply });
-    saveAiHistory();
+    thread.messages.push({ role: 'assistant', content: data.reply });
+    thread.updatedAt = Date.now();
+    saveAiThreads();
   })
   .catch(function(err) {
     typingEl.remove();
