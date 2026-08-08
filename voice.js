@@ -3,15 +3,39 @@
  * ========================================
  * Adds voice input (speech-to-text) and read-aloud (text-to-speech) to the
  * existing AI Health Assistant chat — no new backend, no API keys, no
- * changes to script.js. Uses the browser's built-in Web Speech API, the
- * same free engine Chrome/Android already ships with.
+ * changes to script.js. Uses the browser's built-in Web Speech API.
  *
- * - Mic button: transcribes speech into #ai-chat-input, then calls the
- *   existing global sendAiMessage() exactly as if the user had typed and
- *   pressed Send. Never duplicates or reimplements chat logic.
- * - Read-aloud toggle: when on, a MutationObserver watches #ai-chat-log
- *   for new assistant replies and speaks them automatically. This avoids
- *   touching appendAiMessage()/sendAiMessage() in script.js entirely.
+ * SPEAKING SCOPE — deliberately narrow, by design:
+ *   1. The welcome/intro line (shown when opening the assistant with no
+ *      existing conversation) ALWAYS speaks, once per session, regardless
+ *      of the mute toggle.
+ *   2. A live assistant reply (the result of you actually sending a
+ *      message) speaks by default — you can mute this with the toggle.
+ *   3. Reopening an OLD saved conversation (history replay) NEVER speaks,
+ *      even in bulk — otherwise every past chat you revisit would narrate
+ *      itself in full, which nobody wants.
+ *   4. Nothing outside the AI Assistant chat is ever touched or read.
+ *
+ * How #1 vs #2 vs #3 are told apart without editing script.js: a history
+ * replay always adds several message nodes to the chat log in one burst
+ * (one per past message). A single live reply — or the one-line intro —
+ * always adds exactly ONE node at a time. So: multiple nodes in one
+ * batch = history replay, skip it entirely. Exactly one node, and it's
+ * the very first thing this page session has ever seen = the intro,
+ * always speak it. Exactly one node after that = a live reply, speak it
+ * unless muted.
+ *
+ * Mic button: transcribes speech into #ai-chat-input, then calls the
+ * existing global sendAiMessage() exactly as if typed and sent.
+ *
+ * LANGUAGE: recognition is set to en-NG (Nigerian English), the closest
+ * available option in the free browser speech engine — it tends to
+ * handle Nigerian Pidgin reasonably since Pidgin is English-lexified,
+ * but this is NOT the same as genuine native support for Pidgin, Yoruba,
+ * Igbo, or Hausa. The free Web Speech API doesn't offer those as
+ * selectable languages at all. Real multi-language support would need a
+ * paid cloud speech service with its own API key — a separate, bigger
+ * piece of work, not a setting to flip here.
  *
  * Feature-detected: on a browser/WebView without SpeechRecognition or
  * speechSynthesis support, the relevant button just hides itself instead
@@ -26,12 +50,12 @@
 
   let recognition = null;
   let listening = false;
-  let readAloud = localStorage.getItem('voice-read-aloud') === '1';
+  let mutedReplies = localStorage.getItem('voice-muted-replies') === '1';
+  let introSpokenThisSession = false;
 
-  // ---- Text-to-speech ---------------------------------------------------
   function speak(text) {
     if (!synth || !text) return;
-    synth.cancel(); // don't queue/overlap replies
+    synth.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1;
     utter.pitch = 1;
@@ -41,39 +65,45 @@
   function updateReadAloudBtn() {
     const btn = document.getElementById('voice-readaloud-btn');
     if (!btn) return;
-    btn.textContent = readAloud ? '🔊' : '🔈';
-    btn.title = readAloud ? 'Read replies aloud: on' : 'Read replies aloud: off';
-    btn.style.opacity = readAloud ? '1' : '0.55';
+    btn.textContent = mutedReplies ? '🔈' : '🔊';
+    btn.title = mutedReplies ? 'Replies muted — tap to unmute' : 'Replies read aloud — tap to mute';
+    btn.style.opacity = mutedReplies ? '0.55' : '1';
   }
 
   function toggleReadAloud() {
-    readAloud = !readAloud;
-    localStorage.setItem('voice-read-aloud', readAloud ? '1' : '0');
+    mutedReplies = !mutedReplies;
+    localStorage.setItem('voice-muted-replies', mutedReplies ? '1' : '0');
     updateReadAloudBtn();
-    if (!readAloud && synth) synth.cancel();
+    if (mutedReplies && synth) synth.cancel();
   }
 
-  // Watches for new assistant messages and speaks them when read-aloud is on.
-  // Skips the "Thinking..." placeholder (class "typing") since that gets
-  // removed and replaced with the real reply a moment later.
   function watchChatLog() {
     const log = document.getElementById('ai-chat-log');
     if (!log || !window.MutationObserver) return;
     const observer = new MutationObserver(function (mutations) {
-      if (!readAloud) return;
+      const addedBotNodes = [];
       mutations.forEach(function (m) {
         m.addedNodes.forEach(function (node) {
           if (node.nodeType === 1 && node.classList.contains('ai-msg') &&
               node.classList.contains('bot') && !node.classList.contains('typing')) {
-            speak(node.textContent);
+            addedBotNodes.push(node);
           }
         });
       });
+
+      if (addedBotNodes.length === 0) return;
+      if (addedBotNodes.length > 1) return;
+
+      if (!introSpokenThisSession) {
+        introSpokenThisSession = true;
+        speak(addedBotNodes[0].textContent);
+      } else if (!mutedReplies) {
+        speak(addedBotNodes[0].textContent);
+      }
     });
     observer.observe(log, { childList: true });
   }
 
-  // ---- Speech-to-text -----------------------------------------------------
   function setupRecognition() {
     if (!SpeechRecognitionImpl) return;
     recognition = new SpeechRecognitionImpl();
@@ -117,10 +147,9 @@
     else { startListening(); }
   }
 
-  // ---- Injects the two buttons next to the existing Send button ---------
   function injectButtons() {
     const sendRow = document.querySelector('#ai-screen div[style*="display:flex"][style*="gap:8px"]');
-    if (!sendRow || document.getElementById('voice-mic-btn')) return; // already injected
+    if (!sendRow || document.getElementById('voice-mic-btn')) return;
 
     if (SpeechRecognitionImpl) {
       const micBtn = document.createElement('button');
