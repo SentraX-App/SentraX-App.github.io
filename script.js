@@ -460,6 +460,11 @@ function enableReminders() {
   const muted = localStorage.getItem('reminders-muted') === '1';
 
   if (Notification.permission === 'granted' && !muted) {
+    // Already on — tapping again means the user wants to turn it off.
+    // Browsers don't let any website revoke notification permission by
+    // code, so "disabling" here means Sentra-X itself stops firing
+    // reminders (checked in checkDueMeds), even though the OS-level
+    // permission technically stays granted in the background.
     if (confirm('Turn off medication reminder alerts?')) {
       localStorage.setItem('reminders-muted', '1');
       syncReminderButtonState();
@@ -468,6 +473,8 @@ function enableReminders() {
   }
 
   if (Notification.permission === 'granted' && muted) {
+    // Was muted in-app — permission is already granted, so just
+    // re-enable without needing to ask the browser again.
     localStorage.setItem('reminders-muted', '0');
     syncReminderButtonState();
     return;
@@ -915,10 +922,23 @@ setInterval(checkDueMeds, 60000);
 
 const AI_WORKER_URL = 'https://sentrax-ai.alecedoh1994.workers.dev/';
 let aiHistory = [];
+try { aiHistory = JSON.parse(localStorage.getItem('ai-chat-history') || '[]'); } catch (e) { aiHistory = []; }
+
+function saveAiHistory() {
+  if (aiHistory.length > 40) aiHistory = aiHistory.slice(-40);
+  try { localStorage.setItem('ai-chat-history', JSON.stringify(aiHistory)); } catch (e) { /* storage full/unavailable — chat still works this session */ }
+}
 
 function renderAiWelcome() {
   const log = document.getElementById('ai-chat-log');
-  if (log.children.length === 0) {
+  if (log.children.length > 0) return;
+  if (aiHistory.length > 0) {
+    // Restore the real conversation from last time instead of the generic
+    // welcome message, so the assistant "remembers" across app restarts.
+    aiHistory.forEach(function (m) {
+      appendAiMessage(m.role === 'user' ? 'user' : 'bot', m.content);
+    });
+  } else {
     appendAiMessage('bot', "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 112.");
   }
 }
@@ -941,6 +961,7 @@ function sendAiMessage() {
 
   appendAiMessage('user', text);
   aiHistory.push({ role: 'user', content: text });
+  saveAiHistory();
 
   const typingEl = appendAiMessage('bot', 'Thinking...');
   typingEl.classList.add('typing');
@@ -960,6 +981,7 @@ function sendAiMessage() {
     typingEl.remove();
     appendAiMessage('bot', data.reply);
     aiHistory.push({ role: 'assistant', content: data.reply });
+    saveAiHistory();
   })
   .catch(function(err) {
     typingEl.remove();
