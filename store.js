@@ -44,7 +44,7 @@
   CATEGORIES.forEach(function (c) { CATEGORY_NAME[c.key] = c.name; CATEGORY_EMOJI[c.key] = c.emoji; });
 
   const PRODUCTS = [
-    { id: 'walking-cane', name: 'Adjustable Walking Cane', category: 'mobility', price: 6000, emoji: '🦯',
+    { id: 'walking-cane', name: 'Adjustable Walking Cane', category: 'mobility', price: 13500, emoji: '🦯',
       short: 'Height-adjustable, foldable, non-slip base.',
       long: 'A lightweight, height-adjustable cane with a comfortable ergonomic handle and a wide non-slip rubber tip for stability on most surfaces. Folds down for easy storage and travel.' },
     { id: 'crutches', name: 'Elbow Crutches (Pair)', category: 'mobility', price: 15000, emoji: '🩼',
@@ -352,6 +352,46 @@
       '<button onclick="SentraXStore.placeOrder()">Place Order — ' + formatPrice(total) + '</button>');
   }
 
+  // Emails the store owner directly the moment an order is placed. Orders
+  // otherwise only save into the buyer's own private Firestore document —
+  // with no shared "orders" collection or admin view, this email is
+  // currently the ONLY way a new order gets noticed. Uses EmailJS's public
+  // (browser-safe) key — no private key needed for a client-side send.
+  const SELLER_EMAIL = 'sentraxforteltd@gmail.com';
+  const EMAILJS_SERVICE_ID = 'service_sq7cgqb';
+  const EMAILJS_TEMPLATE_ID = 'template_9clzjfk';
+  const EMAILJS_PUBLIC_KEY = 'nAbELba6szw8IyjO-';
+
+  function notifySellerOfOrder(order) {
+    const itemLines = order.items.map(function (it) {
+      return it.qty + 'x ' + it.name + ' (' + formatPrice(it.price * it.qty) + ')';
+    }).join(', ');
+    const message = 'NEW SENTRA-X ORDER ' + order.ref + '\n' +
+      'Total: ' + formatPrice(order.total) + '\n' +
+      'Items: ' + itemLines + '\n' +
+      'Customer: ' + order.name + ' — ' + order.phone + '\n' +
+      'Delivery address: ' + order.address;
+
+    fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        template_params: {
+          to_email: SELLER_EMAIL,
+          patient_name: 'Sentra-X Marketplace',
+          caregiver_name: 'Store Owner',
+          alert_message: message
+        }
+      })
+    }).catch(function () {
+      // Order is already safely saved (localStorage + Firestore) even if
+      // this notification email fails to send — never blocks checkout.
+    });
+  }
+
   function placeOrder() {
     const name = (document.getElementById('mkt-co-name').value || '').trim();
     const phone = (document.getElementById('mkt-co-phone').value || '').trim();
@@ -388,6 +428,8 @@
     if (typeof syncToFirestore === 'function') {
       try { syncToFirestore({ marketplaceOrders: orders }); } catch (e) { /* offline is fine, order is saved locally */ }
     }
+
+    notifySellerOfOrder(order);
 
     // TODO(paystack): once merchant verification is approved, call
     // payWithPaystack(order) here instead of going straight to the
