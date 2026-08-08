@@ -356,13 +356,28 @@
 
   <div class="screen" id="ai-screen">
     <div class="card" style="display:flex;flex-direction:column;height:70vh;">
-      <h3>💬 Health Assistant</h3>
-      <p style="color:#94a3b8;font-size:12px;margin-top:0;">General guidance only — not a substitute for a doctor. In an emergency, call 112.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h3 style="margin-bottom:0;">💬 Health Assistant</h3>
+        <div style="display:flex;gap:6px;">
+          <button onclick="showAiHistoryList()" style="width:auto;padding:6px 12px;font-size:12px;">🕑 History</button>
+          <button onclick="startNewAiChat()" style="width:auto;padding:6px 12px;font-size:12px;">+ New</button>
+        </div>
+      </div>
+      <p style="color:#94a3b8;font-size:12px;margin-top:4px;">General guidance only — not a substitute for a doctor. In an emergency, call 112.</p>
       <div id="ai-chat-log" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin:10px 0;"></div>
       <div style="display:flex;gap:8px;">
         <input type="text" id="ai-chat-input" placeholder="Ask a health question..." style="flex:1;" onkeydown="if(event.key==='Enter') sendAiMessage();">
         <button onclick="sendAiMessage()" style="width:auto;padding:0 18px;">Send</button>
       </div>
+    </div>
+  </div>
+  <div id="ai-history-overlay" style="display:none;position:fixed;inset:0;z-index:2500;background:#0b1220;overflow-y:auto;">
+    <div style="padding:16px;max-width:480px;margin:0 auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <h3 style="margin:0;">Chat History</h3>
+        <button onclick="closeAiHistoryList()" style="width:auto;padding:6px 14px;">Close</button>
+      </div>
+      <div id="ai-history-list"></div>
     </div>
   </div>
 <div class="screen" id="articles-screen">
@@ -420,7 +435,6 @@
   <script src="script.js"></script>
   <script src="articles.js"></script>
   <script src="store.js"></script>
-  <script src="voice.js"></script>
 <script src="auth.js"></script>
 </body>
 </html>
