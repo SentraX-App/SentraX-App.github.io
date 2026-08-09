@@ -36,7 +36,8 @@
     { key: 'safety', name: 'Home Safety & Alerts', emoji: '🆘' },
     { key: 'firstaid', name: 'First Aid & Wound Care', emoji: '🩹' },
     { key: 'support', name: 'Support & Recovery', emoji: '🦵' },
-    { key: 'medaids', name: 'Medication Aids', emoji: '💊' }
+    { key: 'medaids', name: 'Medication Aids', emoji: '💊' },
+    { key: 'wellness', name: 'Wellness & Rehab', emoji: '🧘' }
   ];
 
   const CATEGORY_NAME = {};
@@ -44,71 +45,75 @@
   CATEGORIES.forEach(function (c) { CATEGORY_NAME[c.key] = c.name; CATEGORY_EMOJI[c.key] = c.emoji; });
 
   const PRODUCTS = [
-    { id: 'walking-cane', name: 'Adjustable Walking Cane', category: 'mobility', price: 8500, emoji: '🦯',
+    { id: 'walking-cane', name: 'Adjustable Walking Cane', category: 'mobility', price: 9000, emoji: '🦯',
       short: 'Height-adjustable, foldable, non-slip base.',
       long: 'A lightweight, height-adjustable cane with a comfortable ergonomic handle and a wide non-slip rubber tip for stability on most surfaces. Folds down for easy storage and travel.' },
-    { id: 'crutches', name: 'Elbow Crutches (Pair)', category: 'mobility', price: 11000, emoji: '🩼',
+    { id: 'crutches', name: 'Elbow Crutches (Pair)', category: 'mobility', price: 26000, emoji: '🩼',
       short: 'Adjustable height, padded arm cuffs.',
       long: 'A sturdy pair of adjustable elbow crutches with padded, contoured arm cuffs and comfortable hand grips, designed to support recovery from injury or reduced mobility.' },
-    { id: 'rollator', name: '3-Wheel Folding Rollator Walker', category: 'mobility', price: 48000, emoji: '🚶',
+    { id: 'rollator', name: '3-Wheel Folding Rollator Walker', category: 'mobility', price: 45000, emoji: '🚶',
       short: 'Folds flat, with hand brakes and a seat.',
       long: 'A compact, lightweight three-wheel walker with hand brakes and a fold-down seat for resting on the go — much easier to maneuver through doorways and tight spaces than a standard 4-wheel frame. Folds flat for the car boot.' },
-    { id: 'wheelchair', name: 'Foldable Manual Wheelchair', category: 'mobility', price: 68000, emoji: '🦽',
+    { id: 'wheelchair', name: 'Foldable Manual Wheelchair', category: 'mobility', price: 155000, emoji: '🦽',
       short: 'Lightweight frame, folds for transport.',
       long: 'A lightweight, foldable manual wheelchair with comfortable armrests and footrests — folds down easily for storage in a car boot, making it practical for both home use and outings.' },
-    { id: 'first-aid-kit', name: 'Premium First Aid Kit (120-piece)', category: 'firstaid', price: 12000, emoji: '🧰',
+    { id: 'first-aid-kit', name: 'Premium First Aid Kit (120-piece)', category: 'firstaid', price: 15500, emoji: '🧰',
       short: 'Bandages, antiseptic wipes, scissors & more.',
       long: 'A comprehensive 120-piece kit covering everyday cuts, scrapes, sprains, and minor emergencies — bandages, gauze, antiseptic wipes, tape, scissors, and a compact carry case that fits in a bag, car, or kitchen cabinet.' },
-    { id: 'face-masks', name: 'Disposable Face Masks (Pack of 50)', category: 'firstaid', price: 3000, emoji: '😷',
+    { id: 'face-masks', name: 'Disposable Face Masks (Pack of 50)', category: 'firstaid', price: 3800, emoji: '😷',
       short: '3-ply protection, comfortable ear loops.',
       long: 'A pack of 50 disposable 3-ply face masks with soft ear loops — a practical everyday essential for hospital visits, caregiving, or general protection at home.' },
-    { id: 'hand-sanitizer', name: 'Hand Sanitizer (Pack of 3)', category: 'firstaid', price: 2500, emoji: '🧴',
+    { id: 'hand-sanitizer', name: 'Hand Sanitizer (Pack of 3)', category: 'firstaid', price: 1500, emoji: '🧴',
       short: '70% alcohol, travel-size, pack of 3.',
       long: 'A pack of three 70% alcohol hand sanitizer bottles — everyday essentials for hygiene at home, on the go, or during hospital visits.' },
-    { id: 'knee-brace', name: 'Elastic Knee Support Brace', category: 'support', price: 5500, emoji: '🦵',
+    { id: 'knee-brace', name: 'Elastic Knee Support Brace', category: 'support', price: 8500, emoji: '🦵',
       short: 'Compression support for aching or weak knees.',
       long: 'A breathable, elastic knee sleeve that provides gentle compression and support for everyday aches, mild strains, or recovery — comfortable enough to wear under clothing throughout the day.' },
-    { id: 'wrist-splint', name: 'Adjustable Wrist Splint', category: 'support', price: 6500, emoji: '🖐️',
+    { id: 'wrist-splint', name: 'Adjustable Wrist Splint', category: 'support', price: 10000, emoji: '🖐️',
       short: 'Stabilizes the wrist for strain or repetitive pain.',
       long: 'A rigid-but-comfortable splint that keeps the wrist in a neutral, supported position — helpful for strain, repetitive stress, or recovery, with adjustable straps for a secure, personalized fit.' },
-    { id: 'posture-brace', name: 'Posture Corrector Back Brace', category: 'support', price: 8000, emoji: '🧍',
+    { id: 'posture-brace', name: 'Posture Corrector Back Brace', category: 'support', price: 6500, emoji: '🧍',
       short: 'Adjustable straps to support upright posture.',
       long: 'An adjustable, breathable back brace that gently pulls the shoulders back to encourage healthier posture — comfortable enough for daily wear at a desk or during light activity.' },
     { id: 'pill-organizer', name: 'Weekly Pill Organizer (7-Day, AM/PM)', category: 'medaids', price: 4500, emoji: '💊',
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Pilulier%20semainier.JPG?width=500',
       short: 'Morning & evening compartments for every day of the week.',
       long: 'A 7-day pill organizer with separate morning and evening compartments for each day, making it easy to see at a glance whether today\'s doses have been taken — helpful for managing several medications at once.' },
-    { id: 'compression-socks', name: 'Compression Socks (Pair)', category: 'support', price: 5000, emoji: '🧦',
+    { id: 'compression-socks', name: 'Compression Socks (Pair)', category: 'support', price: 12500, emoji: '🧦',
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Compression%20socks.jpg?width=500',
       short: 'Graduated compression to support leg circulation.',
       long: 'A pair of graduated compression socks that gently support circulation in the legs and feet — often worn for long periods of sitting or standing, swelling, or general leg comfort.' },
-    { id: 'hot-cold-pack', name: 'Reusable Hot & Cold Gel Pack', category: 'firstaid', price: 4000, emoji: '🧊',
+    { id: 'hot-cold-pack', name: 'Reusable Hot & Cold Gel Pack', category: 'firstaid', price: 5500, emoji: '🧊',
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Cold%20Hot%20Pack.jpg?width=500',
       short: 'Freeze it or microwave it — flexible, reusable relief.',
       long: 'A flexible reusable gel pack that can be frozen for cold therapy or warmed for heat therapy — a simple, reusable way to ease minor aches, swelling, or muscle tension at home.' },
-    { id: 'hot-water-bottle', name: 'Rubber Hot Water Bottle', category: 'firstaid', price: 3500, emoji: '🍶',
+    { id: 'hot-water-bottle', name: 'Rubber Hot Water Bottle', category: 'firstaid', price: 6000, emoji: '🍶',
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Hot%20Water%20Bottle.jpg?width=500',
       short: 'Classic warmth for aches, cramps, or cold nights.',
       long: 'A traditional rubber hot water bottle for soothing warmth — commonly used for cramps, muscle aches, or simply staying warm on cold nights.' },
-    { id: 'grab-bar', name: 'Bathroom Grab Bar / Safety Rail', category: 'safety', price: 9500, emoji: '🚿',
+    { id: 'first-aid-box', name: 'Compact First Aid Box (Home & Office)', category: 'firstaid', price: 12500, emoji: '📦',
+      image: 'https://images.pexels.com/photos/5149757/pexels-photo-5149757.jpeg?auto=compress&w=800',
+      short: 'A simple, wall-mountable box for everyday minor injuries.',
+      long: 'A compact, no-frills first aid box for home or office — covers everyday minor injuries (cuts, scrapes, headaches) without the bulk of the full Premium First Aid Kit. Easy to keep in a kitchen drawer, car, or by the front door.' },
+    { id: 'grab-bar', name: 'Bathroom Grab Bar / Safety Rail', category: 'safety', price: 15000, emoji: '🚿',
       short: 'Wall-mounted support rail for showers, tubs & toilets.',
       long: 'A sturdy wall-mounted grab bar that gives extra stability when getting in or out of the shower, bath, or toilet — one of the simplest ways to reduce fall risk in the bathroom, where most home falls happen.' },
-    { id: 'raised-toilet-seat', name: 'Raised Toilet Seat with Handles', category: 'safety', price: 15000, emoji: '🚽',
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Electric%20raised%20toilet%20seat%20for%20elderly.jpg?width=500',
-      short: 'Adds height and side handles for easier, safer sitting.',
-      long: 'Fits over most standard toilets to raise the seat height and add side handles for extra support — reduces strain on knees and hips when sitting down or standing up, and lowers fall risk in the bathroom.' },
-    { id: 'shower-chair', name: 'Shower Chair / Bath Transfer Bench', category: 'safety', price: 22000, emoji: '🪑',
-      short: 'Stable seated support for safer bathing.',
-      long: 'A sturdy, non-slip chair for the shower or bath, letting you sit safely while washing rather than standing on a wet, slippery surface — widely recommended for reducing fall risk during bathing.' },
-    { id: 'bath-mat', name: 'Non-Slip Bath Mat', category: 'safety', price: 4500, emoji: '🛁',
-      short: 'Textured rubber grip for wet bathroom floors.',
-      long: 'A textured rubber mat that grips the floor of the shower or tub, reducing the risk of slipping on a wet surface — one of the cheapest, simplest ways to make a bathroom safer.' },
-    { id: 'medical-id-bracelet', name: 'Medical Alert ID Bracelet', category: 'safety', price: 6000, emoji: '🆔',
-      short: 'Engraved bracelet for allergies, conditions & emergency contact.',
-      long: 'An engraved stainless steel bracelet listing your condition, allergies, or medications, so emergency responders have vital information even if you can\'t speak for yourself.' },
-    { id: 'large-print-labels', name: 'Large-Print Medication Labels (Pack)', category: 'medaids', price: 2000, emoji: '🔍',
-      short: 'Bold, easy-to-read stick-on labels for pill bottles.',
-      long: 'A pack of bold, large-print stick-on labels for medication bottles — makes it much easier to tell doses apart at a glance, especially helpful for anyone managing several medications or with reduced eyesight.' }
+    { id: 'ankle-support', name: 'Ankle Support Brace', category: 'support', price: 7000, emoji: '🦶',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Ankle%20Foot%20Orthosis%20leg%20brace%20worn%20on%20the%20left%20foot%20with%20ankle%20hinge.jpg?width=500',
+      short: 'Compression support for ankle sprains and strains.',
+      long: 'An adjustable ankle support brace that provides compression and stability for sprains, strains, or general joint weakness — helps reduce swelling and gives extra confidence when walking.' },
+    { id: 'exercise-mat', name: 'Foam Exercise / Yoga Mat', category: 'wellness', price: 10000, emoji: '🧘',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Yoga%20mat.jpg?width=500',
+      short: 'Cushioned mat for gentle exercise, stretching, or physio routines.',
+      long: 'A comfortable foam exercise mat for light stretching, physiotherapy exercises, or gentle daily movement routines — non-slip surface, easy to clean, rolls up for storage.' },
+    { id: 'resistance-bands', name: 'Resistance Exercise Bands (Set)', category: 'wellness', price: 7000, emoji: '🎗️',
+      image: 'https://images.pexels.com/photos/6339598/pexels-photo-6339598.jpeg?auto=compress&w=800',
+      short: 'Set of bands for gentle strength and mobility exercises.',
+      long: 'A set of resistance bands in varying strengths for gentle strength-building, joint mobility, and physiotherapy-style exercises — low-impact and adjustable to fitness level.' },
+    { id: 'foam-roller', name: 'Foam Roller', category: 'wellness', price: 10000, emoji: '🎢',
+      image: 'https://images.pexels.com/photos/6207527/pexels-photo-6207527.jpeg?auto=compress&w=800',
+      short: 'Roller for muscle recovery, stretching, and tension relief.',
+      long: 'A durable foam roller for muscle recovery and self-massage — helps ease muscle tightness and improve flexibility, popular for both rehabilitation and general wellness routines.' }
   ];
 
   const productsById = {};
@@ -174,7 +179,6 @@
   function coverHtml(p) {
     const src = p.image || ('images/products/' + p.id + '.jpg');
     return '<div class="mkt-cover" data-category="' + p.category + '" onclick="SentraXStore.open(\'' + p.id + '\')">' +
-      '<span class="mkt-cover-fallback">' + (p.emoji || CATEGORY_EMOJI[p.category] || '📦') + '</span>' +
       '<img class="mkt-cover-img" src="' + src + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';">' +
       '</div>';
   }
@@ -252,7 +256,7 @@
     const overlay = ensureOverlay('product-reader-overlay');
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXStore.closeProduct()">←</button>' +
-      '<div class="mkt-reader-cover" data-category="' + p.category + '"><span class="mkt-cover-fallback">' + (p.emoji || CATEGORY_EMOJI[p.category] || '📦') + '</span><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';"></div>' +
+      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';"></div>' +
       '<div class="art-reader-body">' +
       '<div class="mkt-cat-tag" style="display:inline-block;">' + CATEGORY_EMOJI[p.category] + ' ' + CATEGORY_NAME[p.category] + '</div>' +
       '<h2>' + esc(p.name) + '</h2>' +
@@ -311,7 +315,7 @@
     const p = productsById[id];
     if (!p) return '';
     return '<div class="mkt-cart-row">' +
-      '<div class="mkt-cart-emoji" data-category="' + p.category + '"><span class="mkt-cover-fallback" style="font-size:20px;">' + (p.emoji || CATEGORY_EMOJI[p.category] || '📦') + '</span><img class="mkt-cart-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="" onerror="this.style.display=\'none\';"></div>' +
+      '<div class="mkt-cart-emoji"><img class="mkt-cart-img" src="images/products/' + p.id + '.jpg" alt="" onerror="this.style.display=\'none\';"></div>' +
       '<div class="mkt-cart-info">' +
       '<div class="mkt-cart-name">' + esc(p.name) + '</div>' +
       '<div class="mkt-cart-unit">' + formatPrice(p.price) + ' each</div>' +
