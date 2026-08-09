@@ -969,6 +969,17 @@ function getCurrentAiThread() {
 }
 
 function startNewAiChat() {
+  // If the current thread is still empty (nothing sent yet), just stay on
+  // it instead of creating another blank one — this is what was causing
+  // several identical unused "New conversation" entries to pile up.
+  const current = aiThreads.find(function (t) { return t.id === currentAiThreadId; });
+  if (current && current.messages.length === 0) {
+    document.getElementById('ai-chat-log').innerHTML = '';
+    renderAiWelcome();
+    closeAiHistoryList();
+    return;
+  }
+
   const thread = { id: 'thread-' + Date.now(), title: 'New conversation', messages: [], updatedAt: Date.now() };
   aiThreads.unshift(thread);
   currentAiThreadId = thread.id;
@@ -985,12 +996,20 @@ function showAiHistoryList() {
   } else {
     list.innerHTML = aiThreads.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; }).map(function (t) {
       const date = new Date(t.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-      const active = t.id === currentAiThreadId ? ' style="border-color:#38bdf8;"' : '';
-      return '<div' + active + ' style="display:flex;align-items:center;gap:8px;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;margin-bottom:8px;">' +
-        '<div onclick="openAiThread(\'' + t.id + '\')" style="flex:1;cursor:pointer;">' +
-        '<div style="font-size:14px;color:#f1f5f9;">' + t.title.replace(/</g, '&lt;') + '</div>' +
-        '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + date + '</div></div>' +
-        '<button onclick="deleteAiThread(\'' + t.id + '\')" style="width:auto;padding:6px 10px;background:transparent;border:1px solid rgba(248,113,113,0.3);color:#fca5a5;">🗑️</button>' +
+      const isActive = t.id === currentAiThreadId;
+      const rowStyle = 'display:flex;align-items:center;gap:10px;padding:11px 4px;' +
+        'border-bottom:1px solid rgba(255,255,255,0.08);' +
+        (isActive ? 'background:rgba(56,189,248,0.08);border-radius:8px;padding-left:8px;padding-right:8px;' : '');
+      return '<div style="' + rowStyle + '">' +
+        '<div onclick="openAiThread(\'' + t.id + '\')" style="flex:1;min-width:0;cursor:pointer;display:flex;align-items:center;gap:10px;">' +
+          '<span style="font-size:18px;flex-shrink:0;">' + (isActive ? '💬' : '🗨️') + '</span>' +
+          '<div style="min-width:0;flex:1;">' +
+            '<div style="font-size:14px;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + t.title.replace(/</g, '&lt;') + '</div>' +
+          '</div>' +
+          '<span style="font-size:11px;color:#64748b;flex-shrink:0;">' + date + '</span>' +
+        '</div>' +
+        '<button onclick="deleteAiThread(\'' + t.id + '\')" title="Delete conversation" ' +
+          'style="width:32px;height:32px;padding:0;flex-shrink:0;background:transparent;border:none;color:#64748b;font-size:16px;border-radius:8px;">🗑️</button>' +
         '</div>';
     }).join('') +
     '<button onclick="clearAllAiHistory()" class="ghost" style="margin-top:10px;color:#fca5a5;">Clear All History</button>';
