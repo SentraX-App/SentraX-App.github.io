@@ -222,6 +222,7 @@ nav {
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   display: flex; border-top: 1px solid rgba(255,255,255,0.08);
   padding-top: 6px; padding-bottom: calc(4px + env(safe-area-inset-bottom));
+  z-index: 100;
 }
 nav button {
   flex: 1; background: none; color: #64748b; box-shadow: none;
