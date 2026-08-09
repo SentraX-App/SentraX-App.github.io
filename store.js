@@ -55,6 +55,7 @@
       short: 'Folds flat, with hand brakes and a seat.',
       long: 'A compact, lightweight three-wheel walker with hand brakes and a fold-down seat for resting on the go — much easier to maneuver through doorways and tight spaces than a standard 4-wheel frame. Folds flat for the car boot.' },
     { id: 'wheelchair', name: 'Foldable Manual Wheelchair', category: 'mobility', price: 155000, emoji: '🦽',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Wheelchair%20Parts%20(main%20pic).JPG?width=500',
       short: 'Lightweight frame, folds for transport.',
       long: 'A lightweight, foldable manual wheelchair with comfortable armrests and footrests — folds down easily for storage in a car boot, making it practical for both home use and outings.' },
     { id: 'first-aid-kit', name: 'Premium First Aid Kit (120-piece)', category: 'firstaid', price: 15500, emoji: '🧰',
