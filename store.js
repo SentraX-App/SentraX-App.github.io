@@ -92,13 +92,14 @@
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Hot%20Water%20Bottle.jpg?width=500',
       short: 'Classic warmth for aches, cramps, or cold nights.',
       long: 'A traditional rubber hot water bottle for soothing warmth — commonly used for cramps, muscle aches, or simply staying warm on cold nights.' },
+    { id: 'smoke-detector', name: 'Home Smoke Detector', category: 'safety', price: 8500, emoji: '🚨',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Smoke%20detector.JPG?width=500',
+      short: 'Battery-powered smoke alarm for early fire warning at home.',
+      long: 'A reliable, battery-powered smoke detector that gives an early audible warning if smoke is detected — one of the simplest, most effective home safety additions, especially in a household with reduced mobility where every extra minute of warning matters.' },
     { id: 'first-aid-box', name: 'Compact First Aid Box (Home & Office)', category: 'firstaid', price: 12500, emoji: '📦',
       image: 'https://images.pexels.com/photos/5149757/pexels-photo-5149757.jpeg?auto=compress&w=800',
       short: 'A simple, wall-mountable box for everyday minor injuries.',
       long: 'A compact, no-frills first aid box for home or office — covers everyday minor injuries (cuts, scrapes, headaches) without the bulk of the full Premium First Aid Kit. Easy to keep in a kitchen drawer, car, or by the front door.' },
-    { id: 'grab-bar', name: 'Bathroom Grab Bar / Safety Rail', category: 'safety', price: 15000, emoji: '🚿',
-      short: 'Wall-mounted support rail for showers, tubs & toilets.',
-      long: 'A sturdy wall-mounted grab bar that gives extra stability when getting in or out of the shower, bath, or toilet — one of the simplest ways to reduce fall risk in the bathroom, where most home falls happen.' },
     { id: 'ankle-support', name: 'Ankle Support Brace', category: 'support', price: 7000, emoji: '🦶',
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Ankle%20Foot%20Orthosis%20leg%20brace%20worn%20on%20the%20left%20foot%20with%20ankle%20hinge.jpg?width=500',
       short: 'Compression support for ankle sprains and strains.',
@@ -366,11 +367,12 @@
       '<button class="mkt-back-link" onclick="SentraXStore.renderCartStepPublic()">← Back to cart</button>' +
       '<div class="mkt-checkout-summary">' + count + ' item' + (count === 1 ? '' : 's') + ' · <b>' + formatPrice(total) + '</b></div>' +
       '<input type="text" id="mkt-co-name" placeholder="Full name">' +
+      '<input type="email" id="mkt-co-email" placeholder="Email address (for payment receipt)">' +
       '<input type="tel" id="mkt-co-phone" placeholder="Phone number, e.g. 2348012345678">' +
       '<textarea id="mkt-co-address" placeholder="Delivery address" rows="3" style="width:100%;padding:13px;margin:6px 0;border:1px solid rgba(255,255,255,0.14);border-radius:12px;font-size:16px;background:rgba(255,255,255,0.06);color:#f1f5f9;font-family:inherit;resize:vertical;"></textarea>' +
-      '<div class="mkt-paystack-note">🔒 Card payment via Paystack is launching soon. Your order is saved now — we\'ll reach out to confirm payment and delivery.</div>' +
+      '<div class="mkt-paystack-note">🔒 Secure card payment via Paystack.</div>' +
       '<div id="mkt-co-error" style="color:#fca5a5;font-size:13px;margin-top:4px;min-height:16px;"></div>' +
-      '<button onclick="SentraXStore.placeOrder()">Place Order — ' + formatPrice(total) + '</button>');
+      '<button onclick="SentraXStore.placeOrder()">Pay ' + formatPrice(total) + '</button>');
   }
 
   // Emails the store owner directly the moment an order is placed. Orders
@@ -413,13 +415,24 @@
     });
   }
 
+  // TODO: replace with your real Paystack public key (test key is fine to
+  // start — Paystack test keys work immediately, no merchant verification
+  // needed, and show their own "TEST MODE" banner automatically so nobody
+  // is misled). Get it from Paystack Dashboard → Settings → API Keys & Webhooks.
+  const PAYSTACK_PUBLIC_KEY = 'pk_test_REPLACE_ME';
+
   function placeOrder() {
     const name = (document.getElementById('mkt-co-name').value || '').trim();
+    const email = (document.getElementById('mkt-co-email').value || '').trim();
     const phone = (document.getElementById('mkt-co-phone').value || '').trim();
     const address = (document.getElementById('mkt-co-address').value || '').trim();
     const errEl = document.getElementById('mkt-co-error');
-    if (!name || !phone || !address) {
-      if (errEl) errEl.textContent = 'Please fill in your name, phone number, and delivery address.';
+    if (!name || !email || !phone || !address) {
+      if (errEl) errEl.textContent = 'Please fill in your name, email, phone number, and delivery address.';
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      if (errEl) errEl.textContent = 'Please enter a valid email address.';
       return;
     }
 
@@ -434,12 +447,51 @@
       items: items,
       total: total,
       name: name,
+      email: email,
       phone: phone,
       address: address,
       status: 'pending_payment',
       createdAt: Date.now()
     };
 
+    if (typeof PaystackPop === 'undefined' || PAYSTACK_PUBLIC_KEY.indexOf('REPLACE_ME') !== -1) {
+      // SDK didn't load, or key hasn't been configured yet — never leave
+      // the customer stuck. Fall back to the manual-fulfillment flow.
+      finalizeOrder(order);
+      return;
+    }
+
+    const btn = document.querySelector('#mkt-cart-overlay button[onclick="SentraXStore.placeOrder()"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
+
+    const handler = PaystackPop.setup({
+      key: PAYSTACK_PUBLIC_KEY,
+      email: email,
+      amount: Math.round(total * 100), // Paystack expects kobo, not naira
+      currency: 'NGN',
+      ref: order.ref,
+      metadata: {
+        custom_fields: [
+          { display_name: 'Customer Name', variable_name: 'customer_name', value: name },
+          { display_name: 'Phone', variable_name: 'phone', value: phone },
+          { display_name: 'Delivery Address', variable_name: 'address', value: address }
+        ]
+      },
+      callback: function (response) {
+        order.status = 'paid';
+        order.paystackRef = response.reference;
+        finalizeOrder(order);
+      },
+      onClose: function () {
+        // Customer closed the payment popup without completing it — order
+        // stays saved as pending so the seller can still follow up manually.
+        if (btn) { btn.disabled = false; btn.textContent = 'Pay ' + formatPrice(total); }
+      }
+    });
+    handler.openIframe();
+  }
+
+  function finalizeOrder(order) {
     const orders = JSON.parse(localStorage.getItem('mkt-orders') || '[]');
     orders.unshift(order);
     localStorage.setItem('mkt-orders', JSON.stringify(orders));
@@ -451,11 +503,6 @@
     }
 
     notifySellerOfOrder(order);
-
-    // TODO(paystack): once merchant verification is approved, call
-    // payWithPaystack(order) here instead of going straight to the
-    // "pending payment" confirmation below, then mark the order paid
-    // in the Paystack callback.
     saveCart({});
     renderSuccessStep(order);
   }
@@ -478,11 +525,15 @@
   function renderSuccessStep(order) {
     const sheet = document.getElementById('mkt-cart-overlay');
     if (!sheet) return;
-    sheet.innerHTML = mktSheetShell('Order Received',
-      '<div class="mkt-success-check">✅</div>' +
+    const paid = order.status === 'paid';
+    const message = paid
+      ? 'Payment received. Thanks, ' + esc(order.name.split(' ')[0]) + '! We\'ll contact you on ' + esc(order.phone) + ' to arrange delivery.'
+      : 'Thanks, ' + esc(order.name.split(' ')[0]) + '! Your order is saved — we\'ll contact you on ' + esc(order.phone) + ' to confirm payment and arrange delivery.';
+    sheet.innerHTML = mktSheetShell(paid ? 'Payment Successful' : 'Order Received',
+      '<div class="mkt-success-check">' + (paid ? '✅' : '📝') + '</div>' +
       '<div class="mkt-success-ref">Order ' + order.ref + '</div>' +
       '<div class="mkt-checkout-summary" style="margin-bottom:14px;">' + order.items.length + ' item' + (order.items.length === 1 ? '' : 's') + ' · <b>' + formatPrice(order.total) + '</b></div>' +
-      '<p style="font-size:13.5px;color:#cbd5e1;line-height:1.5;text-align:center;">Thanks, ' + esc(order.name.split(' ')[0]) + '! Card payment via Paystack is launching soon — we\'ll contact you on ' + esc(order.phone) + ' to confirm payment and arrange delivery.</p>' +
+      '<p style="font-size:13.5px;color:#cbd5e1;line-height:1.5;text-align:center;">' + message + '</p>' +
       '<button onclick="SentraXStore.closeCart()">Continue Shopping</button>');
   }
 
