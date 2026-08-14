@@ -37,13 +37,13 @@
   const RSS_TO_JSON_API_KEY = '';
   const MAX_LIVE_ITEMS = 8;
   const SNIPPET_MAX_CHARS = 160;
-  const LIVE_FETCH_TIMEOUT_MS = 15000;
+  const LIVE_FETCH_TIMEOUT_MS = 8000;
   const LIVE_FETCH_RETRIES = 1;
 
   const MEDLIB_WORKER_URL = 'https://sentrax-medlib.alecedoh1994.workers.dev';
   const MEDLIB_CACHE_KEY = 'sentrax-medlib-cache-v1';
   const MEDLIB_CACHE_MS = 24 * 60 * 60 * 1000;
-  const MEDLIB_FETCH_TIMEOUT_MS = 15000;
+  const MEDLIB_FETCH_TIMEOUT_MS = 8000;
   const MEDLIB_TAG_MAP = {
     'high-blood-pressure': 'Hypertension',
     'diabetes': 'Diabetes',
@@ -154,10 +154,24 @@
     loadMedLibrary();
   }
 
+  let articleHistoryPushed = false;
+
   function closeArticle() {
     const overlay = document.getElementById('article-reader-overlay');
     if (overlay) overlay.style.display = 'none';
+    if (articleHistoryPushed) {
+      articleHistoryPushed = false;
+      history.back();
+    }
   }
+
+  window.addEventListener('popstate', function () {
+    const overlay = document.getElementById('article-reader-overlay');
+    if (overlay && overlay.style.display === 'block') {
+      overlay.style.display = 'none';
+      articleHistoryPushed = false;
+    }
+  });
 
   let liveNewsById = {};
 
@@ -184,6 +198,8 @@
       '<div class="art-reader-footnote">Summary only — full article is published by the CDC and opens on their site. General health information, not medical advice.</div>' +
       (window.SentraXAds ? SentraXAds.slotHtml('sx-ad-inline') : '') +
       '</div>';
+    history.pushState({ sxArticleOverlay: true }, '');
+    articleHistoryPushed = true;
     overlay.style.display = 'block';
     overlay.scrollTop = 0;
     if (window.SentraXAds) SentraXAds.init(overlay);
@@ -254,6 +270,7 @@
         }
       });
     })(root);
+    root.normalize();
     Array.from(root.childNodes).forEach(function (child) {
       if (child.nodeType === 3) {
         const text = child.textContent.trim();
@@ -362,6 +379,8 @@
       '<div class="art-reader-footnote">Source: MedlinePlus®, U.S. National Library of Medicine (NIH). General health information, not medical advice. Talk to your doctor or pharmacist about anything specific to you.</div>' +
       (window.SentraXAds ? SentraXAds.slotHtml('sx-ad-inline') : '') +
       '</div>';
+    history.pushState({ sxArticleOverlay: true }, '');
+    articleHistoryPushed = true;
     overlay.style.display = 'block';
     overlay.scrollTop = 0;
     if (window.SentraXAds) SentraXAds.init(overlay);
