@@ -208,7 +208,12 @@
 
     const filtered = selectedCategory === 'all' ? PRODUCTS : PRODUCTS.filter(function (p) { return p.category === selectedCategory; });
 
-    const gridHtml = '<div class="mkt-grid">' + filtered.map(productCardHtml).join('') + '</div>' +
+    let gridInner = '';
+    filtered.forEach(function (p, i) {
+      gridInner += productCardHtml(p);
+      if (window.SentraXAds && (i + 1) % 4 === 0 && i < filtered.length - 1) gridInner += SentraXAds.slotHtml();
+    });
+    const gridHtml = '<div class="mkt-grid">' + gridInner + '</div>' +
       (filtered.length === 0 ? '<div class="empty">No items in this category yet</div>' : '');
 
     root.innerHTML =
@@ -221,7 +226,8 @@
       '<p style="font-size:11px;color:#64748b;text-align:center;margin-top:6px;">Non-prescription health & mobility aids only. Card payment via Paystack is launching soon.</p>';
 
     updateCartBadge();
-  }
+    if (window.SentraXAds) SentraXAds.init(root);
+ }
 
   function selectCategory(key) {
     selectedCategory = key;
@@ -273,7 +279,9 @@
       '</div></div>' +
       '<button onclick="SentraXStore.addToCartFromDetail()">Add to Cart — ' + formatPrice(p.price * detailQty) + '</button>' +
       '<div class="art-reader-footnote">Non-prescription item. Card payment via Paystack is launching soon — orders are confirmed manually until then.</div>' +
+      (window.SentraXAds ? SentraXAds.slotHtml('sx-ad-inline') : '') +
       '</div>';
+    if (window.SentraXAds) SentraXAds.init(overlay);
   }
 
   function changeDetailQty(delta) {
