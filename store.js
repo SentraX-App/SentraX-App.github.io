@@ -419,7 +419,7 @@
   // start — Paystack test keys work immediately, no merchant verification
   // needed, and show their own "TEST MODE" banner automatically so nobody
   // is misled). Get it from Paystack Dashboard → Settings → API Keys & Webhooks.
-  const PAYSTACK_PUBLIC_KEY = 'pk_test_REPLACE_ME';
+  const PAYSTACK_PUBLIC_KEY = 'pk_live_a6b2acb7e65e0b4eb742f559d1ce231345df3e8d';
 
   function placeOrder() {
     const name = (document.getElementById('mkt-co-name').value || '').trim();
