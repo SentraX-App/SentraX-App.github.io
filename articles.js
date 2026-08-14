@@ -37,13 +37,13 @@
   const RSS_TO_JSON_API_KEY = '';
   const MAX_LIVE_ITEMS = 8;
   const SNIPPET_MAX_CHARS = 160;
-  const LIVE_FETCH_TIMEOUT_MS = 8000;
+  const LIVE_FETCH_TIMEOUT_MS = 15000;
   const LIVE_FETCH_RETRIES = 1;
 
   const MEDLIB_WORKER_URL = 'https://sentrax-medlib.alecedoh1994.workers.dev';
   const MEDLIB_CACHE_KEY = 'sentrax-medlib-cache-v1';
   const MEDLIB_CACHE_MS = 24 * 60 * 60 * 1000;
-  const MEDLIB_FETCH_TIMEOUT_MS = 8000;
+  const MEDLIB_FETCH_TIMEOUT_MS = 15000;
   const MEDLIB_TAG_MAP = {
     'high-blood-pressure': 'Hypertension',
     'diabetes': 'Diabetes',
