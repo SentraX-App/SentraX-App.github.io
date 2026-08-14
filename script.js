@@ -1093,7 +1093,7 @@ function sendAiMessage() {
   fetch(AI_WORKER_URL, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ messages: thread.messages })
+  body: JSON.stringify({ messages: thread.messages.slice(-12) })
 })
   .then(function(res) {
     if (!res.ok) {
