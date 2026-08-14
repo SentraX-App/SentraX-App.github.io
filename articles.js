@@ -34,25 +34,16 @@
 
   const CDC_FEED_URL = 'https://www.cdc.gov/media/rss.xml';
   const RSS_TO_JSON_ENDPOINT = 'https://api.rss2json.com/v1/api.json?rss_url=';
-  // Optional: set this if/when we get a free rss2json API key — the
-  // anonymous tier is shared globally and gets rate-limited under load.
-  // Leave blank to keep current (no-key) behavior.
   const RSS_TO_JSON_API_KEY = '';
   const MAX_LIVE_ITEMS = 8;
   const SNIPPET_MAX_CHARS = 160;
   const LIVE_FETCH_TIMEOUT_MS = 8000;
   const LIVE_FETCH_RETRIES = 1;
 
-  // ---- Health Library (MedlinePlus, public-domain, full-text) ----------
-  // TODO: replace with your deployed medlib-worker.js URL, e.g.
-  // 'https://sentrax-medlib.YOUR-SUBDOMAIN.workers.dev/'
   const MEDLIB_WORKER_URL = 'https://sentrax-medlib.alecedoh1994.workers.dev';
   const MEDLIB_CACHE_KEY = 'sentrax-medlib-cache-v1';
-  const MEDLIB_CACHE_MS = 24 * 60 * 60 * 1000; // refresh at most once a day
+  const MEDLIB_CACHE_MS = 24 * 60 * 60 * 1000;
   const MEDLIB_FETCH_TIMEOUT_MS = 8000;
-  // Maps each Health Library topic id to the closest existing Guides tag,
-  // purely so it can reuse the same hand-picked photo pool — MedlinePlus's
-  // API returns no images of its own.
   const MEDLIB_TAG_MAP = {
     'high-blood-pressure': 'Hypertension',
     'diabetes': 'Diabetes',
@@ -85,8 +76,6 @@
       })
       .catch(function (err) {
         if (attemptsLeft > 0) {
-          // Brief pause before the one retry — helps ride out a transient
-          // rate-limit response instead of failing permanently on it.
           return new Promise(function (resolve) { setTimeout(resolve, 1200); })
             .then(function () { return fetchLiveFeedJson(attemptsLeft - 1); });
         }
@@ -112,10 +101,6 @@
     Sleep: '😴', Diabetes: '🩸', Wellness: '🧘', Caregiving: '🤝'
   };
 
-  // Each tag now has its own small photo pool (not just one shared
-  // image), so articles sharing a tag don't all show the identical
-  // picture. Articles are assigned photos round-robin within their
-  // tag further down, so consecutive same-tag articles alternate.
   const TAG_PHOTOS = {
     Hypertension: [
       'https://commons.wikimedia.org/wiki/Special:FilePath/Blood%20pressure%20monitoring.jpg?width=500',
@@ -137,6 +122,22 @@
     ]
   };
 
+  // Several Health Library topics share a tag whose photo pool has more
+  // than one image (e.g. high-blood-pressure / heart-disease / stroke all
+  // map to the Hypertension tag). Cycling those round-robin by whatever
+  // order the live feed happens to return items in caused mismatches —
+  // "Stroke" could end up with the heart diagram instead of the stroke
+  // scan, depending on API response order. This map pins each specific
+  // topic id to the one photo from its tag's pool that actually matches
+  // it, so the assignment is always the same regardless of feed order.
+  const MEDLIB_PHOTO_OVERRIDE = {
+    'high-blood-pressure': 'https://commons.wikimedia.org/wiki/Special:FilePath/Blood%20pressure%20monitoring.jpg?width=500',
+    'heart-disease': 'https://commons.wikimedia.org/wiki/Special:FilePath/Diagram%20of%20the%20human%20heart.svg?width=500',
+    'stroke': 'https://commons.wikimedia.org/wiki/Special:FilePath/Types%20of%20Stroke.jpg?width=500',
+    'kidney-disease': 'https://commons.wikimedia.org/wiki/Special:FilePath/Kidney%20nephron.jpg?width=500',
+    'healthy-aging': 'https://commons.wikimedia.org/wiki/Special:FilePath/Meditation%20Session.jpg?width=500'
+  };
+
   function coverHtml(tag, photoUrl, sizeStyle, altIndex) {
     const emoji = TAG_EMOJI[tag] || '📰';
     const photo = photoUrl || (TAG_PHOTOS[tag] && TAG_PHOTOS[tag][0]);
@@ -148,7 +149,6 @@
     }
     return '<div class="art-cover' + altClass + '" data-tag="' + tag + '"' + (sizeStyle ? ' style="' + sizeStyle + '"' : '') + '><span class="art-tag">' + tag + '</span>' + emoji + '</div>';
   }
-
 
   function renderArticles() {
     const root = document.getElementById('articles-root');
@@ -231,12 +231,6 @@
       });
   }
 
-  // Strict allowlist sanitizer for MedlinePlus's FullSummary HTML. Keeps
-  // only safe formatting tags, drops everything else down to plain text
-  // (including the <span class="qt0"> query-highlight wrappers NIH's API
-  // adds around matched terms — we don't need the highlighting, so those
-  // just unwrap to their inner text). No script/style/on*-attribute can
-  // survive this since only a fixed tag whitelist is ever kept.
   const MEDLIB_ALLOWED_TAGS = { P: 1, UL: 1, OL: 1, LI: 1, B: 1, STRONG: 1, I: 1, EM: 1, BR: 1, A: 1 };
   function sanitizeMedlibHtml(html) {
     if (typeof DOMParser === 'undefined') return '';
@@ -264,6 +258,18 @@
         }
       });
     })(root);
+    Array.from(root.childNodes).forEach(function (child) {
+      if (child.nodeType === 3) {
+        const text = child.textContent.trim();
+        if (text.length > 0 && text.length < 140) {
+          const h = doc.createElement('h3');
+          h.textContent = text;
+          root.replaceChild(h, child);
+        } else if (text.length === 0) {
+          root.removeChild(child);
+        }
+      }
+    });
     return root.innerHTML;
   }
 
@@ -282,7 +288,7 @@
         return res.json();
       })
       .then(function (data) {
-        try { localStorage.setItem(MEDLIB_CACHE_KEY, JSON.stringify(data)); } catch (e) { /* storage full/unavailable — still usable this session */ }
+        try { localStorage.setItem(MEDLIB_CACHE_KEY, JSON.stringify(data)); } catch (e) { /* storage full/unavailable */ }
         return data;
       });
   }
@@ -299,12 +305,12 @@
         if (!data || !data.items || !data.items.length) { container.innerHTML = ''; return; }
         medLibraryById = {};
         medLibraryPhotoById = {};
-        // Round-robin photo assignment per tag, so items sharing a tag
-        // (e.g. high blood pressure / heart disease / stroke all under
-        // Hypertension) cycle through that tag's photo pool instead of
-        // every one of them showing the exact same first photo.
         const tagCounters = {};
         data.items.forEach(function (item) {
+          if (MEDLIB_PHOTO_OVERRIDE[item.id]) {
+            medLibraryPhotoById[item.id] = MEDLIB_PHOTO_OVERRIDE[item.id];
+            return;
+          }
           const tag = MEDLIB_TAG_MAP[item.id] || 'Wellness';
           const pool = TAG_PHOTOS[tag];
           if (pool && pool.length) {
@@ -331,7 +337,7 @@
         container.innerHTML = html;
       })
       .catch(function () {
-        container.innerHTML = ''; // fails quietly — Latest Health News is unaffected
+        container.innerHTML = '';
       });
   }
 
