@@ -122,14 +122,6 @@
     ]
   };
 
-  // Several Health Library topics share a tag whose photo pool has more
-  // than one image (e.g. high-blood-pressure / heart-disease / stroke all
-  // map to the Hypertension tag). Cycling those round-robin by whatever
-  // order the live feed happens to return items in caused mismatches —
-  // "Stroke" could end up with the heart diagram instead of the stroke
-  // scan, depending on API response order. This map pins each specific
-  // topic id to the one photo from its tag's pool that actually matches
-  // it, so the assignment is always the same regardless of feed order.
   const MEDLIB_PHOTO_OVERRIDE = {
     'high-blood-pressure': 'https://commons.wikimedia.org/wiki/Special:FilePath/Blood%20pressure%20monitoring.jpg?width=500',
     'heart-disease': 'https://commons.wikimedia.org/wiki/Special:FilePath/Diagram%20of%20the%20human%20heart.svg?width=500',
@@ -190,9 +182,11 @@
       (snippet ? '<p>' + snippet + '</p>' : '') +
       '<p style="margin-top:20px;"><a href="' + item.link + '" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;font-weight:700;text-decoration:none;">Read full article on cdc.gov ↗</a></p>' +
       '<div class="art-reader-footnote">Summary only — full article is published by the CDC and opens on their site. General health information, not medical advice.</div>' +
+      (window.SentraXAds ? SentraXAds.slotHtml('sx-ad-inline') : '') +
       '</div>';
     overlay.style.display = 'block';
     overlay.scrollTop = 0;
+    if (window.SentraXAds) SentraXAds.init(overlay);
   }
 
   function loadLiveNews() {
@@ -223,8 +217,10 @@
             (snippet ? '<p class="art-excerpt">' + snippet + '</p>' : '') +
             '<div class="art-readmore">Read more →</div>' +
             '</div></div>';
+          if (window.SentraXAds && (i + 1) % 4 === 0 && i < items.length - 1) html += SentraXAds.slotHtml();
         });
         container.innerHTML = html;
+        if (window.SentraXAds) SentraXAds.init(container);
       })
       .catch(function () {
         container.innerHTML = '';
@@ -333,8 +329,10 @@
             '<p class="art-excerpt">' + excerpt + '</p>' +
             '<div class="art-readmore">Read more →</div>' +
             '</div></div>';
+          if (window.SentraXAds && (i + 1) % 4 === 0 && i < data.items.length - 1) html += SentraXAds.slotHtml();
         });
         container.innerHTML = html;
+        if (window.SentraXAds) SentraXAds.init(container);
       })
       .catch(function () {
         container.innerHTML = '';
@@ -362,9 +360,11 @@
       safeBody +
       (item.sourceUrl ? '<p style="margin-top:16px;font-size:12px;"><a href="' + item.sourceUrl + '" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">View original on medlineplus.gov ↗</a></p>' : '') +
       '<div class="art-reader-footnote">Source: MedlinePlus®, U.S. National Library of Medicine (NIH). General health information, not medical advice. Talk to your doctor or pharmacist about anything specific to you.</div>' +
+      (window.SentraXAds ? SentraXAds.slotHtml('sx-ad-inline') : '') +
       '</div>';
     overlay.style.display = 'block';
     overlay.scrollTop = 0;
+    if (window.SentraXAds) SentraXAds.init(overlay);
   }
 
   if (typeof window !== 'undefined') {
