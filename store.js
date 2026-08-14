@@ -417,7 +417,16 @@
           alert_message: message
         }
       })
+    }).then(function (res) {
+      if (!res.ok) {
+        // Surface it instead of swallowing it — flag the order locally so
+        // it's visible even if the seller email genuinely never arrives.
+        order.notifyFailed = true;
+        const orders = JSON.parse(localStorage.getItem('mkt-orders') || '[]');
+        localStorage.setItem('mkt-orders', JSON.stringify(orders));
+      }
     }).catch(function () {
+      order.notifyFailed = true;
       // Order is already safely saved (localStorage + Firestore) even if
       // this notification email fails to send — never blocks checkout.
     });
