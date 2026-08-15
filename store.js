@@ -546,6 +546,10 @@
     orders.unshift(order);
     localStorage.setItem('mkt-orders', JSON.stringify(orders));
 
+    if (order.status === 'paid' && window.SentraXRewards) {
+      window.SentraXRewards.awardPurchase(order.total);
+    }
+
     // Best-effort sync so the order isn't only sitting in local storage —
     // uses the same helper the rest of the app already syncs through.
     if (typeof syncToFirestore === 'function') {
