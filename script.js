@@ -817,7 +817,7 @@ const RATE_URL = ''; // e.g. 'https://g.page/r/XXXXXXXXXXXX/review'
 
 // Company WhatsApp number feedback should always go to, in international
 // format with no + or spaces/dashes (e.g. '2348012345678').
-const FEEDBACK_WHATSAPP_NUMBER = '+2349023237239'; // <-- fill this in
+const FEEDBACK_WHATSAPP_NUMBER = ''; // <-- fill this in
 
 function rateApp() {
   if (RATE_URL) {
@@ -1109,6 +1109,7 @@ const AI_MAX_MESSAGES_PER_THREAD = 40;
 
 let aiThreads = [];
 let currentAiThreadId = null;
+let aiSendInFlight = false; // guards against overlapping sends (double-tap Send, repeated Enter, or voice+typing racing) causing multiple concurrent replies
 
 (function loadAiThreads() {
   try {
@@ -1285,10 +1286,14 @@ function appendAiMessage(role, text) {
 }
 
 function sendAiMessage() {
+  if (aiSendInFlight) return; // a reply is already being generated — ignore extra taps/enters/voice-sends until it lands
   const input = document.getElementById('ai-chat-input');
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
+  aiSendInFlight = true;
+  const sendBtn = document.getElementById('ai-send-btn');
+  if (sendBtn) sendBtn.disabled = true;
 
   const thread = getCurrentAiThread();
   appendAiMessage('user', text);
@@ -1352,6 +1357,8 @@ function sendAiMessage() {
               typingEl.textContent = failText;
               document.dispatchEvent(new CustomEvent('sentrax-ai-reply-done', { detail: { text: failText } }));
             }
+            aiSendInFlight = false;
+            if (sendBtn) sendBtn.disabled = false;
             return;
           }
           buffer += decoder.decode(result.value, { stream: true });
@@ -1437,6 +1444,8 @@ function sendAiMessage() {
         : (err.message && err.message.length < 140 ? err.message : "Sorry, the assistant isn't available right now. Please try again in a moment.");
       typingEl.textContent = friendly;
       document.dispatchEvent(new CustomEvent('sentrax-ai-reply-done', { detail: { text: friendly } }));
+      aiSendInFlight = false;
+      if (document.getElementById('ai-send-btn')) document.getElementById('ai-send-btn').disabled = false;
     });
 }
 
