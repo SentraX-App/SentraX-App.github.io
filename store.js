@@ -172,7 +172,22 @@
     { id: 'bananas-bunch', name: 'Fresh Bananas (Bunch)', category: 'fruits', price: 2000, emoji: '🍌',
       image: 'https://images.pexels.com/photos/365810/pexels-photo-365810.jpeg?auto=compress&w=800',
       short: 'A fresh bunch of ripe bananas.',
-      long: 'A fresh bunch of ripe bananas — a convenient, potassium-rich snack, good for energy and easy on the stomach.' }
+      long: 'A fresh bunch of ripe bananas — a convenient, potassium-rich snack, good for energy and easy on the stomach.' },
+    { id: 'lumbar-cushion', name: 'Lumbar Support Cushion', category: 'support', price: 8500, emoji: '🪑',
+      short: 'Ergonomic lower-back support for chairs and car seats.',
+      long: 'A contoured cushion that supports the natural curve of the lower spine during long periods of sitting — helpful for office chairs, car seats, and general lower-back comfort.' },
+    { id: 'bed-wedge-pillow', name: 'Adjustable Bed Wedge Pillow', category: 'support', price: 12500, emoji: '🛏️',
+      short: 'Elevated incline for easier breathing and reduced acid reflux.',
+      long: 'A foam wedge pillow that elevates the upper body while lying down — commonly used for easier breathing, reducing acid reflux discomfort, and general post-meal or nighttime comfort.' },
+    { id: 'digital-food-scale', name: 'Digital Kitchen Food Scale', category: 'nutrition', price: 6500, emoji: '⚖️',
+      short: 'Precise portion control for managing diet and diabetes.',
+      long: 'A digital scale for accurately measuring food portions — a practical tool for anyone managing diabetes, hypertension, or general diet goals where portion size matters.' },
+    { id: 'bp-paper-logbook', name: 'BP & Glucose Paper Logbook', category: 'medaids', price: 1500, emoji: '📓',
+      short: 'A simple paper backup to your in-app tracking.',
+      long: 'A pocket-sized paper logbook for jotting down blood pressure and glucose readings — a simple, reliable backup for moments without your phone, or for sharing a written record with your doctor.' },
+    { id: 'moringa-powder-250g', name: 'Moringa Leaf Powder (250g)', category: 'supplements', price: 4500, emoji: '🌿',
+      short: 'Nutrient-dense leaf powder, a popular local superfood.',
+      long: 'Dried, ground moringa leaf powder — a nutrient-dense addition to smoothies, tea, or meals, and one of the most widely used natural supplements in Nigeria.' }
   ];
 
   const productsById = {};
@@ -451,6 +466,32 @@
   }
 
   function proceedToCheckout() {
+    coinsToApply = 0;
+    renderCheckoutStep();
+  }
+
+  let coinsToApply = 0; // reset each time checkout is (re)opened, see proceedToCheckout()
+
+  function coinDiscountNaira() {
+    const rewards = window.SentraXRewards;
+    if (!rewards) return 0;
+    return coinsToApply * rewards.coinToNgn;
+  }
+
+  function toggleUseCoins() {
+    const rewards = window.SentraXRewards;
+    if (!rewards) return;
+    const total = cartTotal(getCart());
+    const balance = rewards.getCoins();
+    if (coinsToApply > 0) {
+      coinsToApply = 0; // was on, turn off
+    } else {
+      // Cap to whichever is smaller: what they actually have, or however
+      // many coins it'd take to bring the order to exactly ₦0 — never lets
+      // the discount exceed either the balance or the order itself.
+      const coinsNeededForFullOrder = Math.ceil(total / rewards.coinToNgn);
+      coinsToApply = Math.min(balance, coinsNeededForFullOrder);
+    }
     renderCheckoutStep();
   }
 
@@ -460,17 +501,33 @@
     const cart = getCart();
     const total = cartTotal(cart);
     const count = cartCount(cart);
+    const rewards = window.SentraXRewards;
+    const balance = rewards ? rewards.getCoins() : 0;
+    const discount = coinDiscountNaira();
+    const payable = Math.max(0, total - discount);
+
+    let coinsBlockHtml = '';
+    if (rewards && balance > 0) {
+      coinsBlockHtml =
+        '<div class="mkt-coins-row" onclick="SentraXStore.toggleUseCoins()">' +
+        '<div><b>' + balance.toLocaleString() + ' 🪙 available</b><br>' +
+        '<span style="font-size:12px;color:#94a3b8;">Use coins as store credit toward this order</span></div>' +
+        '<div class="mkt-coins-toggle ' + (coinsToApply > 0 ? 'on' : '') + '"></div>' +
+        '</div>' +
+        (coinsToApply > 0 ? '<div class="mkt-coins-applied">−' + coinsToApply.toLocaleString() + ' 🪙 applied (−' + formatPrice(discount) + ')</div>' : '');
+    }
 
     sheet.innerHTML = mktSheetShell('Checkout',
       '<button class="mkt-back-link" onclick="SentraXStore.renderCartStepPublic()">← Back to cart</button>' +
       '<div class="mkt-checkout-summary">' + count + ' item' + (count === 1 ? '' : 's') + ' · <b>' + formatPrice(total) + '</b></div>' +
+      coinsBlockHtml +
       '<input type="text" id="mkt-co-name" placeholder="Full name">' +
       '<input type="email" id="mkt-co-email" placeholder="Email address (for payment receipt)">' +
       '<input type="tel" id="mkt-co-phone" placeholder="Phone number, e.g. 2348012345678">' +
       '<textarea id="mkt-co-address" placeholder="Delivery address" rows="3" style="width:100%;padding:13px;margin:6px 0;border:1px solid rgba(255,255,255,0.14);border-radius:12px;font-size:16px;background:rgba(255,255,255,0.06);color:#f1f5f9;font-family:inherit;resize:vertical;"></textarea>' +
       '<div class="mkt-paystack-note">🔒 Secure card payment via Paystack.</div>' +
       '<div id="mkt-co-error" style="color:#fca5a5;font-size:13px;margin-top:4px;min-height:16px;"></div>' +
-      '<button onclick="SentraXStore.placeOrder()">Pay ' + formatPrice(total) + '</button>');
+      '<button onclick="SentraXStore.placeOrder()">Pay ' + formatPrice(payable) + '</button>');
   }
 
   // Emails the store owner directly the moment an order is placed. Orders
@@ -549,10 +606,15 @@
       return { id: id, name: p.name, price: p.price, qty: cart[id] };
     });
     const total = cartTotal(cart);
+    const discount = coinDiscountNaira();
+    const payable = Math.max(0, total - discount);
     const order = {
       ref: 'SXM-' + Date.now().toString(36).toUpperCase(),
       items: items,
       total: total,
+      coinsApplied: coinsToApply,
+      discount: discount,
+      amountPaid: payable,
       name: name,
       email: email,
       phone: phone,
@@ -574,7 +636,7 @@
     const handler = PaystackPop.setup({
       key: PAYSTACK_PUBLIC_KEY,
       email: email,
-      amount: Math.round(total * 100), // Paystack expects kobo, not naira
+      amount: Math.round(payable * 100), // Paystack expects kobo — charges the coin-discounted amount, not the pre-discount total
       currency: 'NGN',
       ref: order.ref,
       metadata: {
@@ -592,7 +654,9 @@
       onClose: function () {
         // Customer closed the payment popup without completing it — order
         // stays saved as pending so the seller can still follow up manually.
-        if (btn) { btn.disabled = false; btn.textContent = 'Pay ' + formatPrice(total); }
+        // Nothing was ever deducted (coins only spend on confirmed success
+        // below), so there's nothing to refund or restore here.
+        if (btn) { btn.disabled = false; btn.textContent = 'Pay ' + formatPrice(payable); }
       }
     });
     handler.openIframe();
@@ -604,7 +668,8 @@
     localStorage.setItem('mkt-orders', JSON.stringify(orders));
 
     if (order.status === 'paid' && window.SentraXRewards) {
-      window.SentraXRewards.awardPurchase(order.total);
+      if (order.coinsApplied > 0) window.SentraXRewards.spendCoins(order.coinsApplied);
+      window.SentraXRewards.awardPurchase(order.amountPaid != null ? order.amountPaid : order.total);
     }
 
     // Best-effort sync so the order isn't only sitting in local storage —
@@ -670,6 +735,7 @@
       closeCart: closeCart,
       proceedToCheckout: proceedToCheckout,
       renderCartStepPublic: renderCartStep,
+      toggleUseCoins: toggleUseCoins,
       placeOrder: placeOrder,
       PRODUCTS: PRODUCTS
     };
