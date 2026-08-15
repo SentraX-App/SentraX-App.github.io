@@ -25,12 +25,6 @@
   'use strict';
 
   // ---- Catalog -------------------------------------------------------
-  // Deliberately excludes anything that counts as a regulated medical
-  // device (blood pressure monitors, pulse oximeters, thermometers,
-  // glucose meters, nebulizers, TENS units, etc.) — everything here is a
-  // non-prescription support/comfort/safety item. Also avoids generic
-  // items already sold in any supermarket — these are specialty
-  // caregiving and home-safety products people seek out on purpose.
   const CATEGORIES = [
     { key: 'mobility', name: 'Mobility Aids', emoji: '🦯' },
     { key: 'safety', name: 'Home Safety & Alerts', emoji: '🆘' },
@@ -370,7 +364,6 @@
     detailQty = Math.max(1, detailQty + delta);
     const qtyEl = document.getElementById('mkt-detail-qty');
     if (qtyEl) {
-      // Cheap in-place update instead of a full re-render for a snappier feel.
       qtyEl.textContent = detailQty;
       const p = productsById[detailProductId];
       const btn = document.querySelector('#product-reader-overlay .art-reader-body > button');
@@ -479,9 +472,6 @@
     if (coinsToApply > 0) {
       coinsToApply = 0; // was on, turn off
     } else {
-      // Cap to whichever is smaller: what they actually have, or however
-      // many coins it'd take to bring the order to exactly ₦0 — never lets
-      // the discount exceed either the balance or the order itself.
       const coinsNeededForFullOrder = Math.ceil(total / rewards.coinToNgn);
       coinsToApply = Math.min(balance, coinsNeededForFullOrder);
     }
@@ -559,16 +549,12 @@
       })
     }).then(function (res) {
       if (!res.ok) {
-        // Surface it instead of swallowing it — flag the order locally so
-        // it's visible even if the seller email genuinely never arrives.
         order.notifyFailed = true;
         const orders = JSON.parse(localStorage.getItem('mkt-orders') || '[]');
         localStorage.setItem('mkt-orders', JSON.stringify(orders));
       }
     }).catch(function () {
       order.notifyFailed = true;
-      // Order is already safely saved (localStorage + Firestore) even if
-      // this notification email fails to send — never blocks checkout.
     });
   }
 
@@ -616,9 +602,17 @@
       createdAt: Date.now()
     };
 
+    // Fully covered by coin discount — nothing left to charge. Paystack
+    // doesn't support ₦0 transactions and would hang if we tried, so skip
+    // it entirely and finalize the order as paid via coins.
+    if (payable <= 0) {
+      order.status = 'paid';
+      order.paystackRef = 'COIN_REDEMPTION';
+      finalizeOrder(order);
+      return;
+    }
+
     if (typeof PaystackPop === 'undefined' || PAYSTACK_PUBLIC_KEY.indexOf('REPLACE_ME') !== -1) {
-      // SDK didn't load, or key hasn't been configured yet — never leave
-      // the customer stuck. Fall back to the manual-fulfillment flow.
       finalizeOrder(order);
       return;
     }
@@ -626,33 +620,50 @@
     const btn = document.querySelector('#mkt-cart-overlay button[onclick="SentraXStore.placeOrder()"]');
     if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
-    const handler = PaystackPop.setup({
-      key: PAYSTACK_PUBLIC_KEY,
-      email: email,
-      amount: Math.round(payable * 100), // Paystack expects kobo — charges the coin-discounted amount, not the pre-discount total
-      currency: 'NGN',
-      ref: order.ref,
-      metadata: {
-        custom_fields: [
-          { display_name: 'Customer Name', variable_name: 'customer_name', value: name },
-          { display_name: 'Phone', variable_name: 'phone', value: phone },
-          { display_name: 'Delivery Address', variable_name: 'address', value: address }
-        ]
-      },
-      callback: function (response) {
-        order.status = 'paid';
-        order.paystackRef = response.reference;
-        finalizeOrder(order);
-      },
-      onClose: function () {
-        // Customer closed the payment popup without completing it — order
-        // stays saved as pending so the seller can still follow up manually.
-        // Nothing was ever deducted (coins only spend on confirmed success
-        // below), so there's nothing to refund or restore here.
-        if (btn) { btn.disabled = false; btn.textContent = 'Pay ' + formatPrice(payable); }
+    // Safety net: if Paystack's popup never actually responds (blocked
+    // third-party cookies, an extension, or a very poor connection), don't
+    // leave the customer staring at a frozen "Processing..." button forever.
+    let paystackSettled = false;
+    const stuckTimer = setTimeout(function () {
+      if (!paystackSettled && btn) {
+        btn.disabled = false;
+        btn.textContent = 'Pay ' + formatPrice(payable);
+        if (errEl) errEl.textContent = 'Payment is taking longer than expected — check your connection and try again.';
       }
-    });
-    handler.openIframe();
+    }, 15000);
+
+    try {
+      const handler = PaystackPop.setup({
+        key: PAYSTACK_PUBLIC_KEY,
+        email: email,
+        amount: Math.round(payable * 100),
+        currency: 'NGN',
+        ref: order.ref,
+        metadata: {
+          custom_fields: [
+            { display_name: 'Customer Name', variable_name: 'customer_name', value: name },
+            { display_name: 'Phone', variable_name: 'phone', value: phone },
+            { display_name: 'Delivery Address', variable_name: 'address', value: address }
+          ]
+        },
+        callback: function (response) {
+          paystackSettled = true;
+          clearTimeout(stuckTimer);
+          order.status = 'paid';
+          order.paystackRef = response.reference;
+          finalizeOrder(order);
+        },
+        onClose: function () {
+          paystackSettled = true;
+          clearTimeout(stuckTimer);
+          if (btn) { btn.disabled = false; btn.textContent = 'Pay ' + formatPrice(payable); }
+        }
+      });
+      handler.openIframe();
+    } catch (e) {
+      clearTimeout(stuckTimer);
+      finalizeOrder(order);
+    }
   }
 
   function finalizeOrder(order) {
@@ -665,8 +676,6 @@
       window.SentraXRewards.awardPurchase(order.amountPaid != null ? order.amountPaid : order.total);
     }
 
-    // Best-effort sync so the order isn't only sitting in local storage —
-    // uses the same helper the rest of the app already syncs through.
     if (typeof syncToFirestore === 'function') {
       try { syncToFirestore({ marketplaceOrders: orders }); } catch (e) { /* offline is fine, order is saved locally */ }
     }
@@ -676,19 +685,8 @@
     renderSuccessStep(order);
   }
 
-  // Stub — fill in once Paystack verification is approved. Left unused/
-  // uncalled on purpose so nothing tries to charge a card today.
   function payWithPaystack(order) {
-    // Example shape once ready:
-    // const handler = PaystackPop.setup({
-    //   key: 'PAYSTACK_PUBLIC_KEY',
-    //   email: <customer email>,
-    //   amount: order.total * 100, // kobo
-    //   ref: order.ref,
-    //   callback: function(response) { /* mark order paid, sync, show success */ },
-    //   onClose: function() {}
-    // });
-    // handler.openIframe();
+    // Stub — kept for reference, unused.
   }
 
   function renderSuccessStep(order) {
