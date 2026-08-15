@@ -236,13 +236,9 @@
     root.innerHTML =
       '<div class="rwd-header">' +
       '<div class="rwd-header-row">' +
-      '<div>' +
       '<div class="rwd-coin-count">' + data.coins.toLocaleString() + ' <span>🪙</span></div>' +
-      '<p>Sentra-X Coins <span class="rwd-cash-value">≈ ₦' + (data.coins * COIN_TO_NGN).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' in store credit</span></p>' +
-      '</div>' +
       '<div class="rwd-streak-box"><div class="rwd-streak-num">🔥 ' + data.streak + '</div><div class="rwd-streak-label">day streak</div></div>' +
       '</div>' +
-      '<p class="rwd-progress-label">Coins are store credit — apply them at Marketplace checkout. Not redeemable for cash and not withdrawable.</p>' +
       '<button class="rwd-redeem-btn" onclick="showScreen(\'marketplace\')">🛍️ Shop the Marketplace</button>' +
       '</div>' +
 
@@ -252,7 +248,7 @@
       '<div class="rwd-earn-row"><span>🛍️ Shop the Marketplace</span><b>+1 per ₦' + PURCHASE_COINS_PER_NGN.toLocaleString() + '</b></div>' +
       '<div class="rwd-earn-row"><span>🔥 7-day streak (one-time)</span><b>+' + STREAK_MILESTONES[7] + '</b></div>' +
       '<div class="rwd-earn-row"><span>🏁 100-day streak (one-time)</span><b>+' + STREAK_MILESTONES[100] + '</b></div>' +
-      '<p class="rwd-disclaimer">20 🪙 = ₦1 · store credit only · rates may adjust to match real ad earnings</p>' +
+      '<p class="rwd-disclaimer">20 🪙 = ₦1 · worth ≈₦' + (data.coins * COIN_TO_NGN).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' in Marketplace credit today · not cash, not withdrawable</p>' +
       '</div>';
 
     updateBalancePills();
