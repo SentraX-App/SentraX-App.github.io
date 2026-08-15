@@ -2,6 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+// Firebase Hosting always keeps sentra-x.web.app and sentra-x.firebaseapp.com
+// live alongside the custom domain — there's no setting to turn those off.
+// Same for the old GitHub Pages URL, which stays reachable for reasons
+// outside this app's control. Rather than let either serve a "second"
+// version of the app, bounce straight to the real domain before anything
+// else on the page loads. Runs first, synchronously, before Sentry/CSS/etc.
+(function () {
+  var CANONICAL_HOST = 'sentra-x.app';
+  var host = window.location.hostname;
+  if (host !== CANONICAL_HOST && (
+    host === 'sentra-x.web.app' ||
+    host === 'sentra-x.firebaseapp.com' ||
+    host.indexOf('.github.io') !== -1
+  )) {
+    window.location.replace('https://' + CANONICAL_HOST + window.location.pathname + window.location.search + window.location.hash);
+  }
+})();
+</script>
 <script src="https://js.sentry-cdn.com/610f527fbbea6d7402d8bc9cec492ad5.min.js" crossorigin="anonymous"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Sentra-X</title>
