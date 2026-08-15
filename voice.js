@@ -111,19 +111,7 @@
       mutations.forEach(function (m) {
         m.addedNodes.forEach(function (node) {
           if (node.nodeType !== 1 || !node.classList.contains('ai-msg') || !node.classList.contains('bot')) return;
-
-          if (node.classList.contains('typing')) {
-            // This is the "Thinking…" placeholder bubble. Its final text never
-            // arrives as a new child of the log — sendAiMessage() just keeps
-            // overwriting THIS node's textContent as the stream comes in (or
-            // once, with an error message, if it fails) — so watch the node
-            // itself rather than waiting for a childList change that never
-            // comes for a live reply.
-            const isLiveSend = pendingLiveReplies > 0;
-            if (isLiveSend) pendingLiveReplies--;
-            if (isLiveSend) watchReplyNode(node);
-            return;
-          }
+          if (node.classList.contains('typing')) return; // placeholder only — real text handled by the reply-done event below
 
           // A bot bubble that wasn't the typing placeholder only appears this
           // way when an old conversation is being replayed on open (its
@@ -136,23 +124,19 @@
     observer.observe(log, { childList: true });
   }
 
-  // Watches a single in-flight reply bubble until its text stops changing
-  // (streaming rewrites it repeatedly), then speaks it exactly once. A short
-  // debounce after the last mutation is what "stopped changing" means here —
-  // simpler and more robust than trying to detect the exact stream-end event
-  // from outside script.js.
-  function watchReplyNode(node) {
-    if (!window.MutationObserver) return;
-    let timer = null;
-    const nodeObserver = new MutationObserver(function () {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(function () {
-        nodeObserver.disconnect();
-        const text = node.textContent;
-        if (text && !mutedReplies) speak(text);
-      }, 600);
+  // script.js dispatches this exactly once, exactly when a reply is truly
+  // finished (streamed successfully, came back empty, or errored out) — so
+  // speaking it is a direct response to a real event, not a guess based on
+  // typing having "gone quiet" for a while (which was cutting speech off
+  // early whenever the stream paused mid-reply).
+  function watchReplyDone() {
+    document.addEventListener('sentrax-ai-reply-done', function (e) {
+      const isLiveSend = pendingLiveReplies > 0;
+      if (isLiveSend) pendingLiveReplies--;
+      if (!isLiveSend) return; // history replay never fires this event anyway, but stay defensive
+      const text = e.detail && e.detail.text;
+      if (text && !mutedReplies) speak(text);
     });
-    nodeObserver.observe(node, { childList: true, characterData: true, subtree: true });
   }
 
   // Stop talking the instant the AI screen is no longer the active one,
@@ -245,6 +229,7 @@
     setupRecognition();
     injectButtons();
     watchChatLog();
+    watchReplyDone();
     watchAiScreenVisibility();
   }
 
