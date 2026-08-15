@@ -602,22 +602,125 @@ function renderWater() {
   document.getElementById('water-count').textContent = (logs[today] || 0) + ' cups';
 }
 
-function saveCaregiver() {
+function loadCaregivers() {
+  let list;
+  try { list = JSON.parse(localStorage.getItem('caregivers') || 'null'); } catch (e) { list = null; }
+  if (list) return list;
+
+  // One-time migration: anyone with the old single-caregiver fields gets
+  // them moved into the new list as their primary contact, instead of it
+  // just disappearing when this update ships.
+  const oldName = localStorage.getItem('cgName');
+  if (oldName) {
+    list = [{
+      id: 'cg-' + Date.now(),
+      name: oldName,
+      phone: localStorage.getItem('cgPhone') || '',
+      email: localStorage.getItem('cgEmail') || '',
+      isPrimary: true
+    }];
+    localStorage.setItem('caregivers', JSON.stringify(list));
+    return list;
+  }
+  return [];
+}
+
+function saveCaregivers(list) {
+  localStorage.setItem('caregivers', JSON.stringify(list));
+  // Mirror the primary contact into the original single-caregiver keys —
+  // every existing alert feature (BP crisis alert, SOS, Share Status, the
+  // Caregiver Connected badge) reads from these and needs zero changes.
+  const primary = list.find(function (c) { return c.isPrimary; }) || list[0];
+  if (primary) {
+    localStorage.setItem('cgName', primary.name);
+    localStorage.setItem('cgPhone', primary.phone);
+    localStorage.setItem('cgEmail', primary.email || '');
+  } else {
+    localStorage.removeItem('cgName');
+    localStorage.removeItem('cgPhone');
+    localStorage.removeItem('cgEmail');
+  }
+  syncToFirestore({
+    caregivers: list,
+    cgName: primary ? primary.name : null,
+    cgPhone: primary ? primary.phone : null,
+    cgEmail: primary ? (primary.email || '') : null
+  });
+}
+
+let editingCaregiverId = null;
+
+function openAddCaregiverForm() {
+  editingCaregiverId = null;
+  document.getElementById('cg-name').value = '';
+  document.getElementById('cg-phone').value = '';
+  document.getElementById('cg-email').value = '';
+  document.getElementById('cg-form').style.display = 'block';
+  document.getElementById('cg-add-btn').style.display = 'none';
+  document.getElementById('cg-saved-note').textContent = '';
+}
+
+function editCaregiverEntry(id) {
+  const entry = loadCaregivers().find(function (c) { return c.id === id; });
+  if (!entry) return;
+  editingCaregiverId = id;
+  document.getElementById('cg-name').value = entry.name;
+  document.getElementById('cg-phone').value = entry.phone;
+  document.getElementById('cg-email').value = entry.email || '';
+  document.getElementById('cg-form').style.display = 'block';
+  document.getElementById('cg-add-btn').style.display = 'none';
+}
+
+function cancelCaregiverForm() {
+  editingCaregiverId = null;
+  document.getElementById('cg-form').style.display = 'none';
+  document.getElementById('cg-add-btn').style.display = 'block';
+}
+
+function saveCaregiverForm() {
   const name = document.getElementById('cg-name').value.trim();
   const phone = document.getElementById('cg-phone').value.trim();
   const email = document.getElementById('cg-email').value.trim();
   if (!name || !phone) { alert("Please enter both the caregiver's name and number."); return; }
-  localStorage.setItem('cgName', name);
-  localStorage.setItem('cgPhone', phone);
-  localStorage.setItem('cgEmail', email);
+
+  const list = loadCaregivers();
+  if (editingCaregiverId) {
+    const entry = list.find(function (c) { return c.id === editingCaregiverId; });
+    if (entry) { entry.name = name; entry.phone = phone; entry.email = email; }
+  } else {
+    list.push({
+      id: 'cg-' + Date.now(),
+      name: name, phone: phone, email: email,
+      isPrimary: list.length === 0 // first caregiver saved becomes primary automatically
+    });
+  }
+  saveCaregivers(list);
+  cancelCaregiverForm();
   renderCaregiverNote();
-  syncToFirestore({ cgName: name, cgPhone: phone, cgEmail: email });
+  const note = document.getElementById('cg-saved-note');
+  note.textContent = '✓ Saved';
+  setTimeout(function () { note.textContent = ''; }, 2500);
 }
-function editCaregiver() {
-  document.getElementById('cg-form').style.display = 'block';
-  document.getElementById('cg-summary').style.display = 'none';
-  document.getElementById('cg-saved-note').textContent = '';
+
+function makePrimaryCaregiver(id) {
+  const list = loadCaregivers();
+  list.forEach(function (c) { c.isPrimary = (c.id === id); });
+  saveCaregivers(list);
+  renderCaregiverNote();
 }
+
+function removeCaregiverEntry(id) {
+  if (!confirm('Remove this caregiver?')) return;
+  const list = loadCaregivers().filter(function (c) { return c.id !== id; });
+  // If the primary contact was just removed, promote whoever's left so
+  // automatic alerts keep working instead of silently going to nobody.
+  if (list.length > 0 && !list.some(function (c) { return c.isPrimary; })) {
+    list[0].isPrimary = true;
+  }
+  saveCaregivers(list);
+  renderCaregiverNote();
+}
+
 function generateInviteCode() {
   const user = firebase.auth().currentUser;
   if (!user) { alert('Please log in first.'); return; }
@@ -641,25 +744,31 @@ function generateInviteCode() {
   });
 }
 function renderCaregiverNote() {
-  const name = localStorage.getItem('cgName');
-  const note = document.getElementById('cg-saved-note');
-  const form = document.getElementById('cg-form');
-  const summary = document.getElementById('cg-summary');
-  if (name) {
-    document.getElementById('cg-name').value = name;
-    document.getElementById('cg-phone').value = localStorage.getItem('cgPhone') || '';
-    document.getElementById('cg-email').value = localStorage.getItem('cgEmail') || '';
-    document.getElementById('cg-summary-avatar').textContent = name.trim().charAt(0).toUpperCase();
-    document.getElementById('cg-summary-name').textContent = name;
-    document.getElementById('cg-summary-phone').textContent = localStorage.getItem('cgPhone') || '—';
-    document.getElementById('cg-summary-email').textContent = localStorage.getItem('cgEmail') || 'No email on file';
-    form.style.display = 'none';
-    summary.style.display = 'block';
-    note.textContent = '✓ Saved — alerts will go to ' + name;
-  } else {
-    form.style.display = 'block';
-    summary.style.display = 'none';
+  const list = loadCaregivers();
+  const box = document.getElementById('cg-list');
+  if (list.length === 0) {
+    box.innerHTML = '<div class="empty">No caregivers added yet</div>';
+    return;
   }
+  box.innerHTML = list.map(function (c) {
+    const initial = (c.name || '?').trim().charAt(0).toUpperCase();
+    return '<div class="cg-card">' +
+        '<div class="cg-avatar">' + initial + '</div>' +
+        '<div class="cg-info">' +
+          '<div class="cg-name-row">' +
+            '<span class="cg-name">' + String(c.name).replace(/</g, '&lt;') + '</span>' +
+            (c.isPrimary ? '<span class="cg-primary-badge">Primary</span>' : '') +
+          '</div>' +
+          '<div class="cg-row"><span>📱</span><span>' + (c.phone || '—') + '</span></div>' +
+          '<div class="cg-row"><span>✉️</span><span>' + (c.email || 'No email on file') + '</span></div>' +
+          '<div class="cg-actions">' +
+            '<button onclick="editCaregiverEntry(\'' + c.id + '\')">Edit</button>' +
+            (c.isPrimary ? '' : '<button onclick="makePrimaryCaregiver(\'' + c.id + '\')">Make Primary</button>') +
+            '<button class="cg-danger" onclick="removeCaregiverEntry(\'' + c.id + '\')">Remove</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }).join('');
 }
 
 function shareToFamily() {
@@ -1109,34 +1218,93 @@ function sendAiMessage() {
   const timeoutId = setTimeout(function() { controller.abort(); }, 30000);
 
   fetch(AI_WORKER_URL, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ messages: thread.messages.slice(-12) }),
-  signal: controller.signal
-})
-  .then(function(res) {
-    clearTimeout(timeoutId);
-    return res.json().catch(function() { return {}; }).then(function(data) {
-      if (!res.ok) throw new Error((data && data.error) || ('Server error (' + res.status + ')'));
-      return data;
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: thread.messages.slice(-12) }),
+    signal: controller.signal
+  })
+    .then(function(res) {
+      const isStream = (res.headers.get('Content-Type') || '').indexOf('text/event-stream') !== -1;
+
+      if (!isStream) {
+        // Worker returned a JSON error (bad request, or both model attempts
+        // failed) instead of a stream — same error handling as before.
+        return res.json().catch(function() { return {}; }).then(function(data) {
+          throw new Error((data && data.error) || ('Server error (' + res.status + ')'));
+        });
+      }
+
+      typingEl.classList.remove('typing');
+      typingEl.textContent = '';
+      let fullText = '';
+      let sawAnyChunk = false;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      function readChunk() {
+        return reader.read().then(function(result) {
+          if (result.done) {
+            clearTimeout(timeoutId);
+            const cleaned = cleanAiMarkdown(fullText).trim();
+            typingEl.textContent = cleaned || "Sorry, I couldn't generate a response just now.";
+            thread.messages.push({ role: 'assistant', content: typingEl.textContent });
+            thread.updatedAt = Date.now();
+            saveAiThreads();
+            return;
+          }
+          buffer += decoder.decode(result.value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // keep any incomplete trailing line for next chunk
+          lines.forEach(function(line) {
+            line = line.trim();
+            if (!line.startsWith('data:')) return;
+            const payload = line.slice(5).trim();
+            if (payload === '[DONE]') return;
+            try {
+              const parsed = JSON.parse(payload);
+              const delta = parsed.response || (parsed.result && parsed.result.response) || '';
+              if (delta) {
+                fullText += delta;
+                sawAnyChunk = true;
+                typingEl.textContent = fullText;
+                document.getElementById('ai-chat-log').scrollTop = document.getElementById('ai-chat-log').scrollHeight;
+              }
+            } catch (e) { /* partial/non-JSON line — ignore, next chunk completes it */ }
+          });
+          return readChunk();
+        });
+      }
+
+      return readChunk().then(function() {
+        if (!sawAnyChunk) {
+          typingEl.textContent = "Sorry, I couldn't generate a response just now.";
+        }
+      });
+    })
+    .catch(function(err) {
+      clearTimeout(timeoutId);
+      typingEl.classList.remove('typing');
+      console.error('Sentra-X AI error:', err.message);
+      const friendly = err.name === 'AbortError'
+        ? "That's taking a while — the assistant might be busy right now. Please try again."
+        : (err.message && err.message.length < 140 ? err.message : "Sorry, the assistant isn't available right now. Please try again in a moment.");
+      typingEl.textContent = friendly;
     });
-  })
-  .then(function(data) {
-    typingEl.remove();
-    appendAiMessage('bot', data.reply);
-    thread.messages.push({ role: 'assistant', content: data.reply });
-    thread.updatedAt = Date.now();
-    saveAiThreads();
-  })
-  .catch(function(err) {
-    clearTimeout(timeoutId);
-    typingEl.remove();
-    console.error('Sentra-X AI error:', err.message);
-    const friendly = err.name === 'AbortError'
-      ? "That's taking a while — the assistant might be busy right now. Please try again."
-      : (err.message && err.message.length < 140 ? err.message : "Sorry, the assistant isn't available right now. Please try again in a moment.");
-    appendAiMessage('bot', friendly);
-  });
+}
+
+// Safety net: strip any markdown that slips through despite the system
+// prompt instructing against it, since open models don't always follow
+// formatting instructions perfectly. Runs client-side once the full
+// message is assembled (streaming a half-formed "**bold" mid-word would
+// look broken if this ran on partial chunks instead).
+function cleanAiMarkdown(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^[\-\*]\s+/gm, '')
+    .replace(/`([^`]+)`/g, '$1');
 }
 // ---- Camera Heart Rate Check (estimates heart rate only — NOT blood pressure) ----
 let hrStream = null;
