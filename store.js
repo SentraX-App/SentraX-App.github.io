@@ -37,7 +37,10 @@
     { key: 'firstaid', name: 'First Aid & Wound Care', emoji: '🩹' },
     { key: 'support', name: 'Support & Recovery', emoji: '🦵' },
     { key: 'medaids', name: 'Medication Aids', emoji: '💊' },
-    { key: 'wellness', name: 'Wellness & Rehab', emoji: '🧘' }
+    { key: 'wellness', name: 'Wellness & Rehab', emoji: '🧘' },
+    { key: 'nutrition', name: 'Food & Nutrition', emoji: '🍚' },
+    { key: 'supplements', name: 'Vitamins & Supplements', emoji: '🌿' },
+    { key: 'fruits', name: 'Fresh Fruits', emoji: '🍎' }
   ];
 
   const CATEGORY_NAME = {};
@@ -115,7 +118,61 @@
     { id: 'foam-roller', name: 'Foam Roller', category: 'wellness', price: 10000, emoji: '🎢',
       image: 'https://images.pexels.com/photos/6207527/pexels-photo-6207527.jpeg?auto=compress&w=800',
       short: 'Roller for muscle recovery, stretching, and tension relief.',
-      long: 'A durable foam roller for muscle recovery and self-massage — helps ease muscle tightness and improve flexibility, popular for both rehabilitation and general wellness routines.' }
+      long: 'A durable foam roller for muscle recovery and self-massage — helps ease muscle tightness and improve flexibility, popular for both rehabilitation and general wellness routines.' },
+
+    // ---- Food & Nutrition -------------------------------------------
+    { id: 'brown-rice-5kg', name: 'Premium Brown Rice (5kg)', category: 'nutrition', price: 9800, emoji: '🍚',
+      image: 'https://images.pexels.com/photos/6103071/pexels-photo-6103071.jpeg?auto=compress&w=800',
+      short: 'Wholegrain brown rice, 5kg bag.',
+      long: 'A 5kg bag of wholegrain brown rice — higher in fibre than white rice, a simple everyday swap that supports steady blood sugar and heart health as part of a balanced diet.' },
+    { id: 'pure-honey-500ml', name: 'Pure Natural Honey (500ml)', category: 'nutrition', price: 8000, emoji: '🍯',
+      image: 'https://images.pexels.com/photos/4480158/pexels-photo-4480158.jpeg?auto=compress&w=800',
+      short: 'Unprocessed natural honey, 500ml jar.',
+      long: 'A 500ml jar of pure, unprocessed natural honey — a natural sweetener alternative to refined sugar, commonly used in tea, on toast, or in home remedies for a sore throat.' },
+    { id: 'rolled-oats-1kg', name: 'Rolled Oats (1kg)', category: 'nutrition', price: 6500, emoji: '🥣',
+      image: 'https://images.pexels.com/photos/1080105/pexels-photo-1080105.jpeg?auto=compress&w=800',
+      short: 'Wholegrain rolled oats, 1kg pack.',
+      long: 'A 1kg pack of wholegrain rolled oats — a heart-healthy, high-fibre breakfast staple that\'s quick to prepare and gentle on the stomach.' },
+    { id: 'fresh-ginger-500g', name: 'Fresh Ginger Root (500g)', category: 'nutrition', price: 2000, emoji: '🫚',
+      image: 'https://images.pexels.com/photos/20234970/pexels-photo-20234970.jpeg?auto=compress&w=800',
+      short: 'Fresh ginger root, 500g.',
+      long: 'Fresh ginger root, 500g — a kitchen staple used in cooking, teas, and traditional home remedies for nausea and digestion.' },
+
+    // ---- Vitamins & Supplements ---------------------------------------
+    { id: 'multivitamin-60', name: 'Multivitamin & Mineral Tablets (60ct)', category: 'supplements', price: 6500, emoji: '🌿',
+      image: 'https://images.pexels.com/photos/17820735/pexels-photo-17820735.jpeg?auto=compress&w=800',
+      short: 'Daily multivitamin, 60-tablet bottle.',
+      long: 'A 60-tablet bottle of daily multivitamin and mineral tablets — a general nutritional top-up for everyday gaps in diet. Not a substitute for a balanced diet, and not intended to treat any condition.' },
+    { id: 'vitamin-c-20', name: 'Vitamin C Effervescent Tablets (20ct)', category: 'supplements', price: 4500, emoji: '🍊',
+      image: 'https://images.pexels.com/photos/5722880/pexels-photo-5722880.jpeg?auto=compress&w=800',
+      short: 'Dissolvable Vitamin C tablets, tube of 20.',
+      long: 'A tube of 20 effervescent Vitamin C tablets that dissolve in water — a convenient daily immune-support supplement with a light citrus taste.' },
+    { id: 'omega3-60', name: 'Omega-3 Fish Oil Capsules (60ct)', category: 'supplements', price: 9000, emoji: '🐟',
+      image: 'https://images.pexels.com/photos/16776311/pexels-photo-16776311.jpeg?auto=compress&w=800',
+      short: 'Omega-3 fish oil softgels, 60-capsule bottle.',
+      long: 'A 60-capsule bottle of Omega-3 fish oil softgels — commonly taken to support heart and joint health as part of a balanced diet.' },
+    { id: 'probiotic-30', name: 'Probiotic Capsules (30ct)', category: 'supplements', price: 8500, emoji: '🦠',
+      image: 'https://images.pexels.com/photos/3850692/pexels-photo-3850692.jpeg?auto=compress&w=800',
+      short: 'Daily probiotic capsules, 30-count bottle.',
+      long: 'A 30-capsule bottle of daily probiotic supplements — supports everyday digestive balance as part of a healthy diet.' },
+
+    // ---- Fresh Fruits ---------------------------------------------------
+    { id: 'fruit-basket-mixed', name: 'Mixed Fruit Basket (Seasonal)', category: 'fruits', price: 12000, emoji: '🧺',
+      image: 'https://images.pexels.com/photos/15626438/pexels-photo-15626438.jpeg?auto=compress&w=800',
+      short: 'A seasonal mix of fresh fruit, basket-packed.',
+      long: 'A basket of fresh seasonal fruit, hand-picked and ready to eat — a thoughtful, healthy gift for a loved one, or a simple way to keep fresh fruit stocked at home. Contents vary by season and availability.' },
+    { id: 'apples-1kg', name: 'Fresh Apples (1kg)', category: 'fruits', price: 3500, emoji: '🍎',
+      image: 'https://images.pexels.com/photos/220911/pexels-photo-220911.jpeg?auto=compress&w=800',
+      short: 'Fresh apples, approx. 1kg.',
+      long: 'Fresh, crisp apples — approximately 1kg per order. A simple, high-fibre snack that travels well and needs no preparation.' },
+    { id: 'oranges-1kg', name: 'Fresh Oranges (1kg)', category: 'fruits', price: 2500, emoji: '🍊',
+      image: 'https://images.pexels.com/photos/3737623/pexels-photo-3737623.jpeg?auto=compress&w=800',
+      short: 'Fresh juicy oranges, approx. 1kg.',
+      long: 'Fresh, juicy oranges — approximately 1kg per order. A good everyday source of Vitamin C, whether eaten whole or juiced.' },
+    { id: 'bananas-bunch', name: 'Fresh Bananas (Bunch)', category: 'fruits', price: 2000, emoji: '🍌',
+      image: 'https://images.pexels.com/photos/365810/pexels-photo-365810.jpeg?auto=compress&w=800',
+      short: 'A fresh bunch of ripe bananas.',
+      long: 'A fresh bunch of ripe bananas — a convenient, potassium-rich snack, good for energy and easy on the stomach.' }
   ];
 
   const productsById = {};
