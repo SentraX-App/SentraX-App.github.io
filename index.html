@@ -221,11 +221,21 @@
   <div class="screen" id="family-screen">
     <div class="card">
       <h3>Your Caregiver</h3>
-      <p style="color:#94a3b8; font-size:14px;">Save a family member's WhatsApp number so alerts go straight to them.</p>
-      <input type="text" id="cg-name" placeholder="Caregiver's name">
-      <input type="text" id="cg-phone" placeholder="WhatsApp number, e.g. 2348012345678">
-      <input type="email" id="cg-email" placeholder="Caregiver's email address">
-      <button onclick="saveCaregiver()">Save Caregiver</button>
+      <p style="color:#94a3b8; font-size:14px;">Save a family member's number and email so medication and BP alerts reach them automatically.</p>
+      <div id="cg-form">
+        <input type="text" id="cg-name" placeholder="Caregiver's name">
+        <input type="text" id="cg-phone" placeholder="Phone number for SMS alerts, e.g. 2348012345678">
+        <input type="email" id="cg-email" placeholder="Caregiver's email address">
+        <button onclick="saveCaregiver()">Save Caregiver</button>
+      </div>
+      <div id="cg-summary" style="display:none;">
+        <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin:10px 0;">
+          <div style="font-weight:700;color:#f1f5f9;" id="cg-summary-name"></div>
+          <div style="font-size:13px;color:#94a3b8;margin-top:4px;" id="cg-summary-phone"></div>
+          <div style="font-size:13px;color:#94a3b8;" id="cg-summary-email"></div>
+        </div>
+        <button class="secondary" onclick="editCaregiver()">Change Caregiver</button>
+      </div>
       <div id="cg-saved-note" style="font-size:13px;color:#6ee7b7;margin-top:6px;"></div>
     </div>
     <div class="card">
