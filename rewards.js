@@ -2,20 +2,18 @@
  * rewards.js — Sentra-X Coins & Streaks
  * ========================================
  * Gamification layer: earn coins for reading articles and buying from the
- * Marketplace, plus a daily streak with milestone bonuses. Coins can be
- * redeemed for a small cash payout in Naira or USD once a user crosses a
- * meaningful minimum balance — deliberately not a fast or trivial climb.
+ * Marketplace, plus a daily streak with milestone bonuses. Coins are
+ * store credit ONLY — spendable toward Marketplace purchases at checkout,
+ * never redeemable for cash, never withdrawable. This is a deliberate
+ * product decision: it keeps this a standard loyalty-points model (like
+ * airline miles or shopping-app cashback) rather than anything resembling
+ * a cash-out financial product, which is simpler and safer for everyone.
  *
  * Isolated from everything else, same pattern as articles.js/store.js — a
  * brand new file, no rewrites to existing logic. Other files only ever call
  * one-line, defensively-guarded hooks like:
  *   if (window.SentraXRewards) window.SentraXRewards.awardArticleRead(id);
  * so if this file ever fails to load for any reason, nothing else breaks.
- *
- * Payout is manual/admin-reviewed (same honest pattern as Marketplace
- * checkout before Paystack) — there's no automated bank/PayPal payout API
- * here, a redemption just becomes a reviewable request the admin fulfills
- * by hand, notified the same proven way as marketplace orders.
  */
 
 (function () {
@@ -46,14 +44,20 @@
   // ---- Tunables ---------------------------------------------------------
   // Daily-open coins stay OFF (0) — not requested back. Marketplace and
   // streak milestones are re-enabled below at small, deliberately modest
-  // rates per your latest numbers.
-  const PURCHASE_COINS_PER_NGN = 1000;    // 1 coin per ₦1,000 spent (0.1% cashback — scales with order size, never a flat cost)
-  const PURCHASE_COINS_MIN = 1;           // floor so even a small purchase earns something, but nothing near the old ₦10 floor
+  // rates.
+  //
+  // COIN_TO_NGN changed from 1 to 1/20 (20 coins = ₦1) per product
+  // decision. To avoid silently crushing every reward to 1/20th its real
+  // value, the hand-set coin AMOUNTS below are scaled up 20x to match —
+  // this is a redenomination, not a devaluation. ARTICLE_READ_COINS further
+  // down needs no manual change since its formula already divides by
+  // COIN_TO_NGN and adjusts automatically.
+  const PURCHASE_COINS_PER_NGN = 50;      // was 1000 (1 coin/₦1000). Now 1 coin per ₦50 spent — same ~0.1% real-value rate under the new coin denomination.
+  const PURCHASE_COINS_MIN = 20;          // was 1 (worth ₦1). Now 20 coins, still worth ₦1 — same real floor.
   const DAILY_OPEN_COINS = 0;             // disabled — opening the app still doesn't earn coins
-  const STREAK_MILESTONES = { 7: 3, 100: 100 }; // only these two, both one-time, both small
-  const REDEEM_MIN_COINS = 2500;          // reconsider once you have real RPM + real marketplace order data
-  const COIN_TO_NGN = 1;                  // 1 coin = ₦1
-  const FX_NGN_PER_USD = 1600;            // approximate reference rate — adjust as needed
+  const STREAK_MILESTONES = { 7: 60, 100: 2000 }; // was {7:3, 100:100} — 20x'd to preserve real value (₦3 and ₦100 respectively)
+  const COIN_TO_NGN = 1 / 20;             // 20 coins = ₦1. Coins are marketplace store credit ONLY — never cash, never withdrawable.
+  const FX_NGN_PER_USD = 1600;            // used only to convert the USD ad RPM below into Naira for the article-reward formula — no longer used for any cash payout, since that flow is gone
 
   const estimatedRevenuePerReadNgn = (AD_RPM_USD_PER_1000 / 1000) * IMPRESSIONS_PER_ARTICLE_READ * FX_NGN_PER_USD;
   const ARTICLE_READ_COINS = Math.max(
@@ -228,24 +232,18 @@
     const root = document.getElementById('rewards-root');
     if (!root) return;
     const data = getData();
-    const progressPct = Math.min(100, Math.round((data.coins / REDEEM_MIN_COINS) * 100));
-    const canRedeem = data.coins >= REDEEM_MIN_COINS;
 
     root.innerHTML =
       '<div class="rwd-header">' +
       '<div class="rwd-header-row">' +
       '<div>' +
       '<div class="rwd-coin-count">' + data.coins.toLocaleString() + ' <span>🪙</span></div>' +
-      '<p>Sentra-X Coins <span class="rwd-cash-value">≈ ₦' + (data.coins * COIN_TO_NGN).toLocaleString() + '</span></p>' +
+      '<p>Sentra-X Coins <span class="rwd-cash-value">≈ ₦' + (data.coins * COIN_TO_NGN).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' in store credit</span></p>' +
       '</div>' +
       '<div class="rwd-streak-box"><div class="rwd-streak-num">🔥 ' + data.streak + '</div><div class="rwd-streak-label">day streak</div></div>' +
       '</div>' +
-      '<div class="rwd-progress-track"><div class="rwd-progress-fill" style="width:' + progressPct + '%;"></div></div>' +
-      '<p class="rwd-progress-label">' + (canRedeem
-        ? 'You can redeem now! 🎉'
-        : (REDEEM_MIN_COINS - data.coins).toLocaleString() + ' more coins to your first redemption') + '</p>' +
-      '<button class="rwd-redeem-btn" ' + (canRedeem ? '' : 'disabled') + ' onclick="SentraXRewards.openRedeem()">' +
-      (canRedeem ? '💸 Redeem for cash' : '🔒 Redeem for cash') + '</button>' +
+      '<p class="rwd-progress-label">Coins are store credit — apply them at Marketplace checkout. Not redeemable for cash and not withdrawable.</p>' +
+      '<button class="rwd-redeem-btn" onclick="showScreen(\'marketplace\')">🛍️ Shop the Marketplace</button>' +
       '</div>' +
 
       '<div class="rwd-earn-card">' +
@@ -254,174 +252,29 @@
       '<div class="rwd-earn-row"><span>🛍️ Shop the Marketplace</span><b>+1 per ₦' + PURCHASE_COINS_PER_NGN.toLocaleString() + '</b></div>' +
       '<div class="rwd-earn-row"><span>🔥 7-day streak (one-time)</span><b>+' + STREAK_MILESTONES[7] + '</b></div>' +
       '<div class="rwd-earn-row"><span>🏁 100-day streak (one-time)</span><b>+' + STREAK_MILESTONES[100] + '</b></div>' +
-      '<p class="rwd-disclaimer">1 🪙 = ₦' + COIN_TO_NGN + ' · rates may adjust to match real ad earnings</p>' +
-      '</div>' +
-
-      (data.redemptions.length ? '<div class="rwd-history-card"><h4>Redemption history</h4>' +
-        data.redemptions.slice(0, 8).map(redemptionRowHtml).join('') + '</div>' : '');
+      '<p class="rwd-disclaimer">20 🪙 = ₦1 · store credit only · rates may adjust to match real ad earnings</p>' +
+      '</div>';
 
     updateBalancePills();
   }
 
-  function redemptionRowHtml(r) {
-    const statusLabel = r.status === 'paid' ? '✅ Paid' : r.status === 'declined' ? '❌ Declined' : '⏳ Pending review';
-    const amountLabel = r.currency === 'usd' ? '$' + r.amountUsd.toFixed(2) : '₦' + r.amountNaira.toLocaleString();
-    return '<div class="rwd-history-row"><div><b>' + r.coins.toLocaleString() + ' coins</b><span>' + amountLabel + '</span></div><div class="rwd-history-status">' + statusLabel + '</div></div>';
+
+  // ---- Spending: Marketplace checkout only --------------------------------
+  // Called by store.js at the exact moment a payment succeeds — same trust
+  // point the existing awardPurchase() already uses, so this introduces no
+  // new timing risk beyond what purchase-reward already has. Deducting only
+  // on confirmed success (never at checkout submission) means there's never
+  // a need to refund coins for an abandoned or failed payment — nothing was
+  // ever deducted in the first place if payment didn't go through.
+  function getCoins() {
+    return getData().coins;
   }
 
-  // ---- Redeem flow — one sheet, reuses the exact cart-sheet CSS classes -
-  let redeemCurrency = 'ngn';
-
-  function ensureSheet() {
-    let overlay = document.getElementById('rwd-redeem-overlay');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = 'rwd-redeem-overlay';
-      overlay.className = 'mkt-sheet-backdrop';
-      document.body.appendChild(overlay);
-    }
-    return overlay;
-  }
-
-  function sheetShell(title, bodyHtml) {
-    return '<div class="mkt-sheet">' +
-      '<div class="mkt-sheet-handle"></div>' +
-      '<div class="mkt-sheet-header"><h3>' + title + '</h3><button class="mkt-sheet-close" onclick="SentraXRewards.closeRedeem()">✕</button></div>' +
-      '<div class="mkt-sheet-body">' + bodyHtml + '</div>' +
-      '</div>';
-  }
-
-  function openRedeem() {
+  function spendCoins(amount) {
+    if (!amount || amount <= 0) return;
     const data = getData();
-    if (data.coins < REDEEM_MIN_COINS) return;
-    redeemCurrency = 'ngn';
-    const overlay = ensureSheet();
-    renderRedeemStep();
-    overlay.style.display = 'block';
-  }
-
-  function closeRedeem() {
-    const overlay = document.getElementById('rwd-redeem-overlay');
-    if (overlay) overlay.style.display = 'none';
-  }
-
-  function selectRedeemCurrency(cur) {
-    redeemCurrency = cur;
-    renderRedeemStep();
-  }
-
-  function renderRedeemStep() {
-    const overlay = document.getElementById('rwd-redeem-overlay');
-    if (!overlay) return;
-    const data = getData();
-    const naira = data.coins * COIN_TO_NGN;
-    const usd = naira / FX_NGN_PER_USD;
-
-    overlay.innerHTML = sheetShell('Redeem Coins',
-      '<div class="rwd-redeem-amount">' + data.coins.toLocaleString() + ' 🪙 available</div>' +
-      '<div class="mkt-chip-row">' +
-      '<button class="mkt-chip' + (redeemCurrency === 'ngn' ? ' active' : '') + '" onclick="SentraXRewards.selectCurrency(\'ngn\')">🇳🇬 Naira</button>' +
-      '<button class="mkt-chip' + (redeemCurrency === 'usd' ? ' active' : '') + '" onclick="SentraXRewards.selectCurrency(\'usd\')">💵 USD</button>' +
-      '</div>' +
-      '<div class="rwd-redeem-value">' + (redeemCurrency === 'usd' ? '$' + usd.toFixed(2) : '₦' + naira.toLocaleString()) + '</div>' +
-      (redeemCurrency === 'ngn'
-        ? '<input type="text" id="rwd-bank-name" placeholder="Bank name">' +
-          '<input type="text" id="rwd-account-name" placeholder="Account holder name">' +
-          '<input type="text" id="rwd-account-number" placeholder="Account number" inputmode="numeric">'
-        : '<input type="email" id="rwd-paypal-email" placeholder="PayPal email address">') +
-      '<div class="mkt-paystack-note">🕐 Payouts are reviewed and sent manually within a few business days — this isn\'t instant, but it\'s real.</div>' +
-      '<div id="rwd-redeem-error" style="color:#fca5a5;font-size:13px;margin-top:4px;min-height:16px;"></div>' +
-      '<button onclick="SentraXRewards.submitRedeem()">Request Payout</button>');
-  }
-
-  function submitRedeem() {
-    const data = getData();
-    const errEl = document.getElementById('rwd-redeem-error');
-    let payoutDetails = {};
-
-    if (redeemCurrency === 'ngn') {
-      const bankName = (document.getElementById('rwd-bank-name').value || '').trim();
-      const accountName = (document.getElementById('rwd-account-name').value || '').trim();
-      const accountNumber = (document.getElementById('rwd-account-number').value || '').trim();
-      if (!bankName || !accountName || !accountNumber) {
-        if (errEl) errEl.textContent = 'Please fill in your bank name, account name, and account number.';
-        return;
-      }
-      payoutDetails = { bankName: bankName, accountName: accountName, accountNumber: accountNumber };
-    } else {
-      const paypalEmail = (document.getElementById('rwd-paypal-email').value || '').trim();
-      if (!/^\S+@\S+\.\S+$/.test(paypalEmail)) {
-        if (errEl) errEl.textContent = 'Please enter a valid PayPal email address.';
-        return;
-      }
-      payoutDetails = { paypalEmail: paypalEmail };
-    }
-
-    const coinsToRedeem = data.coins; // redeem full balance each time — simplest, no partial-balance edge cases
-    const redemption = {
-      id: 'SXR-' + Date.now().toString(36).toUpperCase(),
-      coins: coinsToRedeem,
-      currency: redeemCurrency,
-      amountNaira: coinsToRedeem * COIN_TO_NGN,
-      amountUsd: (coinsToRedeem * COIN_TO_NGN) / FX_NGN_PER_USD,
-      payoutDetails: payoutDetails,
-      status: 'pending',
-      createdAt: Date.now()
-    };
-
-    data.coins = 0; // deduct immediately so it can't be redeemed twice
-    data.redemptions.unshift(redemption);
+    data.coins = Math.max(0, data.coins - amount); // floor at 0, never negative
     saveData(data);
-    notifyAdminOfRedemption(redemption);
-    renderRedeemSuccess(redemption);
-    renderRewards();
-  }
-
-  function notifyAdminOfRedemption(r) {
-    const details = r.currency === 'usd'
-      ? 'PayPal: ' + r.payoutDetails.paypalEmail
-      : r.payoutDetails.bankName + ' — ' + r.payoutDetails.accountName + ' — ' + r.payoutDetails.accountNumber;
-    const amountLabel = r.currency === 'usd' ? '$' + r.amountUsd.toFixed(2) : '₦' + r.amountNaira.toLocaleString();
-    const message = 'New coin redemption request ' + r.id + ': ' + r.coins.toLocaleString() + ' coins (' + amountLabel + '). Payout to: ' + details;
-
-    fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service_id: EMAILJS_SERVICE_ID,
-        template_id: EMAILJS_TEMPLATE_ID,
-        user_id: EMAILJS_PUBLIC_KEY,
-        template_params: {
-          to_email: ADMIN_EMAIL,
-          patient_name: 'Sentra-X Rewards',
-          caregiver_name: 'Redemption Request',
-          alert_message: message
-        }
-      })
-    }).then(function (res) {
-      if (!res.ok) flagNotifyFailed(r.id);
-    }).catch(function () {
-      flagNotifyFailed(r.id);
-      // Request is already safely saved (localStorage + Firestore) even if
-      // this admin email fails to send — never blocks the user's request.
-    });
-  }
-
-  function flagNotifyFailed(redemptionId) {
-    const data = getData();
-    const match = data.redemptions.find(function (r) { return r.id === redemptionId; });
-    if (match) { match.notifyFailed = true; saveData(data); }
-  }
-
-  function renderRedeemSuccess(r) {
-    const overlay = document.getElementById('rwd-redeem-overlay');
-    if (!overlay) return;
-    const amountLabel = r.currency === 'usd' ? '$' + r.amountUsd.toFixed(2) : '₦' + r.amountNaira.toLocaleString();
-    overlay.innerHTML = sheetShell('Request Sent',
-      '<div class="mkt-success-check">✅</div>' +
-      '<div class="mkt-success-ref">Request ' + r.id + '</div>' +
-      '<p style="font-size:13.5px;color:#cbd5e1;line-height:1.5;text-align:center;">' + r.coins.toLocaleString() + ' coins redeemed for ' + amountLabel + '. We\'ll review and send your payout within a few business days.</p>' +
-      '<button onclick="SentraXRewards.closeRedeem()">Done</button>');
   }
 
   if (typeof window !== 'undefined') {
@@ -431,14 +284,13 @@
       hasReadArticle: hasReadArticle,
       awardPurchase: awardPurchase,
       checkDailyStreak: checkDailyStreak,
-      openRedeem: openRedeem,
-      closeRedeem: closeRedeem,
-      selectCurrency: selectRedeemCurrency,
-      submitRedeem: submitRedeem
+      getCoins: getCoins,
+      spendCoins: spendCoins,
+      coinToNgn: COIN_TO_NGN
     };
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ARTICLE_READ_COINS: ARTICLE_READ_COINS, REDEEM_MIN_COINS: REDEEM_MIN_COINS };
+    module.exports = { ARTICLE_READ_COINS: ARTICLE_READ_COINS, COIN_TO_NGN: COIN_TO_NGN, PURCHASE_COINS_PER_NGN: PURCHASE_COINS_PER_NGN, PURCHASE_COINS_MIN: PURCHASE_COINS_MIN };
   }
 })();
