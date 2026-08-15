@@ -50,7 +50,7 @@ function showScreen(name) {
   closeMoreMenu();
   if (name === 'meds') renderMeds();
   if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); renderMedHistory(); }
-  if (name === 'family') renderCaregiverNote();
+  if (name === 'family') { renderCaregiverNote(); renderLinkedCaregivers(); }
   if (name === 'passport') renderPassport();
   if (name === 'ai') renderAiWelcome();
   if (name === 'articles' && window.SentraXArticles) window.SentraXArticles.render();
@@ -769,6 +769,48 @@ function renderCaregiverNote() {
         '</div>' +
       '</div>';
   }).join('');
+}
+
+function renderLinkedCaregivers() {
+  const box = document.getElementById('linked-cg-list');
+  if (!box) return;
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  firebase.firestore().collection('users').doc(user.uid)
+    .onSnapshot(function (doc) {
+      if (!doc.exists) { box.innerHTML = ''; return; }
+      const data = doc.data();
+      const uids = data.caregiverUids || [];
+      const info = data.caregiverInfo || {};
+      if (uids.length === 0) {
+        box.innerHTML = '<div class="empty" style="margin-top:10px;">No caregivers linked yet</div>';
+        return;
+      }
+      box.innerHTML = '<h4 style="margin:14px 0 8px;font-size:14px;color:#94a3b8;">Linked Caregivers (' + uids.length + '/8)</h4>' +
+        uids.map(function (uid) {
+          const meta = info[uid] || {};
+          const label = meta.email || 'Caregiver';
+          return '<div class="cg-card">' +
+              '<div class="cg-info">' +
+                '<div class="cg-name-row"><span class="cg-name">' + String(label).replace(/</g, '&lt;') + '</span></div>' +
+                '<div class="cg-row"><span>🔗</span><span>Has read access to your health data</span></div>' +
+              '</div>' +
+              '<button class="cg-danger" onclick="revokeCaregiver(\'' + uid + '\')">Revoke</button>' +
+            '</div>';
+        }).join('');
+    }, function (err) {
+      console.error('Sentra-X: linked caregivers read failed:', err.message);
+    });
+}
+
+function revokeCaregiver(uid) {
+  if (!confirm('Remove this caregiver\'s access to your health data?')) return;
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  const update = { caregiverUids: firebase.firestore.FieldValue.arrayRemove(uid) };
+  update['caregiverInfo.' + uid] = firebase.firestore.FieldValue.delete();
+  firebase.firestore().collection('users').doc(user.uid).update(update)
+    .catch(function (err) { alert('Could not remove caregiver: ' + err.message); });
 }
 
 function shareToFamily() {
