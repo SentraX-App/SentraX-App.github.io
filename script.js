@@ -1193,14 +1193,25 @@ function openAiThread(id) {
   closeAiHistoryList();
 }
 
+const AI_WELCOME_FULL = "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 112.";
+const AI_WELCOME_BACK_VARIANTS = [
+  "Welcome back — what's up?",
+  "Good to see you again. What's on your mind?",
+  "I'm here — go ahead.",
+  "Back again? What can I help with today?",
+  "Hey, picking back up — what do you need?"
+];
+
 function renderAiWelcome() {
   const log = document.getElementById('ai-chat-log');
-  if (log.children.length > 0) return;
+  log.innerHTML = '';
   const thread = getCurrentAiThread();
-  if (thread.messages.length > 0) {
-    thread.messages.forEach(function (m) { appendAiMessage(m.role === 'user' ? 'user' : 'bot', m.content); });
+  if (thread.messages.length === 0) {
+    appendAiMessage('bot', AI_WELCOME_FULL);
   } else {
-    appendAiMessage('bot', "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 112.");
+    thread.messages.forEach(function (m) { appendAiMessage(m.role === 'user' ? 'user' : 'bot', m.content); });
+    const variant = AI_WELCOME_BACK_VARIANTS[Math.floor(Math.random() * AI_WELCOME_BACK_VARIANTS.length)];
+    appendAiMessage('bot', variant);
   }
 }
 
@@ -1299,16 +1310,20 @@ function sendAiMessage() {
               // it can't misfire on a genuine chunk, since at most one of these
               // paths will ever hold a non-empty string for a given payload.
               const choice = parsed.choices && parsed.choices[0];
+              const rawDelta = choice && choice.delta;
+              const rawToken = parsed.token;
               const delta =
-                parsed.response ||
-                (parsed.result && parsed.result.response) ||
-                (choice && choice.delta && choice.delta.content) ||
-                (choice && choice.text) ||
-                (choice && choice.message && choice.message.content) ||
-                parsed.delta ||
-                parsed.content ||
-                parsed.text ||
-                parsed.token ||
+                (typeof parsed.response === 'string' && parsed.response) ||
+                (parsed.result && typeof parsed.result.response === 'string' && parsed.result.response) ||
+                (rawDelta && typeof rawDelta.content === 'string' && rawDelta.content) ||
+                (choice && typeof choice.text === 'string' && choice.text) ||
+                (choice && choice.message && typeof choice.message.content === 'string' && choice.message.content) ||
+                (typeof parsed.delta === 'string' && parsed.delta) ||
+                (parsed.delta && typeof parsed.delta.content === 'string' && parsed.delta.content) ||
+                (typeof parsed.content === 'string' && parsed.content) ||
+                (typeof parsed.text === 'string' && parsed.text) ||
+                (typeof rawToken === 'string' && rawToken) ||
+                (rawToken && typeof rawToken.text === 'string' && rawToken.text) ||
                 '';
               if (delta) {
                 fullText += delta;
