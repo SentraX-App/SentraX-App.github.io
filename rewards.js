@@ -44,11 +44,14 @@
   const MIN_ARTICLE_READ_COINS = 1;         // floor — reading still has to feel worth something
 
   // ---- Tunables ---------------------------------------------------------
-  const PURCHASE_COINS_PER_NGN = 250;     // 1 coin per ₦250 spent (≈0.4% cashback) — funded by marketplace margin, not ad revenue, so untouched here
-  const PURCHASE_COINS_MIN = 10;          // floor, even for a cheap item
-  const DAILY_OPEN_COINS = 3;             // loyalty bonus, not ad-funded — your call to size this
-  const STREAK_MILESTONES = { 3: 15, 7: 40, 14: 100, 30: 250, 60: 600, 100: 1200 };
-  const REDEEM_MIN_COINS = 2500;          // lowered alongside the article-coin cut below, so redemption stays reachable — reconsider once you have real RPM data
+  // Daily-open coins stay OFF (0) — not requested back. Marketplace and
+  // streak milestones are re-enabled below at small, deliberately modest
+  // rates per your latest numbers.
+  const PURCHASE_COINS_PER_NGN = 1000;    // 1 coin per ₦1,000 spent (0.1% cashback — scales with order size, never a flat cost)
+  const PURCHASE_COINS_MIN = 1;           // floor so even a small purchase earns something, but nothing near the old ₦10 floor
+  const DAILY_OPEN_COINS = 0;             // disabled — opening the app still doesn't earn coins
+  const STREAK_MILESTONES = { 7: 3, 100: 100 }; // only these two, both one-time, both small
+  const REDEEM_MIN_COINS = 2500;          // reconsider once you have real RPM + real marketplace order data
   const COIN_TO_NGN = 1;                  // 1 coin = ₦1
   const FX_NGN_PER_USD = 1600;            // approximate reference rate — adjust as needed
 
@@ -107,9 +110,11 @@
     showCoinToast(ARTICLE_READ_COINS, 'for reading');
   }
 
-  // ---- Earning: purchases ---------------------------------------------
+  // ---- Earning: purchases -------------------------------------------------
+  // Small, order-size-proportional rate (0.1% cashback) — never a flat cost
+  // regardless of order size.
   function awardPurchase(orderTotalNaira) {
-    if (!orderTotalNaira || orderTotalNaira <= 0) return;
+    if (!PURCHASE_COINS_PER_NGN || !orderTotalNaira || orderTotalNaira <= 0) return;
     const earned = Math.max(PURCHASE_COINS_MIN, Math.floor(orderTotalNaira / PURCHASE_COINS_PER_NGN));
     const data = getData();
     addCoins(data, earned);
@@ -118,10 +123,13 @@
   }
 
   // ---- Earning: daily streak -------------------------------------------
+  // Streak count itself is still tracked every day (needed for the 100-day
+  // milestone and the streak badge on the Rewards screen) — it just no
+  // longer pays a coin for the act of opening the app.
   function checkDailyStreak() {
     const data = getData();
     const t = today();
-    if (data.lastActiveDate === t) return; // already credited today
+    if (data.lastActiveDate === t) return; // already checked today
 
     const y = new Date();
     y.setDate(y.getDate() - 1);
@@ -135,19 +143,13 @@
     data.longestStreak = Math.max(data.longestStreak, data.streak);
     data.lastActiveDate = t;
 
-    let earned = DAILY_OPEN_COINS;
-    let milestoneHit = null;
-    if (STREAK_MILESTONES[data.streak]) {
-      milestoneHit = STREAK_MILESTONES[data.streak];
-      earned += milestoneHit;
-    }
-    addCoins(data, earned);
-    saveData(data);
-
-    if (milestoneHit) {
-      showCoinToast(earned, data.streak + '-day streak! 🔥');
-    } else if (data.streak > 1) {
-      showCoinToast(earned, 'daily streak (' + data.streak + ')');
+    const milestoneBonus = STREAK_MILESTONES[data.streak];
+    if (milestoneBonus) {
+      addCoins(data, milestoneBonus);
+      saveData(data);
+      showCoinToast(milestoneBonus, data.streak + '-day streak! 🔥');
+    } else {
+      saveData(data); // persist the updated streak/date even with nothing to award
     }
   }
 
@@ -208,8 +210,8 @@
       '<div class="rwd-earn-card">' +
       '<h4>How to earn coins</h4>' +
       '<div class="rwd-earn-row"><span>📰 Read an article</span><b>+' + ARTICLE_READ_COINS + '</b></div>' +
-      '<div class="rwd-earn-row"><span>🛍️ Shop the Marketplace</span><b>+1 per ₦' + PURCHASE_COINS_PER_NGN + '</b></div>' +
-      '<div class="rwd-earn-row"><span>🔥 Keep your daily streak</span><b>+' + DAILY_OPEN_COINS + '/day</b></div>' +
+      '<div class="rwd-earn-row"><span>🛍️ Shop the Marketplace</span><b>+1 per ₦' + PURCHASE_COINS_PER_NGN.toLocaleString() + '</b></div>' +
+      '<div class="rwd-earn-row"><span>🔥 7-day streak (one-time)</span><b>+' + STREAK_MILESTONES[7] + '</b></div>' +
       '<div class="rwd-earn-row"><span>🏁 100-day streak (one-time)</span><b>+' + STREAK_MILESTONES[100] + '</b></div>' +
       '<p class="rwd-disclaimer">1 🪙 = ₦' + COIN_TO_NGN + ' · rates may adjust to match real ad earnings</p>' +
       '</div>' +
