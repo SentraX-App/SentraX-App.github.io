@@ -147,7 +147,7 @@
     mutedReplies = !mutedReplies;
     localStorage.setItem('voice-muted-replies', mutedReplies ? '1' : '0');
     updateReadAloudBtn();
-    if (mutedReplies && synth) synth.cancel();
+    if (mutedReplies) stopSpeaking();
   }
 
   // Listens for script.js's own 'send started' event instead of wrapping
@@ -183,8 +183,8 @@
     const original = window.showScreen;
     window.showScreen = function (name) {
       if (name !== 'ai' && isAiScreenActive() && synth) {
-        synth.cancel();
-        setTimeout(function () { synth.cancel(); }, 60);
+        stopSpeaking();
+        setTimeout(stopSpeaking, 60);
       }
       return original.apply(this, arguments);
     };
@@ -233,7 +233,7 @@
     if (!screen || !window.MutationObserver) return;
     const observer = new MutationObserver(function () {
       if (!screen.classList.contains('active') && synth) {
-        synth.cancel();
+        stopSpeaking();
       }
     });
     observer.observe(screen, { attributes: true, attributeFilter: ['class'] });
@@ -433,7 +433,7 @@
     // switches to another app or the phone locks) — not just when
     // navigating between screens inside Sentra-X.
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'hidden' && synth) synth.cancel();
+      if (document.visibilityState === 'hidden') stopSpeaking();
     });
   }
 
