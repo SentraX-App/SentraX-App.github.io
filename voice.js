@@ -7,35 +7,26 @@
  *
  * SPEAKING SCOPE — deliberately narrow, by design:
  *   1. The welcome/intro line (shown when opening the assistant with no
- *      existing conversation) ALWAYS speaks, once per session, regardless
- *      of the mute toggle.
+ *      existing conversation) ALWAYS speaks, every time it's shown,
+ *      regardless of the mute toggle — identified by exact text match
+ *      against the known intro string, not by guessing from batch size.
  *   2. A live assistant reply (the result of you actually sending a
  *      message) speaks by default — you can mute this with the toggle.
+ *      Identified by wrapping the real sendAiMessage() so we know for
+ *      certain a live send is in flight, not by inference.
  *   3. Reopening an OLD saved conversation (history replay) NEVER speaks,
- *      even in bulk — otherwise every past chat you revisit would narrate
- *      itself in full, which nobody wants.
- *   4. Nothing outside the AI Assistant chat is ever touched or read.
- *
- * How #1 vs #2 vs #3 are told apart without editing script.js: a history
- * replay always adds several message nodes to the chat log in one burst
- * (one per past message). A single live reply — or the one-line intro —
- * always adds exactly ONE node at a time. So: multiple nodes in one
- * batch = history replay, skip it entirely. Exactly one node, and it's
- * the very first thing this page session has ever seen = the intro,
- * always speak it. Exactly one node after that = a live reply, speak it
- * unless muted.
+ *      even if it happens to contain only one message — the exact-text
+ *      check in #1 and the wrapped-send tracking in #2 mean a lone old
+ *      message matches neither case, so it's correctly left silent.
+ *   4. Speech is immediately cancelled the moment you navigate away from
+ *      the AI screen, so it can never keep talking after you've left.
+ *   5. Nothing outside the AI Assistant chat is ever touched or read.
  *
  * Mic button: transcribes speech into #ai-chat-input, then calls the
  * existing global sendAiMessage() exactly as if typed and sent.
  *
  * LANGUAGE: recognition is set to en-NG (Nigerian English), the closest
- * available option in the free browser speech engine — it tends to
- * handle Nigerian Pidgin reasonably since Pidgin is English-lexified,
- * but this is NOT the same as genuine native support for Pidgin, Yoruba,
- * Igbo, or Hausa. The free Web Speech API doesn't offer those as
- * selectable languages at all. Real multi-language support would need a
- * paid cloud speech service with its own API key — a separate, bigger
- * piece of work, not a setting to flip here.
+ * available option in the free browser speech engine.
  *
  * Feature-detected: on a browser/WebView without SpeechRecognition or
  * speechSynthesis support, the relevant button just hides itself instead
@@ -48,10 +39,15 @@
   const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
   const synth = window.speechSynthesis;
 
+  // Must match script.js's renderAiWelcome() intro string EXACTLY — this
+  // is how a genuine intro is told apart from an old one-message
+  // conversation being replayed, which looks identical by node-count alone.
+  const INTRO_TEXT = "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 112.";
+
   let recognition = null;
   let listening = false;
   let mutedReplies = localStorage.getItem('voice-muted-replies') === '1';
-  let introSpokenThisSession = false;
+  let pendingLiveReplies = 0; // >0 means a real sendAiMessage() call is in flight
 
   function speak(text) {
     if (!synth || !text) return;
@@ -60,6 +56,17 @@
     utter.rate = 1;
     utter.pitch = 1;
     synth.speak(utter);
+  }
+
+  // Android/Chrome sometimes loads TTS voices lazily on first use, causing
+  // a noticeable delay before the very first utterance of a session
+  // actually starts speaking. Priming getVoices() early (and again on the
+  // voiceschanged event some browsers fire once loading finishes) avoids
+  // paying that delay right when the person is waiting for the intro.
+  function primeSpeechEngine() {
+    if (!synth) return;
+    synth.getVoices();
+    synth.addEventListener('voiceschanged', function () { synth.getVoices(); });
   }
 
   function updateReadAloudBtn() {
@@ -77,6 +84,26 @@
     if (mutedReplies && synth) synth.cancel();
   }
 
+  // Wraps the real global sendAiMessage (defined in script.js, loaded
+  // before this file) so we know FOR CERTAIN — not by guessing — when a
+  // bot message about to appear is a genuine live reply, as opposed to an
+  // old conversation being replayed on open. A counter (not a boolean)
+  // handles the case of a second message being sent before the first
+  // reply has come back.
+  function wrapSendAiMessage() {
+    if (typeof window.sendAiMessage !== 'function') return;
+    const original = window.sendAiMessage;
+    window.sendAiMessage = function () {
+      pendingLiveReplies++;
+      return original.apply(this, arguments);
+    };
+  }
+
+  function isAiScreenActive() {
+    const screen = document.getElementById('ai-screen');
+    return !!screen && screen.classList.contains('active');
+  }
+
   function watchChatLog() {
     const log = document.getElementById('ai-chat-log');
     if (!log || !window.MutationObserver) return;
@@ -92,16 +119,44 @@
       });
 
       if (addedBotNodes.length === 0) return;
-      if (addedBotNodes.length > 1) return;
 
-      if (!introSpokenThisSession) {
-        introSpokenThisSession = true;
-        speak(addedBotNodes[0].textContent);
-      } else if (!mutedReplies) {
-        speak(addedBotNodes[0].textContent);
+      // Multiple bot bubbles added in one batch only happens when an old
+      // conversation with more than one exchange is being replayed on
+      // open — never during a real one-at-a-time chat. Always silent.
+      if (addedBotNodes.length > 1) {
+        pendingLiveReplies = Math.max(0, pendingLiveReplies - 1);
+        return;
       }
+
+      const text = addedBotNodes[0].textContent;
+      const wasLiveSend = pendingLiveReplies > 0;
+      if (wasLiveSend) pendingLiveReplies--;
+
+      if (text === INTRO_TEXT) {
+        // Genuine intro — always speak, every time it's shown.
+        speak(text);
+      } else if (wasLiveSend) {
+        // A real reply to a message this session actually sent.
+        if (!mutedReplies) speak(text);
+      }
+      // Anything else — a single old message being replayed on open,
+      // that happens to not be the intro and wasn't a live send —
+      // is correctly left silent.
     });
     observer.observe(log, { childList: true });
+  }
+
+  // Stop talking the instant the AI screen is no longer the active one,
+  // so speech can never continue after the person has navigated away.
+  function watchAiScreenVisibility() {
+    const screen = document.getElementById('ai-screen');
+    if (!screen || !window.MutationObserver) return;
+    const observer = new MutationObserver(function () {
+      if (!screen.classList.contains('active') && synth) {
+        synth.cancel();
+      }
+    });
+    observer.observe(screen, { attributes: true, attributeFilter: ['class'] });
   }
 
   function setupRecognition() {
@@ -176,9 +231,12 @@
   }
 
   function init() {
+    primeSpeechEngine();
+    wrapSendAiMessage();
     setupRecognition();
     injectButtons();
     watchChatLog();
+    watchAiScreenVisibility();
   }
 
   if (document.readyState === 'loading') {
