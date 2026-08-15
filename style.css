@@ -496,6 +496,7 @@ nav button.active .icon { filter: none; }
 .rwd-coin-count { font-size: 30px; font-weight: 800; color: #fde68a; line-height: 1; }
 .rwd-coin-count span { font-size: 24px; }
 .rwd-header-row p { margin: 4px 0 0; font-size: 12.5px; color: #fef3c7; }
+.rwd-cash-value { display: inline-block; margin-left: 6px; opacity: 0.85; }
 .rwd-streak-box { text-align: center; background: rgba(255,255,255,0.1); border-radius: 14px; padding: 8px 14px; }
 .rwd-streak-num { font-size: 18px; font-weight: 800; color: #fed7aa; }
 .rwd-streak-label { font-size: 10px; color: #fef3c7; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -513,6 +514,7 @@ nav button.active .icon { filter: none; }
 .rwd-earn-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13.5px; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .rwd-earn-row:last-child { border-bottom: none; }
 .rwd-earn-row b { color: #fde68a; font-size: 13px; }
+.rwd-disclaimer { font-size: 10.5px; color: #64748b; line-height: 1.5; margin: 10px 0 0; }
 .rwd-history-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .rwd-history-row:last-child { border-bottom: none; }
 .rwd-history-row div:first-child { display: flex; flex-direction: column; }
