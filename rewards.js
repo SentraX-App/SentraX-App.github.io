@@ -236,7 +236,7 @@
     root.innerHTML =
       '<div class="rwd-header">' +
       '<div class="rwd-header-row">' +
-      '<div class="rwd-coin-count">' + data.coins.toLocaleString() + ' <span>🪙</span></div>' +
+      '<div><div class="rwd-coin-count">' + data.coins.toLocaleString() + ' <span>🪙</span></div><div class="rwd-coin-label">Sentra-X Coins</div></div>' +
       '<div class="rwd-streak-box"><div class="rwd-streak-num">🔥 ' + data.streak + '</div><div class="rwd-streak-label">day streak</div></div>' +
       '</div>' +
       '<button class="rwd-redeem-btn" onclick="showScreen(\'marketplace\')">🛍️ Shop the Marketplace</button>' +
