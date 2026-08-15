@@ -31,15 +31,6 @@
   const COIN_TO_NGN = 1;                  // 1 coin = ₦1
   const FX_NGN_PER_USD = 1600;            // approximate reference rate — adjust as needed
 
-  // Rewarded-ad mini game: watch a real ad slot for a few seconds, claim a
-  // small bonus. This is revenue-funded (AdSense pays you per impression),
-  // not spend-funded like purchases — so it's the one earning path that
-  // doesn't touch your margin. Tightly capped so it can't be farmed.
-  const AD_WATCH_COINS = 2;
-  const AD_WATCH_SECONDS = 15;
-  const AD_WATCH_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour between watches
-  const AD_WATCH_DAILY_CAP = 3;                // max 3/day → max 6 coins/day from ads
-
   // Reuses the same EmailJS project already wired up for marketplace order
   // notifications — same account, just a different template context.
   const ADMIN_EMAIL = 'sentraxforteltd@gmail.com';
@@ -57,7 +48,7 @@
 
   // ---- Data (localStorage 'rwd-data', synced to Firestore as `rewards`) -
   function getData() {
-    const defaults = { coins: 0, lifetimeCoins: 0, streak: 0, longestStreak: 0, lastActiveDate: null, readArticleIds: [], redemptions: [], lastAdWatchAt: 0, adWatchDate: null, adWatchesToday: 0 };
+    const defaults = { coins: 0, lifetimeCoins: 0, streak: 0, longestStreak: 0, lastActiveDate: null, readArticleIds: [], redemptions: [] };
     try {
       const d = JSON.parse(localStorage.getItem('rwd-data') || 'null');
       if (d) return Object.assign({}, defaults, d); // backfills any fields older saved data predates
@@ -133,61 +124,6 @@
     }
   }
 
-  // ---- Earning: watch-an-ad mini reward ---------------------------------
-  // Not real video-ad verification (AdSense has no such API) — this shows a
-  // genuine ad slot for a fixed countdown, then unlocks a tiny claim. It's
-  // deliberately capped hard (cooldown + daily cap) since, unlike purchases,
-  // there's no natural ceiling otherwise.
-  function adWatchStatus() {
-    const data = getData();
-    const t = today();
-    const watchedToday = data.adWatchDate === t ? data.adWatchesToday : 0;
-    const msSinceLast = Date.now() - (data.lastAdWatchAt || 0);
-    const onCooldown = msSinceLast < AD_WATCH_COOLDOWN_MS;
-    return {
-      available: watchedToday < AD_WATCH_DAILY_CAP && !onCooldown,
-      watchedToday: watchedToday,
-      cooldownMsLeft: onCooldown ? AD_WATCH_COOLDOWN_MS - msSinceLast : 0
-    };
-  }
-
-  let adWatchTimer = null;
-
-  function startAdWatch() {
-    if (!adWatchStatus().available) return;
-    const box = document.getElementById('rwd-ad-box');
-    if (!box) return;
-    box.innerHTML = (window.SentraXAds ? window.SentraXAds.slotHtml() : '<div class="empty">Ad unavailable</div>') +
-      '<div class="rwd-ad-timer">Claim available in <b id="rwd-ad-countdown">' + AD_WATCH_SECONDS + '</b>s</div>';
-    if (window.SentraXAds) window.SentraXAds.init(box);
-
-    let secondsLeft = AD_WATCH_SECONDS;
-    clearInterval(adWatchTimer);
-    adWatchTimer = setInterval(function () {
-      secondsLeft -= 1;
-      const el = document.getElementById('rwd-ad-countdown');
-      if (el) el.textContent = secondsLeft;
-      if (secondsLeft <= 0) {
-        clearInterval(adWatchTimer);
-        box.innerHTML += '<button class="rwd-redeem-btn" style="margin-top:10px;" onclick="SentraXRewards.claimAdReward()">Claim +' + AD_WATCH_COINS + ' 🪙</button>';
-      }
-    }, 1000);
-  }
-
-  function claimAdReward() {
-    if (!adWatchStatus().available) return;
-    const data = getData();
-    const t = today();
-    data.adWatchesToday = (data.adWatchDate === t ? data.adWatchesToday : 0) + 1;
-    data.adWatchDate = t;
-    data.lastAdWatchAt = Date.now();
-    addCoins(data, AD_WATCH_COINS);
-    saveData(data);
-    showCoinToast(AD_WATCH_COINS, 'for watching');
-    renderRewards();
-  }
-
-
   function showCoinToast(amount, label) {
     let toast = document.getElementById('rwd-toast');
     if (toast) toast.remove();
@@ -250,28 +186,10 @@
       '<div class="rwd-earn-row"><span>🏁 Hit a streak milestone</span><b>up to +' + STREAK_MILESTONES[100] + '</b></div>' +
       '</div>' +
 
-      '<div class="rwd-earn-card" id="rwd-ad-card">' +
-      '<h4>🎬 Watch a quick ad</h4>' +
-      adWatchCardBodyHtml() +
-      '</div>' +
-
       (data.redemptions.length ? '<div class="rwd-history-card"><h4>Redemption history</h4>' +
         data.redemptions.slice(0, 8).map(redemptionRowHtml).join('') + '</div>' : '');
 
     updateBalancePills();
-  }
-
-  function adWatchCardBodyHtml() {
-    const status = adWatchStatus();
-    if (status.available) {
-      return '<p style="font-size:12.5px;color:#94a3b8;margin:0 0 10px;">Watch for ' + AD_WATCH_SECONDS + 's, then claim +' + AD_WATCH_COINS + ' coins. Up to ' + AD_WATCH_DAILY_CAP + ' times a day.</p>' +
-        '<div id="rwd-ad-box"><button class="rwd-redeem-btn" onclick="SentraXRewards.startAdWatch()">▶️ Watch now (+' + AD_WATCH_COINS + ' 🪙)</button></div>';
-    }
-    const mins = Math.ceil(status.cooldownMsLeft / 60000);
-    const reason = status.watchedToday >= AD_WATCH_DAILY_CAP
-      ? 'You\'ve hit today\'s limit (' + AD_WATCH_DAILY_CAP + '/day) — come back tomorrow.'
-      : 'Next one available in about ' + mins + ' min.';
-    return '<p style="font-size:12.5px;color:#94a3b8;margin:0;">' + reason + '</p>';
   }
 
   function redemptionRowHtml(r) {
@@ -441,8 +359,6 @@
       awardArticleRead: awardArticleRead,
       awardPurchase: awardPurchase,
       checkDailyStreak: checkDailyStreak,
-      startAdWatch: startAdWatch,
-      claimAdReward: claimAdReward,
       openRedeem: openRedeem,
       closeRedeem: closeRedeem,
       selectCurrency: selectRedeemCurrency,
