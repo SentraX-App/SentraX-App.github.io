@@ -310,6 +310,43 @@
   let medLibraryById = {};
   let medLibraryPhotoById = {};
 
+  // Deterministic "random" order that only changes once a day — so the
+  // feed doesn't look frozen in the same order on every visit, but also
+  // doesn't reshuffle mid-session (same order all day, new order tomorrow).
+  // Pure display-order change only; doesn't touch what fetchMedLibrary()
+  // caches, so the 24h fetch/cache behavior above is untouched.
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function numericSeedFromDateString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
+    }
+    return hash;
+  }
+
+  function todaySeedString() {
+    const d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+
+  function dailyShuffledCopy(list) {
+    const copy = list.slice();
+    const rand = mulberry32(numericSeedFromDateString(todaySeedString()));
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      const tmp = copy[i]; copy[i] = copy[j]; copy[j] = tmp;
+    }
+    return copy;
+  }
+
   function loadMedLibrary() {
     const container = document.getElementById('med-library-section');
     if (!container || !MEDLIB_WORKER_URL) return;
@@ -317,10 +354,11 @@
     fetchMedLibrary()
       .then(function (data) {
         if (!data || !data.items || !data.items.length) { container.innerHTML = ''; return; }
+        const shuffledItems = dailyShuffledCopy(data.items);
         medLibraryById = {};
         medLibraryPhotoById = {};
         const tagCounters = {};
-        data.items.forEach(function (item) {
+        shuffledItems.forEach(function (item) {
           if (MEDLIB_PHOTO_OVERRIDE[item.id]) {
             medLibraryPhotoById[item.id] = MEDLIB_PHOTO_OVERRIDE[item.id];
             return;
@@ -334,8 +372,8 @@
           }
         });
 
-        let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine)</p></div>';
-        data.items.forEach(function (item, i) {
+        let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine) — order refreshes daily</p></div>';
+        shuffledItems.forEach(function (item, i) {
           medLibraryById[item.id] = item;
           const tag = MEDLIB_TAG_MAP[item.id] || 'Wellness';
           const altClass = i % 2 === 1 ? ' art-card-alt' : '';
@@ -347,7 +385,7 @@
             '<p class="art-excerpt">' + excerpt + '</p>' +
             '<div class="art-readmore">Read more →</div>' +
             '</div></div>';
-          if (window.SentraXAds && (i + 1) % 4 === 0 && i < data.items.length - 1) html += SentraXAds.slotHtml();
+          if (window.SentraXAds && (i + 1) % 4 === 0 && i < shuffledItems.length - 1) html += SentraXAds.slotHtml();
         });
         container.innerHTML = html;
         if (window.SentraXAds) SentraXAds.init(container);
