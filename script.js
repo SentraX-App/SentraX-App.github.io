@@ -649,9 +649,10 @@ function renderCaregiverNote() {
     document.getElementById('cg-name').value = name;
     document.getElementById('cg-phone').value = localStorage.getItem('cgPhone') || '';
     document.getElementById('cg-email').value = localStorage.getItem('cgEmail') || '';
-    document.getElementById('cg-summary-name').textContent = '👤 ' + name;
-    document.getElementById('cg-summary-phone').textContent = '📱 ' + (localStorage.getItem('cgPhone') || '—');
-    document.getElementById('cg-summary-email').textContent = '✉️ ' + (localStorage.getItem('cgEmail') || 'No email on file');
+    document.getElementById('cg-summary-avatar').textContent = name.trim().charAt(0).toUpperCase();
+    document.getElementById('cg-summary-name').textContent = name;
+    document.getElementById('cg-summary-phone').textContent = localStorage.getItem('cgPhone') || '—';
+    document.getElementById('cg-summary-email').textContent = localStorage.getItem('cgEmail') || 'No email on file';
     form.style.display = 'none';
     summary.style.display = 'block';
     note.textContent = '✓ Saved — alerts will go to ' + name;
