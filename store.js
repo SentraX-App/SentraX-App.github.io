@@ -457,6 +457,7 @@
   }
 
   let coinsToApply = 0; // reset each time checkout is (re)opened, see proceedToCheckout()
+  let pendingFallbackOrder = null; // set when Paystack couldn't be used, so the customer can explicitly choose to proceed without it
 
   function coinDiscountNaira() {
     const rewards = window.SentraXRewards;
@@ -613,32 +614,28 @@
     }
 
     if (typeof PaystackPop === 'undefined' || PAYSTACK_PUBLIC_KEY.indexOf('REPLACE_ME') !== -1) {
-      finalizeOrder(order);
+      offerManualFallback(order, errEl, "Card payment couldn't load in this browser (common with strict privacy or ad-blocking settings).");
       return;
     }
 
     const btn = document.querySelector('#mkt-cart-overlay button[onclick="SentraXStore.placeOrder()"]');
     if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
-    // Safety net: if Paystack's popup never actually responds (blocked
-    // third-party cookies, an extension, or a very poor connection), don't
-    // leave the customer staring at a frozen "Processing..." button forever.
     let paystackSettled = false;
-    const stuckTimer = setTimeout(function () {
-      if (!paystackSettled && btn) {
-        btn.disabled = false;
-        btn.textContent = 'Pay ' + formatPrice(payable);
-        if (errEl) errEl.textContent = 'Payment is taking longer than expected — check your connection and try again.';
-      }
-    }, 15000);
+    let popupLoaded = false;
+
+    function resetButton() {
+      if (btn) { btn.disabled = false; btn.textContent = 'Pay ' + formatPrice(payable); }
+    }
 
     try {
-      const handler = PaystackPop.setup({
+      const popup = new PaystackPop();
+      const transaction = popup.newTransaction({
         key: PAYSTACK_PUBLIC_KEY,
         email: email,
         amount: Math.round(payable * 100),
         currency: 'NGN',
-        ref: order.ref,
+        reference: order.ref,
         metadata: {
           custom_fields: [
             { display_name: 'Customer Name', variable_name: 'customer_name', value: name },
@@ -646,24 +643,70 @@
             { display_name: 'Delivery Address', variable_name: 'address', value: address }
           ]
         },
-        callback: function (response) {
+        onLoad: function () {
+          // Popup actually rendered — the "stuck loading" case Paystack's own
+          // docs warn about (transaction never loads) no longer applies here,
+          // so cancel our own fallback timer.
+          popupLoaded = true;
+        },
+        onSuccess: function (result) {
           paystackSettled = true;
-          clearTimeout(stuckTimer);
           order.status = 'paid';
-          order.paystackRef = response.reference;
+          order.paystackRef = result.reference;
           finalizeOrder(order);
         },
-        onClose: function () {
+        onCancel: function () {
           paystackSettled = true;
-          clearTimeout(stuckTimer);
-          if (btn) { btn.disabled = false; btn.textContent = 'Pay ' + formatPrice(payable); }
+          resetButton();
+        },
+        onError: function (error) {
+          paystackSettled = true;
+          resetButton();
+          offerManualFallback(order, errEl, 'Card payment failed to start' + (error && error.message ? (': ' + error.message) : '.'));
         }
       });
-      handler.openIframe();
+
+      // Paystack's own guidance: if the transaction hasn't loaded within
+      // ~10 seconds, cancel it and fall back — rather than leaving the
+      // customer staring at a popup stuck on its own loading spinner with
+      // no way out, which is what v1's setup()/openIframe() had no
+      // mechanism to prevent.
+      setTimeout(function () {
+        if (!popupLoaded && !paystackSettled) {
+          try { popup.cancelTransaction(transaction.id); } catch (e) { /* best effort */ }
+          paystackSettled = true;
+          resetButton();
+          offerManualFallback(order, errEl, "Card payment didn't load in time — this can happen on a slow or unstable connection.");
+        }
+      }, 10000);
+
     } catch (e) {
-      clearTimeout(stuckTimer);
-      finalizeOrder(order);
+      resetButton();
+      offerManualFallback(order, errEl, "Card payment couldn't be opened just now.");
     }
+  }
+
+  // Shown when Paystack genuinely can't be used (SDK blocked/failed to load,
+  // popup didn't load in time, or threw an error). Previously this silently
+  // completed the order as "pending payment" with zero visible feedback —
+  // which, from the customer's side, looked exactly like tapping Pay and
+  // having nothing happen at all. Now the customer sees why, and explicitly
+  // chooses to continue without paying by card (order stays pending,
+  // confirmed manually) rather than that decision being made silently for
+  // them or being left stuck on an unresponsive popup.
+  function offerManualFallback(order, errEl, reason) {
+    pendingFallbackOrder = order;
+    if (errEl) {
+      errEl.innerHTML = reason + ' You can still place the order — we\'ll contact you to arrange payment.' +
+        '<button type="button" onclick="SentraXStore.placeOrderWithoutPaystack()" style="display:block;width:auto;padding:8px 14px;margin:10px auto 0;font-size:13px;">Place order without card payment</button>';
+    }
+  }
+
+  function placeOrderWithoutPaystack() {
+    if (!pendingFallbackOrder) return;
+    const order = pendingFallbackOrder;
+    pendingFallbackOrder = null;
+    finalizeOrder(order);
   }
 
   function finalizeOrder(order) {
@@ -728,6 +771,7 @@
       renderCartStepPublic: renderCartStep,
       toggleUseCoins: toggleUseCoins,
       placeOrder: placeOrder,
+      placeOrderWithoutPaystack: placeOrderWithoutPaystack,
       PRODUCTS: PRODUCTS
     };
   }
