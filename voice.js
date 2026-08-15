@@ -108,42 +108,51 @@
     const log = document.getElementById('ai-chat-log');
     if (!log || !window.MutationObserver) return;
     const observer = new MutationObserver(function (mutations) {
-      const addedBotNodes = [];
       mutations.forEach(function (m) {
         m.addedNodes.forEach(function (node) {
-          if (node.nodeType === 1 && node.classList.contains('ai-msg') &&
-              node.classList.contains('bot') && !node.classList.contains('typing')) {
-            addedBotNodes.push(node);
+          if (node.nodeType !== 1 || !node.classList.contains('ai-msg') || !node.classList.contains('bot')) return;
+
+          if (node.classList.contains('typing')) {
+            // This is the "Thinking…" placeholder bubble. Its final text never
+            // arrives as a new child of the log — sendAiMessage() just keeps
+            // overwriting THIS node's textContent as the stream comes in (or
+            // once, with an error message, if it fails) — so watch the node
+            // itself rather than waiting for a childList change that never
+            // comes for a live reply.
+            const isLiveSend = pendingLiveReplies > 0;
+            if (isLiveSend) pendingLiveReplies--;
+            if (isLiveSend) watchReplyNode(node);
+            return;
           }
+
+          // A bot bubble that wasn't the typing placeholder only appears this
+          // way when an old conversation is being replayed on open (its
+          // messages get appended as fully-formed nodes). The intro line is
+          // one such node and always speaks; anything else stays silent.
+          if (node.textContent === INTRO_TEXT) speak(node.textContent);
         });
       });
-
-      if (addedBotNodes.length === 0) return;
-
-      // Multiple bot bubbles added in one batch only happens when an old
-      // conversation with more than one exchange is being replayed on
-      // open — never during a real one-at-a-time chat. Always silent.
-      if (addedBotNodes.length > 1) {
-        pendingLiveReplies = Math.max(0, pendingLiveReplies - 1);
-        return;
-      }
-
-      const text = addedBotNodes[0].textContent;
-      const wasLiveSend = pendingLiveReplies > 0;
-      if (wasLiveSend) pendingLiveReplies--;
-
-      if (text === INTRO_TEXT) {
-        // Genuine intro — always speak, every time it's shown.
-        speak(text);
-      } else if (wasLiveSend) {
-        // A real reply to a message this session actually sent.
-        if (!mutedReplies) speak(text);
-      }
-      // Anything else — a single old message being replayed on open,
-      // that happens to not be the intro and wasn't a live send —
-      // is correctly left silent.
     });
     observer.observe(log, { childList: true });
+  }
+
+  // Watches a single in-flight reply bubble until its text stops changing
+  // (streaming rewrites it repeatedly), then speaks it exactly once. A short
+  // debounce after the last mutation is what "stopped changing" means here —
+  // simpler and more robust than trying to detect the exact stream-end event
+  // from outside script.js.
+  function watchReplyNode(node) {
+    if (!window.MutationObserver) return;
+    let timer = null;
+    const nodeObserver = new MutationObserver(function () {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(function () {
+        nodeObserver.disconnect();
+        const text = node.textContent;
+        if (text && !mutedReplies) speak(text);
+      }, 600);
+    });
+    nodeObserver.observe(node, { childList: true, characterData: true, subtree: true });
   }
 
   // Stop talking the instant the AI screen is no longer the active one,
