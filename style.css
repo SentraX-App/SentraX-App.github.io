@@ -600,3 +600,4 @@ nav button.active .icon { filter: none; }
    `button { width:100% }` rule and squeezing the text column to nothing. */
 .cg-card > button.cg-danger { width: auto; flex-shrink: 0; padding: 10px 14px; margin-top: 0; }
 .cg-add-btn { margin-top: 12px; }
+
