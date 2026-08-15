@@ -812,7 +812,18 @@ function revokeCaregiver(uid) {
   firebase.firestore().collection('users').doc(user.uid).update(update)
     .catch(function (err) { alert('Could not remove caregiver: ' + err.message); });
 }
+// Set this once you have a Google Business Profile or Play Store link.
+// Until then, feedback opens WhatsApp so the button is never a dead end.
+const RATE_URL = ''; // e.g. 'https://g.page/r/XXXXXXXXXXXX/review'
 
+function rateApp() {
+  if (RATE_URL) {
+    window.open(RATE_URL, '_blank');
+  } else {
+    const msg = 'Hi Sentra-X team, I wanted to share some feedback about the app:';
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  }
+}
 function shareToFamily() {
   const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
   const streak = localStorage.getItem('streak') || '0';
