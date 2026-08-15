@@ -44,10 +44,23 @@
   // conversation being replayed, which looks identical by node-count alone.
   const INTRO_TEXT = "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 112.";
 
+  // Must match script.js's AI_WELCOME_BACK_VARIANTS list exactly — these
+  // are the "welcome back" lines shown (not saved to history) whenever
+  // you reopen an existing conversation. Unlike the intro, these respect
+  // the mute toggle rather than always speaking.
+  const WELCOME_BACK_VARIANTS = [
+    "Welcome back — what's up?",
+    "Good to see you again. What's on your mind?",
+    "I'm here — go ahead.",
+    "Back again? What can I help with today?",
+    "Hey, picking back up — what do you need?"
+  ];
+
   let recognition = null;
   let listening = false;
   let mutedReplies = localStorage.getItem('voice-muted-replies') === '1';
   let pendingLiveReplies = 0; // >0 means a real sendAiMessage() call is in flight
+  let micPermissionConfirmed = false; // once true, skip re-probing getUserMedia on every tap
 
   function speak(text) {
     if (!synth || !text) return;
@@ -63,10 +76,19 @@
   // actually starts speaking. Priming getVoices() early (and again on the
   // voiceschanged event some browsers fire once loading finishes) avoids
   // paying that delay right when the person is waiting for the intro.
+  // Also speaks a near-silent utterance immediately — on some Android
+  // engines, getVoices() alone doesn't fully warm the TTS pipeline, and
+  // only an actual speak() call does, which is what was causing a real
+  // delay before the very first reply of a session was heard.
   function primeSpeechEngine() {
     if (!synth) return;
     synth.getVoices();
     synth.addEventListener('voiceschanged', function () { synth.getVoices(); });
+    try {
+      const warm = new SpeechSynthesisUtterance(' ');
+      warm.volume = 0;
+      synth.speak(warm);
+    } catch (e) { /* best effort */ }
   }
 
   function updateReadAloudBtn() {
@@ -139,6 +161,7 @@
           // messages get appended as fully-formed nodes). The intro line is
           // one such node and always speaks; anything else stays silent.
           if (node.textContent === INTRO_TEXT) speak(node.textContent);
+          else if (WELCOME_BACK_VARIANTS.indexOf(node.textContent) !== -1 && !mutedReplies) speak(node.textContent);
         });
       });
     });
@@ -173,24 +196,60 @@
     observer.observe(screen, { attributes: true, attributeFilter: ['class'] });
   }
 
+  let finalTranscript = ''; // accumulates confirmed speech across the whole listening session
+  let userStoppedManually = false; // distinguishes "you tapped stop" from the engine pausing on its own
+
   function setupRecognition() {
     if (!SpeechRecognitionImpl) return;
     recognition = new SpeechRecognitionImpl();
     recognition.lang = 'en-NG';
     recognition.interimResults = true; // show live partial text as you speak, so it feels as responsive as typing instead of a silent wait
+    recognition.continuous = true; // keep listening across natural pauses in speech instead of the engine cutting off after the first one
     recognition.maxAlternatives = 1;
 
     recognition.onresult = function (e) {
       const input = document.getElementById('ai-chat-input');
-      const result = e.results[e.results.length - 1];
-      const transcript = result[0].transcript;
-      if (input) input.value = transcript; // updates live while speaking
-      if (result.isFinal && input) {
-        if (typeof window.sendAiMessage === 'function') window.sendAiMessage();
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        if (result.isFinal) finalTranscript += result[0].transcript + ' ';
+        else interim += result[0].transcript;
       }
+      if (input) input.value = (finalTranscript + interim).trim(); // live preview, never auto-sent mid-session
     };
-    recognition.onerror = function () { stopListening(); };
-    recognition.onend = function () { stopListening(); };
+
+    recognition.onerror = function (e) {
+      // 'no-speech' just means a quiet gap — the engine often stops the
+      // session over this even in continuous mode. If the person hasn't
+      // tapped stop, silently keep the session going instead of treating
+      // a pause as "they're done and it failed."
+      if (e.error === 'no-speech' && !userStoppedManually) {
+        try { recognition.start(); } catch (err) { /* ignore */ }
+        return;
+      }
+      finishListening();
+    };
+    recognition.onend = function () {
+      // The engine can end the session on its own even in continuous mode
+      // (Android is prone to this). If the person hasn't tapped stop,
+      // seamlessly resume so it doesn't feel like it "cut off."
+      if (!userStoppedManually && listening) {
+        try { recognition.start(); return; } catch (err) { /* fall through to finishing */ }
+      }
+      finishListening();
+    };
+  }
+
+  function finishListening() {
+    listening = false;
+    updateMicBtn();
+    const text = finalTranscript.trim();
+    finalTranscript = '';
+    if (text) {
+      const input = document.getElementById('ai-chat-input');
+      if (input) input.value = text;
+      if (typeof window.sendAiMessage === 'function') window.sendAiMessage();
+    }
   }
 
   function updateMicBtn() {
@@ -202,16 +261,23 @@
 
   function startListening() {
     if (!recognition) return;
-    // Explicitly request mic permission first. On Android Chrome, calling
-    // recognition.start() before the origin has ever been granted mic
-    // access sometimes fails silently (onerror fires, no dialog shown) —
-    // this guarantees the permission prompt is shown and resolved BEFORE
-    // we ever touch recognition.start(), which is what was causing voice
-    // to silently do nothing on the very first attempt.
+    finalTranscript = '';
+    userStoppedManually = false;
+    // Once permission has been confirmed granted, skip getUserMedia
+    // entirely and go straight to recognition.start(). Re-probing on
+    // EVERY tap (open a mic stream, immediately close it, then hand the
+    // mic to SpeechRecognition) was racing the hardware teardown against
+    // the engine trying to claim it — that's what was making voice work
+    // inconsistently, not just on the very first attempt.
+    if (micPermissionConfirmed) {
+      actuallyStart();
+      return;
+    }
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(function (stream) {
           stream.getTracks().forEach(function (t) { t.stop(); }); // we only needed the permission grant
+          micPermissionConfirmed = true;
           actuallyStart();
         })
         .catch(function () {
@@ -228,13 +294,16 @@
   }
 
   function stopListening() {
-    listening = false;
-    updateMicBtn();
+    // Called when YOU tap the mic to stop — this is what actually sends
+    // whatever was captured. The engine's own onend (above) defers to
+    // finishListening() too, but only once userStoppedManually is true.
+    userStoppedManually = true;
+    try { recognition.stop(); } catch (e) { finishListening(); }
   }
 
   function toggleMic() {
     if (!recognition) return;
-    if (listening) { recognition.stop(); stopListening(); }
+    if (listening) { stopListening(); }
     else { startListening(); }
   }
 
