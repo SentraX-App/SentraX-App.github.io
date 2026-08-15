@@ -178,6 +178,7 @@
   function openLiveArticle(id) {
     const item = liveNewsById[id];
     if (!item) return;
+    if (window.SentraXRewards) window.SentraXRewards.awardArticleRead('live-' + id);
     let overlay = document.getElementById('article-reader-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -359,6 +360,7 @@
   function openMedLibArticle(id) {
     const item = medLibraryById[id];
     if (!item) return;
+    if (window.SentraXRewards) window.SentraXRewards.awardArticleRead('medlib-' + id);
     let overlay = document.getElementById('article-reader-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
