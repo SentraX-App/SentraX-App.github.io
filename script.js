@@ -613,6 +613,11 @@ function saveCaregiver() {
   renderCaregiverNote();
   syncToFirestore({ cgName: name, cgPhone: phone, cgEmail: email });
 }
+function editCaregiver() {
+  document.getElementById('cg-form').style.display = 'block';
+  document.getElementById('cg-summary').style.display = 'none';
+  document.getElementById('cg-saved-note').textContent = '';
+}
 function generateInviteCode() {
   const user = firebase.auth().currentUser;
   if (!user) { alert('Please log in first.'); return; }
@@ -638,14 +643,21 @@ function generateInviteCode() {
 function renderCaregiverNote() {
   const name = localStorage.getItem('cgName');
   const note = document.getElementById('cg-saved-note');
-  const nameInput = document.getElementById('cg-name');
-  const phoneInput = document.getElementById('cg-phone');
-  const emailInput = document.getElementById('cg-email');
+  const form = document.getElementById('cg-form');
+  const summary = document.getElementById('cg-summary');
   if (name) {
+    document.getElementById('cg-name').value = name;
+    document.getElementById('cg-phone').value = localStorage.getItem('cgPhone') || '';
+    document.getElementById('cg-email').value = localStorage.getItem('cgEmail') || '';
+    document.getElementById('cg-summary-name').textContent = '👤 ' + name;
+    document.getElementById('cg-summary-phone').textContent = '📱 ' + (localStorage.getItem('cgPhone') || '—');
+    document.getElementById('cg-summary-email').textContent = '✉️ ' + (localStorage.getItem('cgEmail') || 'No email on file');
+    form.style.display = 'none';
+    summary.style.display = 'block';
     note.textContent = '✓ Saved — alerts will go to ' + name;
-    nameInput.value = name;
-    phoneInput.value = localStorage.getItem('cgPhone') || '';
-    emailInput.value = localStorage.getItem('cgEmail') || '';
+  } else {
+    form.style.display = 'block';
+    summary.style.display = 'none';
   }
 }
 
