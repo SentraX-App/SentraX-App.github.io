@@ -1292,6 +1292,7 @@ function sendAiMessage() {
   if (!text) return;
   input.value = '';
   aiSendInFlight = true;
+  document.dispatchEvent(new CustomEvent('sentrax-ai-send-started'));
   const sendBtn = document.getElementById('ai-send-btn');
   if (sendBtn) sendBtn.disabled = true;
 
@@ -1338,6 +1339,15 @@ function sendAiMessage() {
 
       function readChunk() {
         return reader.read().then(function(result) {
+          // True only while the reply we're streaming is still the thread
+          // actually on screen. If the person switched to a different
+          // conversation (or started a new one) mid-stream, openAiThread /
+          // startNewAiChat already cleared #ai-chat-log — this typingEl node
+          // is detached at that point, so writing to it would be invisible
+          // anyway. The reply itself is never lost either way: it's still
+          // saved into the correct thread's history below regardless.
+          const stillVisible = currentAiThreadId === thread.id && document.body.contains(typingEl);
+
           if (result.done) {
             clearTimeout(timeoutId);
             const cleaned = cleanAiMarkdown(fullText).trim();
@@ -1347,12 +1357,12 @@ function sendAiMessage() {
               // would get resent as context on the next message, so one
               // failed reply would otherwise poison every message after it
               // in the same thread.
-              typingEl.textContent = cleaned;
+              if (stillVisible) typingEl.textContent = cleaned;
               thread.messages.push({ role: 'assistant', content: cleaned });
               thread.updatedAt = Date.now();
               saveAiThreads();
-              document.dispatchEvent(new CustomEvent('sentrax-ai-reply-done', { detail: { text: cleaned } }));
-            } else {
+              if (stillVisible) document.dispatchEvent(new CustomEvent('sentrax-ai-reply-done', { detail: { text: cleaned } }));
+            } else if (stillVisible) {
               const failText = "Sorry, I couldn't generate a response just now.";
               typingEl.textContent = failText;
               document.dispatchEvent(new CustomEvent('sentrax-ai-reply-done', { detail: { text: failText } }));
@@ -1397,8 +1407,10 @@ function sendAiMessage() {
               if (delta) {
                 fullText += delta;
                 sawAnyChunk = true;
-                typingEl.textContent = fullText;
-                document.getElementById('ai-chat-log').scrollTop = document.getElementById('ai-chat-log').scrollHeight;
+                if (stillVisible) {
+                  typingEl.textContent = fullText;
+                  document.getElementById('ai-chat-log').scrollTop = document.getElementById('ai-chat-log').scrollHeight;
+                }
               } else if (rawSample.length < 300) {
                 // Parsed fine but no usable text field — capture the actual
                 // shape so we can see what the worker is really sending
@@ -1439,9 +1451,19 @@ function sendAiMessage() {
       if (typeof Sentry !== 'undefined' && Sentry.captureException) {
         try { Sentry.captureException(err); } catch (_ignored) { /* best effort */ }
       }
+      // A TypeError here means the request never even reached a server —
+      // no network, DNS failure, or the worker's CORS headers rejecting the
+      // request outright. That's always a raw, technical browser string
+      // ("Failed to fetch", "NetworkError when attempting to fetch
+      // resource.") — never something to show the person as if the
+      // assistant "said" it. Only err.message from our OWN thrown Errors
+      // above (the worker's JSON error body, or "Server error (status)")
+      // is ever safe to surface directly.
       const friendly = err.name === 'AbortError'
         ? "That's taking a while — the assistant might be busy right now. Please try again."
-        : (err.message && err.message.length < 140 ? err.message : "Sorry, the assistant isn't available right now. Please try again in a moment.");
+        : (err instanceof TypeError)
+          ? "Sorry, the assistant isn't available right now. Please try again in a moment."
+          : (err.message && err.message.length < 140 ? err.message : "Sorry, the assistant isn't available right now. Please try again in a moment.");
       typingEl.textContent = friendly;
       document.dispatchEvent(new CustomEvent('sentrax-ai-reply-done', { detail: { text: friendly } }));
       aiSendInFlight = false;
