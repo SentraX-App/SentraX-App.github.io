@@ -662,6 +662,9 @@
         onError: function (error) {
           paystackSettled = true;
           resetButton();
+          if (typeof Sentry !== 'undefined' && Sentry.captureException) {
+            try { Sentry.captureException(error instanceof Error ? error : new Error('Paystack onError: ' + (error && error.message))); } catch (_ignored) { /* best effort */ }
+          }
           offerManualFallback(order, errEl, 'Card payment failed to start' + (error && error.message ? (': ' + error.message) : '.'));
         }
       });
@@ -682,7 +685,15 @@
 
     } catch (e) {
       resetButton();
-      offerManualFallback(order, errEl, "Card payment couldn't be opened just now.");
+      // Report to Sentry (already loaded on the page, just never called) —
+      // this catch block was silently swallowing the real error before,
+      // so "couldn't be opened" on another device gave zero diagnostic
+      // info. Now the actual thrown error/stack is visible in the Sentry
+      // dashboard, and the on-screen message includes the real reason too.
+      if (typeof Sentry !== 'undefined' && Sentry.captureException) {
+        try { Sentry.captureException(e); } catch (_ignored) { /* best effort */ }
+      }
+      offerManualFallback(order, errEl, "Card payment couldn't be opened just now" + (e && e.message ? (': ' + e.message) : '.'));
     }
   }
 
