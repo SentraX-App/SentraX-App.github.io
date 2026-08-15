@@ -220,25 +220,17 @@
 
   <div class="screen" id="family-screen">
     <div class="card">
-      <h3>Your Caregiver</h3>
-      <p style="color:#94a3b8; font-size:14px;">Save a family member's number and email so medication and BP alerts reach them automatically.</p>
-      <div id="cg-form">
+      <h3>Your Care Team</h3>
+      <p style="color:#94a3b8; font-size:14px;">Save family members so medication and BP alerts reach them automatically. Your primary contact receives automatic alerts.</p>
+      <div id="cg-list"></div>
+      <div id="cg-form" style="display:none;">
         <input type="text" id="cg-name" placeholder="Caregiver's name">
         <input type="text" id="cg-phone" placeholder="Phone number for SMS alerts, e.g. 2348012345678">
         <input type="email" id="cg-email" placeholder="Caregiver's email address">
-        <button onclick="saveCaregiver()">Save Caregiver</button>
+        <button onclick="saveCaregiverForm()">Save</button>
+        <button class="secondary" onclick="cancelCaregiverForm()" style="margin-top:8px;">Cancel</button>
       </div>
-      <div id="cg-summary" style="display:none;">
-        <div class="cg-card">
-          <div class="cg-avatar" id="cg-summary-avatar"></div>
-          <div class="cg-info">
-            <div class="cg-name" id="cg-summary-name"></div>
-            <div class="cg-row"><span>📱</span><span id="cg-summary-phone"></span></div>
-            <div class="cg-row"><span>✉️</span><span id="cg-summary-email"></span></div>
-          </div>
-        </div>
-        <button class="secondary cg-change-btn" onclick="editCaregiver()">Change Caregiver</button>
-      </div>
+      <button id="cg-add-btn" class="ghost cg-add-btn" onclick="openAddCaregiverForm()">+ Add Caregiver</button>
       <div id="cg-saved-note" style="font-size:13px;color:#6ee7b7;margin-top:6px;"></div>
     </div>
     <div class="card">
