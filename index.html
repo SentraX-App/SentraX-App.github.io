@@ -1,20 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-     <script>
-  window.addEventListener('error', function (e) {
-    var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fff;padding:14px;font-size:13px;font-family:monospace;white-space:pre-wrap;max-height:60vh;overflow:auto;';
-    box.textContent = 'DEBUG ERROR: ' + e.message + ' (' + e.filename + ':' + e.lineno + ')';
-    document.body ? document.body.prepend(box) : document.addEventListener('DOMContentLoaded', function(){ document.body.prepend(box); });
-  });
-  window.addEventListener('unhandledrejection', function (e) {
-    var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fff;padding:14px;font-size:13px;font-family:monospace;white-space:pre-wrap;max-height:60vh;overflow:auto;';
-    box.textContent = 'DEBUG PROMISE ERROR: ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
-    document.body ? document.body.prepend(box) : document.addEventListener('DOMContentLoaded', function(){ document.body.prepend(box); });
-  });
-     </script>
 <meta charset="UTF-8">
 <script src="https://js.sentry-cdn.com/610f527fbbea6d7402d8bc9cec492ad5.min.js" crossorigin="anonymous"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -409,6 +395,9 @@
   <div class="screen" id="marketplace-screen">
   <div id="marketplace-root"></div>
   </div>
+  <div class="screen" id="rewards-screen">
+  <div id="rewards-root"></div>
+  </div>
   <div id="more-sheet-backdrop" onclick="closeMoreMenu()" style="display:none;"></div>
   <div id="more-sheet" style="display:none;">
     <button onclick="showScreen('firstaid')" id="nav-firstaid"><span class="icon">🚑</span>First Aid</button>
@@ -416,6 +405,7 @@
     <button onclick="showScreen('ai')" id="nav-ai"><span class="icon">💬</span>Assistant</button>
     <button onclick="showScreen('articles')" id="nav-articles"><span class="icon">📰</span>Articles</button>
     <button onclick="showScreen('marketplace')" id="nav-marketplace"><span class="icon">🛍️</span>Marketplace</button>
+    <button onclick="showScreen('rewards')" id="nav-rewards"><span class="icon">🪙</span>Rewards</button>
   </div>
 
   <nav>
@@ -456,6 +446,7 @@
   <script src="ads.js"></script>
   <script src="articles.js"></script>
   <script src="store.js"></script>
+  <script src="rewards.js"></script>
   <script src="voice.js"></script>
   <script src="sw-update.js"></script>
 <script src="auth.js"></script>
