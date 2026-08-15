@@ -624,7 +624,7 @@ function generateInviteCode() {
     expiresAt: expiresAt,
     usedBy: null
   }).then(function () {
-    const link = 'https://sentra-x.web.app/caregiver.html?code=' + code;
+    const link = 'https://sentra-x.app/caregiver.html?code=' + code;
     document.getElementById('invite-code-box').style.display = 'block';
     document.getElementById('invite-code-text').textContent = code;
     const name = localStorage.getItem('userName') || 'I';
