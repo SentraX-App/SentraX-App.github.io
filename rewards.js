@@ -211,7 +211,7 @@
       '<div class="rwd-earn-row"><span>🛍️ Shop the Marketplace</span><b>+1 per ₦' + PURCHASE_COINS_PER_NGN + '</b></div>' +
       '<div class="rwd-earn-row"><span>🔥 Keep your daily streak</span><b>+' + DAILY_OPEN_COINS + '/day</b></div>' +
       '<div class="rwd-earn-row"><span>🏁 100-day streak (one-time)</span><b>+' + STREAK_MILESTONES[100] + '</b></div>' +
-      '<p class="rwd-disclaimer">1 🪙 = ₦' + COIN_TO_NGN + '. Article rewards are calibrated to real ad performance and may be adjusted over time to keep payouts sustainable.</p>' +
+      '<p class="rwd-disclaimer">1 🪙 = ₦' + COIN_TO_NGN + ' · rates may adjust to match real ad earnings</p>' +
       '</div>' +
 
       (data.redemptions.length ? '<div class="rwd-history-card"><h4>Redemption history</h4>' +
