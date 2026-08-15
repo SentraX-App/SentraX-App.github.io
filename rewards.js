@@ -76,6 +76,33 @@
     return (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().split('T')[0];
   }
 
+  // ---- Trusted server time (streak-manipulation defense) -----------------
+  // A same-origin fetch is exempt from CORS header restrictions, so the
+  // browser exposes the full response, including the Date header — the
+  // server's clock, not the device's. Changing your phone's date does
+  // nothing to this value, since it never comes from the device at all.
+  // This is deliberately the ONE thing in the streak check that can't be
+  // faked by adjusting a setting — spoofing it would mean forging a real
+  // HTTP response, not just changing the time on your phone.
+  //
+  // Honest limit: this only works while online. Offline, there's no
+  // external clock to check against, so we fall back to the device's own
+  // date — same as before. That's an unavoidable gap in any client-only
+  // app, not something more code can close.
+  function getTrustedDate() {
+    if (typeof fetch === 'undefined') return Promise.reject(new Error('no fetch'));
+    const bustUrl = location.origin + location.pathname.replace(/[^/]*$/, '') + 'manifest.json?_=' + Date.now();
+    return fetch(bustUrl, { cache: 'no-store' }).then(function (res) {
+      const serverDate = res.headers.get('Date');
+      if (!serverDate) throw new Error('no Date header');
+      const d = new Date(serverDate);
+      if (isNaN(d.getTime())) throw new Error('unparseable Date header');
+      return d;
+    });
+  }
+
+  function dateStr(d) { return d.toISOString().split('T')[0]; }
+
   // ---- Data (localStorage 'rwd-data', synced to Firestore as `rewards`) -
   function getData() {
     const defaults = { coins: 0, lifetimeCoins: 0, streak: 0, longestStreak: 0, lastActiveDate: null, readArticleIds: [], redemptions: [] };
@@ -100,6 +127,10 @@
   }
 
   // ---- Earning: articles --------------------------------------------------
+  function hasReadArticle(articleId) {
+    return getData().readArticleIds.indexOf(articleId) !== -1;
+  }
+
   function awardArticleRead(articleId) {
     if (!articleId) return;
     const data = getData();
@@ -126,14 +157,24 @@
   // Streak count itself is still tracked every day (needed for the 100-day
   // milestone and the streak badge on the Rewards screen) — it just no
   // longer pays a coin for the act of opening the app.
+  //
+  // The date used here comes from getTrustedDate() (the server's clock)
+  // whenever we're online, specifically so that changing the device's date
+  // — the easy, common way people fast-forward a streak — has no effect.
   function checkDailyStreak() {
-    const data = getData();
-    const t = today();
-    if (data.lastActiveDate === t) return; // already checked today
+    getTrustedDate()
+      .catch(function () { return new Date(); }) // offline: no external clock available, fall back to device time
+      .then(applyDailyStreak);
+  }
 
-    const y = new Date();
+  function applyDailyStreak(now) {
+    const data = getData();
+    const t = dateStr(now);
+    if (data.lastActiveDate === t) return; // already checked for this (trusted) date
+
+    const y = new Date(now.getTime());
     y.setDate(y.getDate() - 1);
-    const yStr = y.toISOString().split('T')[0];
+    const yStr = dateStr(y);
 
     if (data.lastActiveDate === yStr) {
       data.streak += 1;
@@ -387,6 +428,7 @@
     window.SentraXRewards = {
       render: renderRewards,
       awardArticleRead: awardArticleRead,
+      hasReadArticle: hasReadArticle,
       awardPurchase: awardPurchase,
       checkDailyStreak: checkDailyStreak,
       openRedeem: openRedeem,
