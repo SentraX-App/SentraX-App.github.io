@@ -813,15 +813,21 @@ function revokeCaregiver(uid) {
     .catch(function (err) { alert('Could not remove caregiver: ' + err.message); });
 }
 // Set this once you have a Google Business Profile or Play Store link.
-// Until then, feedback opens WhatsApp so the button is never a dead end.
 const RATE_URL = ''; // e.g. 'https://g.page/r/XXXXXXXXXXXX/review'
+
+// Company WhatsApp number feedback should always go to, in international
+// format with no + or spaces/dashes (e.g. '2348012345678').
+const FEEDBACK_WHATSAPP_NUMBER = '+2349023237239'; // <-- fill this in
 
 function rateApp() {
   if (RATE_URL) {
     window.open(RATE_URL, '_blank');
   } else {
     const msg = 'Hi Sentra-X team, I wanted to share some feedback about the app:';
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    const base = FEEDBACK_WHATSAPP_NUMBER
+      ? 'https://wa.me/' + FEEDBACK_WHATSAPP_NUMBER
+      : 'https://wa.me/';
+    window.open(base + '?text=' + encodeURIComponent(msg), '_blank');
   }
 }
 function shareToFamily() {
