@@ -221,7 +221,9 @@
     observer.observe(screen, { attributes: true, attributeFilter: ['class'] });
   }
 
-  let finalTranscript = ''; // accumulates confirmed speech across the whole listening session
+  let finalResults = []; // finalized transcript segments, indexed by result index — overwritten, never appended, so a re-fired index can't duplicate text
+  let finalTranscript = ''; // finalResults joined — kept as a plain string for the rest of the file to read
+  let lastInterim = ''; // most recent not-yet-final text, tracked so stopping mid-phrase doesn't lose it
   let userStoppedManually = false; // distinguishes "you tapped stop" from the engine pausing on its own
 
   function setupRecognition() {
@@ -237,10 +239,19 @@
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const result = e.results[i];
-        if (result.isFinal) finalTranscript += result[0].transcript + ' ';
+        // Android Chrome can re-fire onresult for an index it already
+        // marked final, with a progressively longer transcript each time
+        // (the browser refining its own guess). Writing to finalResults[i]
+        // — instead of finalTranscript += ... — means a repeat visit to
+        // the same index safely overwrites that one entry rather than
+        // piling another copy onto the end, which is what produced the
+        // "hello hello I said hello I said you..." pattern.
+        if (result.isFinal) finalResults[i] = result[0].transcript;
         else interim += result[0].transcript;
       }
-      if (input) input.value = (finalTranscript + interim).trim(); // live preview, never auto-sent mid-session
+      finalTranscript = finalResults.join(' ').trim();
+      lastInterim = interim;
+      if (input) input.value = (finalTranscript + ' ' + interim).trim(); // live preview, never auto-sent mid-session
     };
 
     recognition.onerror = function (e) {
@@ -268,8 +279,17 @@
   function finishListening() {
     listening = false;
     updateMicBtn();
-    const text = finalTranscript.trim();
+    // Combine finalized speech with whatever was still interim (unconfirmed
+    // by the engine) at the moment you tapped stop. Previously this only
+    // read finalTranscript — so stopping a beat before the engine finished
+    // "finalizing" your last phrase (common; finalization typically lags
+    // slightly behind what's already visible on screen) meant that trailing
+    // text was silently dropped, sometimes leaving nothing to send at all
+    // even though the words were sitting right there in the input box.
+    const text = (finalTranscript + ' ' + lastInterim).trim();
+    finalResults = [];
     finalTranscript = '';
+    lastInterim = '';
     if (text) {
       const input = document.getElementById('ai-chat-input');
       if (input) input.value = text;
@@ -286,7 +306,9 @@
 
   function startListening() {
     if (!recognition) return;
+    finalResults = [];
     finalTranscript = '';
+    lastInterim = '';
     userStoppedManually = false;
     // Once permission has been confirmed granted, skip getUserMedia
     // entirely and go straight to recognition.start(). Re-probing on
