@@ -41,7 +41,7 @@
   const LIVE_FETCH_RETRIES = 1;
 
   const MEDLIB_WORKER_URL = 'https://sentrax-medlib.alecedoh1994.workers.dev';
-  const MEDLIB_CACHE_KEY = 'sentrax-medlib-cache-v1';
+  const MEDLIB_CACHE_KEY = 'sentrax-medlib-cache-v2';
   const MEDLIB_CACHE_MS = 24 * 60 * 60 * 1000;
   const MEDLIB_FETCH_TIMEOUT_MS = 8000;
   const MEDLIB_TAG_MAP = {
@@ -54,7 +54,23 @@
     'healthy-aging': 'Wellness',
     'exercise-for-older-adults': 'Activity',
     'sleep-disorders': 'Sleep',
-    'caregivers': 'Caregiving'
+    'caregivers': 'Caregiving',
+    'arthritis': 'Joint Health',
+    'osteoporosis': 'Joint Health',
+    'depression': 'Mental Health',
+    'anxiety': 'Mental Health',
+    'copd': 'Respiratory',
+    'asthma': 'Respiratory',
+    'dementia': 'Memory',
+    'falls': 'Activity',
+    'weight-control': 'Diet',
+    'nutrition': 'Diet',
+    'vision-impairment-and-blindness': 'Vision',
+    'hearing-disorders-and-deafness': 'Hearing',
+    'immunization': 'Immunization',
+    'urinary-incontinence': 'Wellness',
+    'pain': 'Joint Health',
+    'flu': 'Respiratory'
   };
 
   function fetchWithTimeout(url, timeoutMs) {
@@ -98,7 +114,9 @@
 
   const TAG_EMOJI = {
     Hypertension: '🩺', Diet: '🥗', Medication: '💊', Activity: '🚶',
-    Sleep: '😴', Diabetes: '🩸', Wellness: '🧘', Caregiving: '🤝'
+    Sleep: '😴', Diabetes: '🩸', Wellness: '🧘', Caregiving: '🤝',
+    'Joint Health': '🦴', 'Mental Health': '🧠', Respiratory: '🫁', Memory: '🧩',
+    Vision: '👁️', Hearing: '👂', Immunization: '💉'
   };
 
   const TAG_PHOTOS = {
@@ -119,7 +137,14 @@
     Diabetes: [
       'https://commons.wikimedia.org/wiki/Special:FilePath/Blausen%200299%20Diabetes%20BloodGlucoseMeter.png?width=500',
       'https://commons.wikimedia.org/wiki/Special:FilePath/Glucometer.jpg?width=500'
-    ]
+    ],
+    'Joint Health': ['https://commons.wikimedia.org/wiki/Special:FilePath/Illustration%20of%20a%20joint%20with%20rheumatoid%20arthritis.png?width=500'],
+    'Mental Health': ['https://commons.wikimedia.org/wiki/Special:FilePath/Human%20brain%20NIH.png?width=500'],
+    Respiratory: ['https://commons.wikimedia.org/wiki/Special:FilePath/Asthma%20attack-illustration%20NIH.jpg?width=500'],
+    Memory: ['https://commons.wikimedia.org/wiki/Special:FilePath/PET%20Alzheimer.jpg?width=500'],
+    Vision: ['https://commons.wikimedia.org/wiki/Special:FilePath/Human%20eye%20diagram-sagittal%20view-NEI.jpg?width=500'],
+    Hearing: ['https://commons.wikimedia.org/wiki/Special:FilePath/Anatomy%20of%20the%20Human%20Ear%20en.svg?width=500'],
+    Immunization: ['https://commons.wikimedia.org/wiki/Special:FilePath/US%20Navy%20050518-N-1485H-006%20Hospitalman%20Jessica%20Mayer%20of%20Mariss%2C%20Ill.%2C%20preps%20a%20syringe%20filled%20with%20measles%2C%20mumps%20and%20rubella%20vaccination%20before%20injecting%20a%20local%20woman%20the%20local%20village%20of%20Potts%20Dam.jpg?width=500']
   };
 
   const MEDLIB_PHOTO_OVERRIDE = {
@@ -387,6 +412,32 @@
     return copy;
   }
 
+  // How many Health Library articles to feature at once. With the topic
+  // pool now bigger than this, each day shows a genuinely different set of
+  // articles (not just the same set reordered) — see dailyFeaturedSlice.
+  const MEDLIB_DAILY_COUNT = 12;
+
+  // Splits the (already daily-shuffled) full topic pool into contiguous
+  // chunks of MEDLIB_DAILY_COUNT and picks a different chunk each day, so
+  // the Health Library actually rotates through new articles day to day
+  // instead of just re-showing the same set in a new order. Once the pool
+  // is fully cycled through it starts again, reshuffled. Add more topics
+  // to the Cloudflare Worker's TOPICS list any time to lengthen the cycle
+  // before it repeats.
+  function dailyFeaturedSlice(list) {
+    const shuffled = dailyShuffledCopy(list);
+    if (shuffled.length <= MEDLIB_DAILY_COUNT) return shuffled;
+    const numChunks = Math.ceil(shuffled.length / MEDLIB_DAILY_COUNT);
+    const dayIndex = Math.floor(Date.now() / 86400000);
+    const chunk = dayIndex % numChunks;
+    const start = chunk * MEDLIB_DAILY_COUNT;
+    let slice = shuffled.slice(start, start + MEDLIB_DAILY_COUNT);
+    if (slice.length < MEDLIB_DAILY_COUNT) {
+      slice = slice.concat(shuffled.slice(0, MEDLIB_DAILY_COUNT - slice.length));
+    }
+    return slice;
+  }
+
   function loadMedLibrary() {
     const container = document.getElementById('med-library-section');
     if (!container || !MEDLIB_WORKER_URL) return;
@@ -394,7 +445,7 @@
     fetchMedLibrary()
       .then(function (data) {
         if (!data || !data.items || !data.items.length) { container.innerHTML = ''; return; }
-        const shuffledItems = dailyShuffledCopy(data.items);
+        const shuffledItems = dailyFeaturedSlice(data.items);
         medLibraryById = {};
         medLibraryPhotoById = {};
         const tagCounters = {};
@@ -412,7 +463,7 @@
           }
         });
 
-        let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine) — order refreshes daily</p></div>';
+        let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine) — a fresh set featured daily</p></div>';
         shuffledItems.forEach(function (item, i) {
           medLibraryById[item.id] = item;
           const tag = MEDLIB_TAG_MAP[item.id] || 'Wellness';
