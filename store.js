@@ -173,21 +173,14 @@
       image: 'https://images.pexels.com/photos/365810/pexels-photo-365810.jpeg?auto=compress&w=800',
       short: 'A fresh bunch of ripe bananas.',
       long: 'A fresh bunch of ripe bananas — a convenient, potassium-rich snack, good for energy and easy on the stomach.' },
-    { id: 'lumbar-cushion', name: 'Lumbar Support Cushion', category: 'support', price: 8500, emoji: '🪑',
-      short: 'Ergonomic lower-back support for chairs and car seats.',
-      long: 'A contoured cushion that supports the natural curve of the lower spine during long periods of sitting — helpful for office chairs, car seats, and general lower-back comfort.' },
-    { id: 'bed-wedge-pillow', name: 'Adjustable Bed Wedge Pillow', category: 'support', price: 12500, emoji: '🛏️',
-      short: 'Elevated incline for easier breathing and reduced acid reflux.',
-      long: 'A foam wedge pillow that elevates the upper body while lying down — commonly used for easier breathing, reducing acid reflux discomfort, and general post-meal or nighttime comfort.' },
-    { id: 'digital-food-scale', name: 'Digital Kitchen Food Scale', category: 'nutrition', price: 6500, emoji: '⚖️',
-      short: 'Precise portion control for managing diet and diabetes.',
-      long: 'A digital scale for accurately measuring food portions — a practical tool for anyone managing diabetes, hypertension, or general diet goals where portion size matters.' },
-    { id: 'bp-paper-logbook', name: 'BP & Glucose Paper Logbook', category: 'medaids', price: 1500, emoji: '📓',
-      short: 'A simple paper backup to your in-app tracking.',
-      long: 'A pocket-sized paper logbook for jotting down blood pressure and glucose readings — a simple, reliable backup for moments without your phone, or for sharing a written record with your doctor.' },
     { id: 'moringa-powder-250g', name: 'Moringa Leaf Powder (250g)', category: 'supplements', price: 4500, emoji: '🌿',
       short: 'Nutrient-dense leaf powder, a popular local superfood.',
-      long: 'Dried, ground moringa leaf powder — a nutrient-dense addition to smoothies, tea, or meals, and one of the most widely used natural supplements in Nigeria.' }
+      long: 'Dried, ground moringa leaf powder — a nutrient-dense addition to smoothies, tea, or meals, and one of the most widely used natural supplements in Nigeria.',
+      image: 'https://images.pexels.com/photos/1313432/pexels-photo-1313432.jpeg?auto=compress&w=800' },
+    { id: 'diabetic-foot-lotion', name: 'Diabetic-Friendly Foot & Skin Lotion', category: 'wellness', price: 5500, emoji: '🧴',
+      short: 'Gentle, deeply moisturizing — kind to sensitive skin.',
+      long: 'A fragrance-conscious, deeply moisturizing lotion formulated for sensitive and easily-dried skin — a gentle daily choice for feet and skin that need extra care, including skin affected by diabetes. A comfort and skincare product, not a medical treatment.',
+      image: 'https://images.pexels.com/photos/5797999/pexels-photo-5797999.jpeg?auto=compress&w=800' }
   ];
 
   const productsById = {};
