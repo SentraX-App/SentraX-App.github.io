@@ -104,6 +104,27 @@
     return !!screen && screen.classList.contains('active');
   }
 
+  // Wraps the real global showScreen (defined in script.js) so speech is
+  // stopped the INSTANT navigation away from the AI screen happens —
+  // synchronously, before the DOM even updates — rather than waiting on
+  // the MutationObserver in watchAiScreenVisibility() below to notice the
+  // class change after the fact. Android's TTS engine can be slow or
+  // flaky about honoring a single cancel() call mid-sentence, so this
+  // fires cancel() twice (immediately, then again shortly after) to make
+  // sure speech actually stops when you leave for Marketplace, Family,
+  // or any other screen — not just eventually.
+  function wrapShowScreen() {
+    if (typeof window.showScreen !== 'function') return;
+    const original = window.showScreen;
+    window.showScreen = function (name) {
+      if (name !== 'ai' && isAiScreenActive() && synth) {
+        synth.cancel();
+        setTimeout(function () { synth.cancel(); }, 60);
+      }
+      return original.apply(this, arguments);
+    };
+  }
+
   function watchChatLog() {
     const log = document.getElementById('ai-chat-log');
     if (!log || !window.MutationObserver) return;
@@ -156,14 +177,15 @@
     if (!SpeechRecognitionImpl) return;
     recognition = new SpeechRecognitionImpl();
     recognition.lang = 'en-NG';
-    recognition.interimResults = false;
+    recognition.interimResults = true; // show live partial text as you speak, so it feels as responsive as typing instead of a silent wait
     recognition.maxAlternatives = 1;
 
     recognition.onresult = function (e) {
-      const transcript = e.results[0][0].transcript;
       const input = document.getElementById('ai-chat-input');
-      if (input) {
-        input.value = transcript;
+      const result = e.results[e.results.length - 1];
+      const transcript = result[0].transcript;
+      if (input) input.value = transcript; // updates live while speaking
+      if (result.isFinal && input) {
         if (typeof window.sendAiMessage === 'function') window.sendAiMessage();
       }
     };
@@ -180,8 +202,29 @@
 
   function startListening() {
     if (!recognition) return;
+    // Explicitly request mic permission first. On Android Chrome, calling
+    // recognition.start() before the origin has ever been granted mic
+    // access sometimes fails silently (onerror fires, no dialog shown) —
+    // this guarantees the permission prompt is shown and resolved BEFORE
+    // we ever touch recognition.start(), which is what was causing voice
+    // to silently do nothing on the very first attempt.
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function (stream) {
+          stream.getTracks().forEach(function (t) { t.stop(); }); // we only needed the permission grant
+          actuallyStart();
+        })
+        .catch(function () {
+          alert('Sentra-X needs microphone access to use voice input. Please allow microphone permission and try again.');
+        });
+    } else {
+      actuallyStart();
+    }
+  }
+
+  function actuallyStart() {
     try { recognition.start(); listening = true; updateMicBtn(); }
-    catch (e) { /* already running or blocked — ignore */ }
+    catch (e) { /* already running — ignore */ }
   }
 
   function stopListening() {
@@ -223,14 +266,25 @@
     updateReadAloudBtn();
   }
 
+  function watchAppBackgrounded() {
+    // Also stop speech if the whole app is backgrounded (e.g. the user
+    // switches to another app or the phone locks) — not just when
+    // navigating between screens inside Sentra-X.
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden' && synth) synth.cancel();
+    });
+  }
+
   function init() {
     primeSpeechEngine();
     wrapSendAiMessage();
+    wrapShowScreen();
     setupRecognition();
     injectButtons();
     watchChatLog();
     watchReplyDone();
     watchAiScreenVisibility();
+    watchAppBackgrounded();
   }
 
   if (document.readyState === 'loading') {
