@@ -1067,6 +1067,23 @@ let currentAiThreadId = null;
       }
     } catch (e) { /* nothing to migrate */ }
   }
+
+  // One-time cleanup: earlier versions saved the on-screen failure notice
+  // into history as a real assistant turn, which then got resent as
+  // context on every later message — silently corrupting the thread from
+  // that point on. Strip any of those out of existing saved threads so
+  // conversations that already hit this don't keep failing.
+  const FAILURE_NOTICE = "Sorry, I couldn't generate a response just now.";
+  let strippedAny = false;
+  aiThreads.forEach(function (t) {
+    const before = t.messages.length;
+    t.messages = t.messages.filter(function (m) {
+      return !(m.role === 'assistant' && m.content === FAILURE_NOTICE);
+    });
+    if (t.messages.length !== before) strippedAny = true;
+  });
+  if (strippedAny) saveAiThreads();
+
   if (aiThreads.length > 0) currentAiThreadId = aiThreads[0].id;
 })();
 
@@ -1238,6 +1255,8 @@ function sendAiMessage() {
       typingEl.textContent = '';
       let fullText = '';
       let sawAnyChunk = false;
+      let sawAnyDataLine = false;
+      let rawSample = ''; // first ~300 chars of whatever the stream actually sent, for diagnosis if parsing comes up empty
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -1247,10 +1266,19 @@ function sendAiMessage() {
           if (result.done) {
             clearTimeout(timeoutId);
             const cleaned = cleanAiMarkdown(fullText).trim();
-            typingEl.textContent = cleaned || "Sorry, I couldn't generate a response just now.";
-            thread.messages.push({ role: 'assistant', content: typingEl.textContent });
-            thread.updatedAt = Date.now();
-            saveAiThreads();
+            if (cleaned) {
+              // Only a genuine reply gets saved into history. A failure
+              // notice is UI-only — saving it as a fake "assistant" turn
+              // would get resent as context on the next message, so one
+              // failed reply would otherwise poison every message after it
+              // in the same thread.
+              typingEl.textContent = cleaned;
+              thread.messages.push({ role: 'assistant', content: cleaned });
+              thread.updatedAt = Date.now();
+              saveAiThreads();
+            } else {
+              typingEl.textContent = "Sorry, I couldn't generate a response just now.";
+            }
             return;
           }
           buffer += decoder.decode(result.value, { stream: true });
@@ -1261,6 +1289,7 @@ function sendAiMessage() {
             if (!line.startsWith('data:')) return;
             const payload = line.slice(5).trim();
             if (payload === '[DONE]') return;
+            sawAnyDataLine = true;
             try {
               const parsed = JSON.parse(payload);
               const delta = parsed.response || (parsed.result && parsed.result.response) || '';
@@ -1269,8 +1298,15 @@ function sendAiMessage() {
                 sawAnyChunk = true;
                 typingEl.textContent = fullText;
                 document.getElementById('ai-chat-log').scrollTop = document.getElementById('ai-chat-log').scrollHeight;
+              } else if (rawSample.length < 300) {
+                // Parsed fine but no usable text field — capture the actual
+                // shape so we can see what the worker is really sending
+                // instead of guessing blind.
+                rawSample += payload.slice(0, 300 - rawSample.length);
               }
-            } catch (e) { /* partial/non-JSON line — ignore, next chunk completes it */ }
+            } catch (e) {
+              if (rawSample.length < 300) rawSample += payload.slice(0, 300 - rawSample.length);
+            }
           });
           return readChunk();
         });
@@ -1279,6 +1315,19 @@ function sendAiMessage() {
       return readChunk().then(function() {
         if (!sawAnyChunk) {
           typingEl.textContent = "Sorry, I couldn't generate a response just now.";
+          // The fetch/stream itself worked (we got a 200 + event-stream),
+          // but nothing usable came through it — that's a worker/model-side
+          // issue, not a network error, so it wouldn't otherwise show up
+          // anywhere. Surface it so it's actually diagnosable.
+          console.error('Sentra-X AI: stream ended with no usable content.', { sawAnyDataLine: sawAnyDataLine, rawSample: rawSample });
+          if (typeof Sentry !== 'undefined' && Sentry.captureMessage) {
+            try {
+              Sentry.captureMessage('AI stream produced zero usable chunks', {
+                level: 'error',
+                extra: { sawAnyDataLine: sawAnyDataLine, rawSample: rawSample }
+              });
+            } catch (_ignored) { /* best effort */ }
+          }
         }
       });
     })
@@ -1286,6 +1335,9 @@ function sendAiMessage() {
       clearTimeout(timeoutId);
       typingEl.classList.remove('typing');
       console.error('Sentra-X AI error:', err.message);
+      if (typeof Sentry !== 'undefined' && Sentry.captureException) {
+        try { Sentry.captureException(err); } catch (_ignored) { /* best effort */ }
+      }
       const friendly = err.name === 'AbortError'
         ? "That's taking a while — the assistant might be busy right now. Please try again."
         : (err.message && err.message.length < 140 ? err.message : "Sorry, the assistant isn't available right now. Please try again in a moment.");
