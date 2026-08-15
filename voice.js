@@ -240,22 +240,62 @@
   }
 
   let bankedTranscript = ''; // finalized speech from BEFORE the most recent internal restart — kept separate so a restart's fresh index-0 result can't silently overwrite it
-  let finalResults = []; // finalized transcript segments for the CURRENT recognition session, indexed by result index — overwritten, never appended, so a re-fired index can't duplicate text
-  let finalTranscript = ''; // finalResults joined — current session only
+  // completedSegments/currentRunText replace the earlier index-based
+  // approach entirely. Evidence from a real device showed the previous
+  // assumption was wrong: Android wasn't re-firing the SAME index with
+  // growing text (which index-overwrite would have fixed) — it was
+  // producing DIFFERENT indices that each independently held the ENTIRE
+  // cumulative phrase so far ("when" / "when are" / "when are they" / ...
+  // each a distinct final result). Joining distinct indices together, as
+  // the previous fix did, multiplied that growth into exactly the
+  // repeating pattern seen in testing.
+  //
+  // ingestFinalResult() below is index-agnostic on purpose — every final
+  // result is compared by its actual TEXT against what's already
+  // captured, not trusted by position:
+  //   - if the new text is a superset extending currentRunText (or is an
+  //     exact repeat), it REPLACES currentRunText — this is the engine
+  //     revising/growing its guess for the phrase still in progress.
+  //   - otherwise, it's a genuinely new phrase following a pause: the old
+  //     run gets banked into completedSegments and a new run begins.
+  // Because comparison is by content, reprocessing an already-seen result
+  // is naturally harmless (comparing a string against itself is always a
+  // "superset" match), so there's no need to trust the engine's index
+  // numbering to know what's already been consumed.
+  let completedSegments = []; // fully-finished phrases from earlier in this recognition session
+  let currentRunText = ''; // the in-progress phrase's latest, most-complete revision
+
+  function ingestFinalResult(text) {
+    if (!text) return;
+    if (!currentRunText || text.indexOf(currentRunText) === 0 || currentRunText.indexOf(text) === 0) {
+      // Extends (or repeats, or is a rare same-or-shorter revision of)
+      // the current run — keep whichever is longer/more complete.
+      if (text.length >= currentRunText.length) currentRunText = text;
+    } else {
+      // Doesn't relate to the current run at all — a new phrase started.
+      completedSegments.push(currentRunText);
+      currentRunText = text;
+    }
+  }
+
+  function currentFinalTranscript() {
+    return completedSegments.concat(currentRunText ? [currentRunText] : []).join(' ').trim();
+  }
+
+  let finalTranscript = ''; // currentFinalTranscript() — recomputed after every onresult, kept as a variable so the rest of the file can read it plainly
   let lastInterim = ''; // most recent not-yet-final text, tracked so stopping mid-phrase doesn't lose it
   let userStoppedManually = false; // distinguishes "you tapped stop" from the engine pausing on its own
 
   // Called right before restarting recognition after the engine drops it
   // on its own (continuous mode is prone to this on Android). Folds
   // whatever the just-ended session captured into bankedTranscript, then
-  // clears the per-session index tracker — otherwise the NEW session's
-  // result numbering starts again from 0, and its first result would
-  // silently overwrite finalResults[0] from the session that just ended,
-  // which is what was quietly deleting the start of longer sentences
-  // (e.g. "how are you doing today" surviving as just "doing today").
+  // clears the per-session run tracker — otherwise the new session's
+  // fresh results could be compared against (and confused with) the
+  // previous session's leftover run state.
   function bankCurrentTranscript() {
     bankedTranscript = (bankedTranscript + ' ' + finalTranscript).trim();
-    finalResults = [];
+    completedSegments = [];
+    currentRunText = '';
     finalTranscript = '';
   }
 
@@ -270,19 +310,18 @@
     recognition.onresult = function (e) {
       const input = document.getElementById('ai-chat-input');
       let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      // Deliberately processes ALL results every time (from 0), not just
+      // from e.resultIndex onward — since ingestFinalResult() compares by
+      // text content rather than trusting index position, reprocessing an
+      // already-seen result is harmless (a string always "extends" itself),
+      // so there's no need to rely on the engine's index numbering being
+      // stable or non-overlapping, which testing showed it isn't.
+      for (let i = 0; i < e.results.length; i++) {
         const result = e.results[i];
-        // Android Chrome can re-fire onresult for an index it already
-        // marked final, with a progressively longer transcript each time
-        // (the browser refining its own guess). Writing to finalResults[i]
-        // — instead of finalTranscript += ... — means a repeat visit to
-        // the same index safely overwrites that one entry rather than
-        // piling another copy onto the end, which is what produced the
-        // "hello hello I said hello I said you..." pattern.
-        if (result.isFinal) finalResults[i] = result[0].transcript;
+        if (result.isFinal) ingestFinalResult(result[0].transcript.trim());
         else interim += result[0].transcript;
       }
-      finalTranscript = finalResults.join(' ').trim();
+      finalTranscript = currentFinalTranscript();
       lastInterim = interim;
       const combined = (bankedTranscript + ' ' + finalTranscript + ' ' + interim).trim();
       if (input) input.value = combined; // live preview, never auto-sent mid-session
@@ -332,7 +371,8 @@
     // right there in the input box.
     const text = (bankedTranscript + ' ' + finalTranscript + ' ' + lastInterim).trim();
     bankedTranscript = '';
-    finalResults = [];
+    completedSegments = [];
+    currentRunText = '';
     finalTranscript = '';
     lastInterim = '';
     if (text) {
@@ -352,7 +392,8 @@
   function startListening() {
     if (!recognition) return;
     bankedTranscript = '';
-    finalResults = [];
+    completedSegments = [];
+    currentRunText = '';
     finalTranscript = '';
     lastInterim = '';
     userStoppedManually = false;
