@@ -1287,8 +1287,11 @@ function sendAiMessage() {
               thread.messages.push({ role: 'assistant', content: cleaned });
               thread.updatedAt = Date.now();
               saveAiThreads();
+              document.dispatchEvent(new CustomEvent('sentrax-ai-reply-done', { detail: { text: cleaned } }));
             } else {
-              typingEl.textContent = "Sorry, I couldn't generate a response just now.";
+              const failText = "Sorry, I couldn't generate a response just now.";
+              typingEl.textContent = failText;
+              document.dispatchEvent(new CustomEvent('sentrax-ai-reply-done', { detail: { text: failText } }));
             }
             return;
           }
@@ -1374,6 +1377,7 @@ function sendAiMessage() {
         ? "That's taking a while — the assistant might be busy right now. Please try again."
         : (err.message && err.message.length < 140 ? err.message : "Sorry, the assistant isn't available right now. Please try again in a moment.");
       typingEl.textContent = friendly;
+      document.dispatchEvent(new CustomEvent('sentrax-ai-reply-done', { detail: { text: friendly } }));
     });
 }
 
