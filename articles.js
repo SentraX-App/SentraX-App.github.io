@@ -156,7 +156,61 @@
 
   let articleHistoryPushed = false;
 
+  // ---- Reading time tracking (article coin now requires ~1.5 real
+  // minutes of the reader actually being on-screen, not just opened) ------
+  // Ticks down once a second, but only while the article is genuinely
+  // visible in the foreground — document.hidden (app backgrounded, screen
+  // locked, tab switched away) pauses it without losing progress, so
+  // switching away and back just resumes the same countdown rather than
+  // restarting it. Closing the article before it finishes drops the
+  // progress entirely — reopening later starts the 90 seconds fresh,
+  // same as actually starting the article over.
+  const ARTICLE_READ_DWELL_MS = 90000;
+  let readInterval = null;
+  let readRemainingMs = 0;
+  let readArticleKey = null;
+
+  function stopReadTracking() {
+    if (readInterval) clearInterval(readInterval);
+    readInterval = null;
+    readArticleKey = null;
+    const badge = document.getElementById('art-read-badge');
+    if (badge) badge.remove();
+  }
+
+  function updateReadBadge() {
+    const badge = document.getElementById('art-read-badge');
+    if (!badge) return;
+    const secs = Math.max(0, Math.ceil(readRemainingMs / 1000));
+    const m = Math.floor(secs / 60), s = secs % 60;
+    badge.textContent = '🪙 Keep reading — ' + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function startReadTracking(articleKey) {
+    stopReadTracking();
+    if (window.SentraXRewards && window.SentraXRewards.hasReadArticle(articleKey)) return; // nothing left to earn here
+    readArticleKey = articleKey;
+    readRemainingMs = ARTICLE_READ_DWELL_MS;
+    const badge = document.createElement('div');
+    badge.id = 'art-read-badge';
+    badge.className = 'art-reading-badge';
+    document.body.appendChild(badge);
+    updateReadBadge();
+    readInterval = setInterval(function () {
+      if (document.hidden) return; // paused — not real reading time while backgrounded
+      readRemainingMs -= 1000;
+      if (readRemainingMs <= 0) {
+        const key = readArticleKey;
+        stopReadTracking();
+        if (window.SentraXRewards) window.SentraXRewards.awardArticleRead(key);
+        return;
+      }
+      updateReadBadge();
+    }, 1000);
+  }
+
   function closeArticle() {
+    stopReadTracking();
     const overlay = document.getElementById('article-reader-overlay');
     if (overlay) overlay.style.display = 'none';
     if (articleHistoryPushed) {
@@ -168,6 +222,7 @@
   window.addEventListener('popstate', function () {
     const overlay = document.getElementById('article-reader-overlay');
     if (overlay && overlay.style.display === 'block') {
+      stopReadTracking();
       overlay.style.display = 'none';
       articleHistoryPushed = false;
     }
@@ -178,7 +233,6 @@
   function openLiveArticle(id) {
     const item = liveNewsById[id];
     if (!item) return;
-    if (window.SentraXRewards) window.SentraXRewards.awardArticleRead('live-' + id);
     let overlay = document.getElementById('article-reader-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -204,6 +258,7 @@
     overlay.style.display = 'block';
     overlay.scrollTop = 0;
     if (window.SentraXAds) SentraXAds.init(overlay);
+    startReadTracking('live-' + id);
   }
 
   function loadLiveNews() {
@@ -398,7 +453,6 @@
   function openMedLibArticle(id) {
     const item = medLibraryById[id];
     if (!item) return;
-    if (window.SentraXRewards) window.SentraXRewards.awardArticleRead('medlib-' + id);
     let overlay = document.getElementById('article-reader-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -424,6 +478,7 @@
     overlay.style.display = 'block';
     overlay.scrollTop = 0;
     if (window.SentraXAds) SentraXAds.init(overlay);
+    startReadTracking('medlib-' + id);
   }
 
   if (typeof window !== 'undefined') {
