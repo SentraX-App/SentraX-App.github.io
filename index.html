@@ -229,10 +229,13 @@
         <button onclick="saveCaregiver()">Save Caregiver</button>
       </div>
       <div id="cg-summary" style="display:none;">
-        <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin:10px 0;">
-          <div style="font-weight:700;color:#f1f5f9;" id="cg-summary-name"></div>
-          <div style="font-size:13px;color:#94a3b8;margin-top:4px;" id="cg-summary-phone"></div>
-          <div style="font-size:13px;color:#94a3b8;" id="cg-summary-email"></div>
+        <div class="cg-card">
+          <div class="cg-avatar" id="cg-summary-avatar"></div>
+          <div class="cg-info">
+            <div class="cg-name" id="cg-summary-name"></div>
+            <div class="cg-row"><span>📱</span><span id="cg-summary-phone"></span></div>
+            <div class="cg-row"><span>✉️</span><span id="cg-summary-email"></span></div>
+          </div>
         </div>
         <button class="secondary" onclick="editCaregiver()">Change Caregiver</button>
       </div>
