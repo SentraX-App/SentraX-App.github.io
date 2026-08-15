@@ -1,0 +1,6 @@
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/.well-known/assetlinks.json
+  Content-Type: application/json; charset=utf-8
