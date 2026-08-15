@@ -1292,7 +1292,24 @@ function sendAiMessage() {
             sawAnyDataLine = true;
             try {
               const parsed = JSON.parse(payload);
-              const delta = parsed.response || (parsed.result && parsed.result.response) || '';
+              // Different Workers AI models (and OpenAI-compatible wrappers) stream
+              // chunks in different shapes. Rather than betting on one field name,
+              // check every plausible location a text delta could be sitting in —
+              // whichever one actually has content wins. This is additive only:
+              // it can't misfire on a genuine chunk, since at most one of these
+              // paths will ever hold a non-empty string for a given payload.
+              const choice = parsed.choices && parsed.choices[0];
+              const delta =
+                parsed.response ||
+                (parsed.result && parsed.result.response) ||
+                (choice && choice.delta && choice.delta.content) ||
+                (choice && choice.text) ||
+                (choice && choice.message && choice.message.content) ||
+                parsed.delta ||
+                parsed.content ||
+                parsed.text ||
+                parsed.token ||
+                '';
               if (delta) {
                 fullText += delta;
                 sawAnyChunk = true;
