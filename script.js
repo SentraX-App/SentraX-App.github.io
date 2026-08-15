@@ -1105,16 +1105,21 @@ function sendAiMessage() {
   const typingEl = appendAiMessage('bot', 'Thinking...');
   typingEl.classList.add('typing');
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+
   fetch(AI_WORKER_URL, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ messages: thread.messages.slice(-12) })
+  body: JSON.stringify({ messages: thread.messages.slice(-12) }),
+  signal: controller.signal
 })
   .then(function(res) {
-    if (!res.ok) {
-      return res.text().then(function(t) { throw new Error('Server error (' + res.status + '): ' + t.slice(0, 150)); });
-    }
-    return res.json();
+    clearTimeout(timeoutId);
+    return res.json().catch(function() { return {}; }).then(function(data) {
+      if (!res.ok) throw new Error((data && data.error) || ('Server error (' + res.status + ')'));
+      return data;
+    });
   })
   .then(function(data) {
     typingEl.remove();
@@ -1124,9 +1129,13 @@ function sendAiMessage() {
     saveAiThreads();
   })
   .catch(function(err) {
+    clearTimeout(timeoutId);
     typingEl.remove();
     console.error('Sentra-X AI error:', err.message);
-    appendAiMessage('bot', "Sorry, the assistant isn't available right now. Please try again in a moment.");
+    const friendly = err.name === 'AbortError'
+      ? "That's taking a while — the assistant might be busy right now. Please try again."
+      : (err.message && err.message.length < 140 ? err.message : "Sorry, the assistant isn't available right now. Please try again in a moment.");
+    appendAiMessage('bot', friendly);
   });
 }
 // ---- Camera Heart Rate Check (estimates heart rate only — NOT blood pressure) ----
