@@ -159,7 +159,7 @@ async function sendSMS(toPhone, message) {
 async function checkUser(doc) {
   const data = doc.data();
   const uid = doc.id;
-  if (!data.cgEmail) return;
+  if (!data.cgEmail && !data.cgPhone) return; // no alert channel on file at all
 
   await maybeSendWeeklyDigest(doc);
 
@@ -187,9 +187,10 @@ async function checkUser(doc) {
     const key = med.id + '_' + today;
     if (overdueBy >= REMINDER_DELAY_MINUTES && !medAlertsSent[key]) {
       const medMessage = (data.userName || 'Your loved one') + ' has not taken their medication "' + med.name + '" (due at ' + med.time + '). It has been overdue for over ' + REMINDER_DELAY_MINUTES + ' minutes.';
-      const ok = await sendEmail(data.cgEmail, data.userName || 'Your loved one', data.cgName, medMessage);
-      if (data.cgPhone) await sendSMS(data.cgPhone, 'SentraX Alert: ' + medMessage);
-      if (ok) {
+      let emailOk = true, smsOk = true;
+      if (data.cgEmail) emailOk = await sendEmail(data.cgEmail, data.userName || 'Your loved one', data.cgName, medMessage);
+      if (data.cgPhone) smsOk = await sendSMS(data.cgPhone, 'SentraX Alert: ' + medMessage);
+      if (emailOk && smsOk) {
         medAlertsSent[key] = true;
         updates.medAlertsSent = medAlertsSent;
       }
@@ -201,9 +202,10 @@ async function checkUser(doc) {
     const latest = vitals[0];
     if (latest.severity >= 3 && data.lastBpAlertISO !== latest.dateISO) {
       const bpMessage = (data.userName || 'Your loved one') + "'s blood pressure just read " + latest.sys + '/' + latest.dia + ' (' + latest.level + '). Please check on them as soon as possible.';
-      const ok = await sendEmail(data.cgEmail, data.userName || 'Your loved one', data.cgName, bpMessage);
-      if (data.cgPhone) await sendSMS(data.cgPhone, 'SentraX Alert: ' + bpMessage);
-      if (ok) {
+      let emailOk = true, smsOk = true;
+      if (data.cgEmail) emailOk = await sendEmail(data.cgEmail, data.userName || 'Your loved one', data.cgName, bpMessage);
+      if (data.cgPhone) smsOk = await sendSMS(data.cgPhone, 'SentraX Alert: ' + bpMessage);
+      if (emailOk && smsOk) {
         updates.lastBpAlertISO = latest.dateISO;
       }
     }
