@@ -62,12 +62,38 @@
   let pendingLiveReplies = 0; // >0 means a real sendAiMessage() call is in flight
   let micPermissionConfirmed = false; // once true, skip re-probing getUserMedia on every tap
 
+  let speechKeepAlive = null;
+
+  function stopSpeechKeepAlive() {
+    if (speechKeepAlive) { clearInterval(speechKeepAlive); speechKeepAlive = null; }
+  }
+
+  // Cancels speech AND stops the keep-alive interval together — every place
+  // that used to call synth.cancel() directly now goes through this, so the
+  // interval never outlives the speech it was keeping alive.
+  function stopSpeaking() {
+    if (synth) synth.cancel();
+    stopSpeechKeepAlive();
+  }
+
   function speak(text) {
     if (!synth || !text) return;
-    synth.cancel();
+    stopSpeaking();
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1;
     utter.pitch = 1;
+    // Chrome — desktop and Android alike — has a long-standing bug where
+    // speechSynthesis silently pauses itself mid-utterance after about 15
+    // seconds unless resume() is called periodically; this is the browser's
+    // own queue stalling, not anything in this app cutting it off. Calling
+    // resume() while nothing is paused is a harmless no-op, so this is safe
+    // to run unconditionally for the whole time it's speaking.
+    speechKeepAlive = setInterval(function () {
+      if (synth.speaking) synth.resume();
+      else stopSpeechKeepAlive();
+    }, 12000);
+    utter.onend = stopSpeechKeepAlive;
+    utter.onerror = stopSpeechKeepAlive;
     synth.speak(utter);
   }
 
@@ -106,19 +132,18 @@
     if (mutedReplies && synth) synth.cancel();
   }
 
-  // Wraps the real global sendAiMessage (defined in script.js, loaded
-  // before this file) so we know FOR CERTAIN — not by guessing — when a
-  // bot message about to appear is a genuine live reply, as opposed to an
-  // old conversation being replayed on open. A counter (not a boolean)
-  // handles the case of a second message being sent before the first
-  // reply has come back.
-  function wrapSendAiMessage() {
-    if (typeof window.sendAiMessage !== 'function') return;
-    const original = window.sendAiMessage;
-    window.sendAiMessage = function () {
+  // Listens for script.js's own 'send started' event instead of wrapping
+  // sendAiMessage(). Wrapping had a real bug: it incremented the counter
+  // for EVERY call, including ones sendAiMessage's own in-flight guard
+  // immediately rejects (a double-tap while a reply is still streaming) —
+  // that call never fires a matching 'reply-done' event, so the counter
+  // only ever went up for it, never back down. Listening for this event
+  // instead is accurate by construction: script.js only dispatches it once
+  // a send has actually passed both guards and committed to a real request.
+  function watchSendStarted() {
+    document.addEventListener('sentrax-ai-send-started', function () {
       pendingLiveReplies++;
-      return original.apply(this, arguments);
-    };
+    });
   }
 
   function isAiScreenActive() {
@@ -346,7 +371,7 @@
 
   function init() {
     primeSpeechEngine();
-    wrapSendAiMessage();
+    watchSendStarted();
     wrapShowScreen();
     setupRecognition();
     injectButtons();
