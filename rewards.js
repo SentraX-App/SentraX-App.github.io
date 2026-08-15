@@ -21,15 +21,42 @@
 (function () {
   'use strict';
 
+  // ---- Ad-revenue-aware article reward -----------------------------------
+  // ARTICLE_READ_COINS is DERIVED below, not hand-picked — it tracks what an
+  // article read actually earns in ad revenue, with a safety margin, so the
+  // reward can never structurally outpace the income funding it.
+  //
+  // IMPORTANT: this is never tied to whether a specific ad was clicked or
+  // viewed by a specific user — AdSense deliberately never exposes that
+  // per-user signal to publishers (anti-fraud design), and rewarding ad
+  // interaction is a bannable AdSense policy violation regardless. This is
+  // purely a payout-rate calibration using your account-wide averages.
+  //
+  // >>> UPDATE AD_RPM_USD_PER_1000 once you have real numbers: AdSense
+  //     dashboard → Estimated earnings ÷ impressions × 1000, for Articles
+  //     traffic specifically if you can filter to it. Nigeria-weighted
+  //     generic/health content typically runs $0.25-$0.50 RPM — the 0.20
+  //     below is a deliberately conservative placeholder (below the low end
+  //     of that range, as a safety buffer) until you have real data. <<<
+  const AD_RPM_USD_PER_1000 = 0.20;
+  const IMPRESSIONS_PER_ARTICLE_READ = 1;   // the one guaranteed inline ad in the article detail view
+  const AD_PAYOUT_MARGIN = 0.25;            // pay out 25% of estimated ad revenue as coins, keep 75% as a safety buffer
+  const MIN_ARTICLE_READ_COINS = 1;         // floor — reading still has to feel worth something
+
   // ---- Tunables ---------------------------------------------------------
-  const ARTICLE_READ_COINS = 8;           // once per article, ever
-  const PURCHASE_COINS_PER_NGN = 250;     // 1 coin per ₦250 spent (≈0.4% cashback)
+  const PURCHASE_COINS_PER_NGN = 250;     // 1 coin per ₦250 spent (≈0.4% cashback) — funded by marketplace margin, not ad revenue, so untouched here
   const PURCHASE_COINS_MIN = 10;          // floor, even for a cheap item
-  const DAILY_OPEN_COINS = 3;             // just for opening the app on a new day
+  const DAILY_OPEN_COINS = 3;             // loyalty bonus, not ad-funded — your call to size this
   const STREAK_MILESTONES = { 3: 15, 7: 40, 14: 100, 30: 250, 60: 600, 100: 1200 };
-  const REDEEM_MIN_COINS = 8000;          // "possible but not easy"
+  const REDEEM_MIN_COINS = 2500;          // lowered alongside the article-coin cut below, so redemption stays reachable — reconsider once you have real RPM data
   const COIN_TO_NGN = 1;                  // 1 coin = ₦1
   const FX_NGN_PER_USD = 1600;            // approximate reference rate — adjust as needed
+
+  const estimatedRevenuePerReadNgn = (AD_RPM_USD_PER_1000 / 1000) * IMPRESSIONS_PER_ARTICLE_READ * FX_NGN_PER_USD;
+  const ARTICLE_READ_COINS = Math.max(
+    MIN_ARTICLE_READ_COINS,
+    Math.round((estimatedRevenuePerReadNgn * AD_PAYOUT_MARGIN) / COIN_TO_NGN)
+  );
 
   // Reuses the same EmailJS project already wired up for marketplace order
   // notifications — same account, just a different template context.
@@ -166,7 +193,7 @@
       '<div class="rwd-header-row">' +
       '<div>' +
       '<div class="rwd-coin-count">' + data.coins.toLocaleString() + ' <span>🪙</span></div>' +
-      '<p>Sentra-X Coins</p>' +
+      '<p>Sentra-X Coins <span class="rwd-cash-value">≈ ₦' + (data.coins * COIN_TO_NGN).toLocaleString() + '</span></p>' +
       '</div>' +
       '<div class="rwd-streak-box"><div class="rwd-streak-num">🔥 ' + data.streak + '</div><div class="rwd-streak-label">day streak</div></div>' +
       '</div>' +
@@ -183,7 +210,8 @@
       '<div class="rwd-earn-row"><span>📰 Read an article</span><b>+' + ARTICLE_READ_COINS + '</b></div>' +
       '<div class="rwd-earn-row"><span>🛍️ Shop the Marketplace</span><b>+1 per ₦' + PURCHASE_COINS_PER_NGN + '</b></div>' +
       '<div class="rwd-earn-row"><span>🔥 Keep your daily streak</span><b>+' + DAILY_OPEN_COINS + '/day</b></div>' +
-      '<div class="rwd-earn-row"><span>🏁 Hit a streak milestone</span><b>up to +' + STREAK_MILESTONES[100] + '</b></div>' +
+      '<div class="rwd-earn-row"><span>🏁 100-day streak (one-time)</span><b>+' + STREAK_MILESTONES[100] + '</b></div>' +
+      '<p class="rwd-disclaimer">1 🪙 = ₦' + COIN_TO_NGN + '. Article rewards are calibrated to real ad performance and may be adjusted over time to keep payouts sustainable.</p>' +
       '</div>' +
 
       (data.redemptions.length ? '<div class="rwd-history-card"><h4>Redemption history</h4>' +
