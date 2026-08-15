@@ -71,7 +71,10 @@
   // Cancels speech AND stops the keep-alive interval together — every place
   // that used to call synth.cancel() directly now goes through this, so the
   // interval never outlives the speech it was keeping alive.
+  let speechGeneration = 0; // bumped on every stop/new speak() — lets a delayed speak() below detect it's been superseded and bail out instead of firing late
+
   function stopSpeaking() {
+    speechGeneration++; // invalidates any pending delayed speak() queued before this stop
     if (synth) synth.cancel();
     stopSpeechKeepAlive();
   }
@@ -79,22 +82,37 @@
   function speak(text) {
     if (!synth || !text) return;
     stopSpeaking();
+    const myGeneration = ++speechGeneration;
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1;
     utter.pitch = 1;
-    // Chrome — desktop and Android alike — has a long-standing bug where
-    // speechSynthesis silently pauses itself mid-utterance after about 15
-    // seconds unless resume() is called periodically; this is the browser's
-    // own queue stalling, not anything in this app cutting it off. Calling
-    // resume() while nothing is paused is a harmless no-op, so this is safe
-    // to run unconditionally for the whole time it's speaking.
-    speechKeepAlive = setInterval(function () {
-      if (synth.speaking) synth.resume();
-      else stopSpeechKeepAlive();
-    }, 12000);
     utter.onend = stopSpeechKeepAlive;
     utter.onerror = stopSpeechKeepAlive;
-    synth.speak(utter);
+    // Android Chrome's speechSynthesis.speak() is unreliable when called
+    // immediately after cancel() — cancel() isn't actually instantaneous
+    // under the hood even though the API makes it look synchronous.
+    // Depending on timing, the engine either silently drops the next
+    // utterance entirely or stalls before starting it — which is exactly
+    // the "sometimes no voice at all" / "noticeable pause before it
+    // starts" pattern. A short, fixed delay here trades an invisible,
+    // unpredictable stall (or a vanished utterance) for a small, reliable
+    // one instead. The generation check means if speak() gets called
+    // again before this timer fires, this stale call quietly bails out
+    // rather than firing late on top of the newer one.
+    setTimeout(function () {
+      if (myGeneration !== speechGeneration) return; // superseded by a newer speak()/stop while waiting
+      // Chrome — desktop and Android alike — has a long-standing bug where
+      // speechSynthesis silently pauses itself mid-utterance after about 15
+      // seconds unless resume() is called periodically; this is the browser's
+      // own queue stalling, not anything in this app cutting it off. Calling
+      // resume() while nothing is paused is a harmless no-op, so this is safe
+      // to run unconditionally for the whole time it's speaking.
+      speechKeepAlive = setInterval(function () {
+        if (synth.speaking) synth.resume();
+        else stopSpeechKeepAlive();
+      }, 12000);
+      synth.speak(utter);
+    }, 150);
   }
 
   // Android/Chrome sometimes loads TTS voices lazily on first use, causing
@@ -221,10 +239,25 @@
     observer.observe(screen, { attributes: true, attributeFilter: ['class'] });
   }
 
-  let finalResults = []; // finalized transcript segments, indexed by result index — overwritten, never appended, so a re-fired index can't duplicate text
-  let finalTranscript = ''; // finalResults joined — kept as a plain string for the rest of the file to read
+  let bankedTranscript = ''; // finalized speech from BEFORE the most recent internal restart — kept separate so a restart's fresh index-0 result can't silently overwrite it
+  let finalResults = []; // finalized transcript segments for the CURRENT recognition session, indexed by result index — overwritten, never appended, so a re-fired index can't duplicate text
+  let finalTranscript = ''; // finalResults joined — current session only
   let lastInterim = ''; // most recent not-yet-final text, tracked so stopping mid-phrase doesn't lose it
   let userStoppedManually = false; // distinguishes "you tapped stop" from the engine pausing on its own
+
+  // Called right before restarting recognition after the engine drops it
+  // on its own (continuous mode is prone to this on Android). Folds
+  // whatever the just-ended session captured into bankedTranscript, then
+  // clears the per-session index tracker — otherwise the NEW session's
+  // result numbering starts again from 0, and its first result would
+  // silently overwrite finalResults[0] from the session that just ended,
+  // which is what was quietly deleting the start of longer sentences
+  // (e.g. "how are you doing today" surviving as just "doing today").
+  function bankCurrentTranscript() {
+    bankedTranscript = (bankedTranscript + ' ' + finalTranscript).trim();
+    finalResults = [];
+    finalTranscript = '';
+  }
 
   function setupRecognition() {
     if (!SpeechRecognitionImpl) return;
@@ -251,25 +284,34 @@
       }
       finalTranscript = finalResults.join(' ').trim();
       lastInterim = interim;
-      if (input) input.value = (finalTranscript + ' ' + interim).trim(); // live preview, never auto-sent mid-session
+      const combined = (bankedTranscript + ' ' + finalTranscript + ' ' + interim).trim();
+      if (input) input.value = combined; // live preview, never auto-sent mid-session
     };
 
     recognition.onerror = function (e) {
       // 'no-speech' just means a quiet gap — the engine often stops the
-      // session over this even in continuous mode. If the person hasn't
-      // tapped stop, silently keep the session going instead of treating
-      // a pause as "they're done and it failed."
-      if (e.error === 'no-speech' && !userStoppedManually) {
-        try { recognition.start(); } catch (err) { /* ignore */ }
-        return;
-      }
+      // session over this even in continuous mode, and its own 'end'
+      // event fires immediately afterward regardless. Restarting from
+      // BOTH onerror and onend for what is really the same underlying
+      // drop was the actual cause of the duplicated/interleaved transcript
+      // ("how how are you how are you doing..."): both handlers could
+      // each independently succeed at recognition.start() a few
+      // milliseconds apart, briefly running two overlapping recognition
+      // sessions that each transcribed the same speech from the start.
+      // onend (below) already handles restarting — this only needs to
+      // leave genuine, non-'no-speech' errors to finish the session.
+      if (e.error === 'no-speech') return;
       finishListening();
     };
     recognition.onend = function () {
       // The engine can end the session on its own even in continuous mode
       // (Android is prone to this). If the person hasn't tapped stop,
-      // seamlessly resume so it doesn't feel like it "cut off."
+      // seamlessly resume so it doesn't feel like it "cut off." Banking
+      // first means the restart's fresh result numbering (starting at 0
+      // again) can never silently overwrite what this session already
+      // captured.
       if (!userStoppedManually && listening) {
+        bankCurrentTranscript();
         try { recognition.start(); return; } catch (err) { /* fall through to finishing */ }
       }
       finishListening();
@@ -279,14 +321,17 @@
   function finishListening() {
     listening = false;
     updateMicBtn();
-    // Combine finalized speech with whatever was still interim (unconfirmed
-    // by the engine) at the moment you tapped stop. Previously this only
-    // read finalTranscript — so stopping a beat before the engine finished
-    // "finalizing" your last phrase (common; finalization typically lags
-    // slightly behind what's already visible on screen) meant that trailing
-    // text was silently dropped, sometimes leaving nothing to send at all
-    // even though the words were sitting right there in the input box.
-    const text = (finalTranscript + ' ' + lastInterim).trim();
+    // Combine every layer: speech banked across any internal restarts,
+    // the current session's finalized speech, and whatever was still
+    // interim (unconfirmed by the engine) at the moment you tapped stop.
+    // Previously this only read finalTranscript — so stopping a beat
+    // before the engine finished "finalizing" your last phrase (common;
+    // finalization typically lags slightly behind what's already visible
+    // on screen) meant that trailing text was silently dropped, sometimes
+    // leaving nothing to send at all even though the words were sitting
+    // right there in the input box.
+    const text = (bankedTranscript + ' ' + finalTranscript + ' ' + lastInterim).trim();
+    bankedTranscript = '';
     finalResults = [];
     finalTranscript = '';
     lastInterim = '';
@@ -306,6 +351,7 @@
 
   function startListening() {
     if (!recognition) return;
+    bankedTranscript = '';
     finalResults = [];
     finalTranscript = '';
     lastInterim = '';
