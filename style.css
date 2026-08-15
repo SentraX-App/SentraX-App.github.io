@@ -572,10 +572,28 @@ nav button.active .icon { filter: none; }
   box-shadow: 0 4px 12px rgba(37,99,235,0.4);
 }
 .cg-info { flex: 1; min-width: 0; }
-.cg-name { font-weight: 700; color: #f1f5f9; font-size: 16px; margin-bottom: 10px; }
+.cg-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.cg-name { font-weight: 700; color: #f1f5f9; font-size: 16px; }
+.cg-primary-badge {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
+  color: #60a5fa; background: rgba(96,165,250,0.16); border: 1px solid rgba(96,165,250,0.3);
+  padding: 2px 8px; border-radius: 100px; flex-shrink: 0;
+}
 .cg-row {
-  display: flex; align-items: center; gap: 9px; font-size: 13px; color: #cbd5e1;
+  /* flex-start (not center) so the icon lines up with the FIRST line of
+     text instead of floating in the middle when long text (like an email)
+     wraps to two lines. */
+  display: flex; align-items: flex-start; gap: 9px; font-size: 13px; color: #cbd5e1;
   padding: 5px 0; word-break: break-word; overflow-wrap: anywhere;
 }
-.cg-row span:first-child { flex-shrink: 0; opacity: 0.85; }
+.cg-row span:first-child { flex-shrink: 0; opacity: 0.85; line-height: 1.5; }
+.cg-row span:last-child { line-height: 1.5; }
 .cg-change-btn { margin-top: 12px; }
+.cg-actions { display: flex; gap: 14px; margin-top: 12px; flex-wrap: wrap; }
+.cg-actions button {
+  background: transparent; border: none; padding: 0; width: auto;
+  font-size: 12.5px; font-weight: 600; color: #93c5fd; cursor: pointer;
+}
+.cg-actions button.cg-danger { color: #fca5a5; }
+.cg-add-btn { margin-top: 12px; }
+
