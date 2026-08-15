@@ -292,9 +292,9 @@ const consentEl = document.getElementById('cg-join-consent');
             });
           })
           .then(function () {
-            return firebase.firestore().collection('users').doc(patientUid).update({
-              caregiverUids: firebase.firestore.FieldValue.arrayUnion(newUid)
-            });
+            const infoUpdate = { caregiverUids: firebase.firestore.FieldValue.arrayUnion(newUid) };
+            infoUpdate['caregiverInfo.' + newUid] = { email: email, linkedAt: Date.now() };
+            return firebase.firestore().collection('users').doc(patientUid).update(infoUpdate);
           })
           .then(function () {
             return patientUid;
@@ -312,7 +312,9 @@ const consentEl = document.getElementById('cg-join-consent');
       })
       .catch(function (e) {
         isLinking = false;
-        err.textContent = e.message;
+        err.textContent = (e.code === 'permission-denied')
+          ? 'Could not link your account. This patient may have reached their maximum number of caregivers, or the code is no longer valid. Please double-check with them or try a new invite.'
+          : e.message;
         btn.disabled = false;
         btn.textContent = 'Link My Account';
       });
