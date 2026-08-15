@@ -501,6 +501,7 @@ nav button.active .icon { filter: none; }
 .rwd-header-row { display: flex; align-items: center; justify-content: space-between; position: relative; margin-bottom: 14px; }
 .rwd-coin-count { font-size: 30px; font-weight: 800; color: #fde68a; line-height: 1; }
 .rwd-coin-count span { font-size: 24px; }
+.rwd-coin-label { font-size: 12px; color: #fef3c7; margin-top: 4px; font-weight: 600; }
 .rwd-header-row p { margin: 4px 0 0; font-size: 12.5px; color: #fef3c7; }
 .rwd-cash-value { display: inline-block; margin-left: 6px; opacity: 0.85; }
 .rwd-streak-box { text-align: center; background: rgba(255,255,255,0.1); border-radius: 14px; padding: 8px 14px; }
@@ -552,3 +553,20 @@ nav button.active .icon { filter: none; }
 .rwd-toast span { font-weight: 600; opacity: 0.85; }
 .rwd-toast-in { opacity: 1; transform: translateX(-50%) translateY(0); }
 .rwd-toast-out { opacity: 0; transform: translateX(-50%) translateY(-14px); }
+
+/* --- Caregiver summary card: avatar + name + contact rows, shown once a
+   caregiver is saved, in place of the raw form. --- */
+.cg-card {
+  display: flex; align-items: flex-start; gap: 14px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; padding: 16px; margin: 10px 0;
+}
+.cg-avatar {
+  width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 18px; color: #fff;
+}
+.cg-info { flex: 1; min-width: 0; }
+.cg-name { font-weight: 700; color: #f1f5f9; font-size: 15.5px; margin-bottom: 8px; }
+.cg-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #94a3b8; padding: 3px 0; }
