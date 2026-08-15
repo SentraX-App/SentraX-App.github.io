@@ -397,7 +397,7 @@
       <div id="ai-chat-log" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin:10px 0;"></div>
       <div style="display:flex;gap:8px;">
         <input type="text" id="ai-chat-input" placeholder="Ask a health question..." style="flex:1;" onkeydown="if(event.key==='Enter') sendAiMessage();">
-        <button onclick="sendAiMessage()" style="width:auto;padding:0 18px;">Send</button>
+        <button onclick="sendAiMessage()" id="ai-send-btn" style="width:auto;padding:0 18px;">Send</button>
       </div>
     </div>
   </div>
