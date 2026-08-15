@@ -237,6 +237,19 @@
   // ---- Product detail overlay ------------------------------------------
   let detailProductId = null;
   let detailQty = 1;
+  let mktHistoryPushed = false;
+
+  window.addEventListener('popstate', function () {
+    const productOverlay = document.getElementById('product-reader-overlay');
+    const cartOverlay = document.getElementById('mkt-cart-overlay');
+    if (productOverlay && productOverlay.style.display === 'block') {
+      productOverlay.style.display = 'none';
+      mktHistoryPushed = false;
+    } else if (cartOverlay && cartOverlay.style.display === 'block') {
+      cartOverlay.style.display = 'none';
+      mktHistoryPushed = false;
+    }
+  });
 
   function ensureOverlay(id) {
     let overlay = document.getElementById(id);
@@ -256,6 +269,10 @@
     renderProductOverlay();
     document.getElementById('product-reader-overlay').style.display = 'block';
     document.getElementById('product-reader-overlay').scrollTop = 0;
+    if (!mktHistoryPushed) {
+      history.pushState({ sxMktOverlay: true }, '');
+      mktHistoryPushed = true;
+    }
   }
 
   function renderProductOverlay() {
@@ -299,13 +316,21 @@
   function addToCartFromDetail() {
     if (!detailProductId) return;
     addToCart(detailProductId, detailQty);
-    closeProduct();
+    hideProductOverlayOnly();
     openCart();
   }
 
-  function closeProduct() {
+  function hideProductOverlayOnly() {
     const overlay = document.getElementById('product-reader-overlay');
     if (overlay) overlay.style.display = 'none';
+  }
+
+  function closeProduct() {
+    hideProductOverlayOnly();
+    if (mktHistoryPushed) {
+      mktHistoryPushed = false;
+      history.back();
+    }
   }
 
   // ---- Cart / checkout / confirmation overlay (single sheet, 3 steps) --
@@ -314,11 +339,19 @@
     overlay.className = 'mkt-sheet-backdrop';
     renderCartStep();
     overlay.style.display = 'block';
+    if (!mktHistoryPushed) {
+      history.pushState({ sxMktOverlay: true }, '');
+      mktHistoryPushed = true;
+    }
   }
 
   function closeCart() {
     const overlay = document.getElementById('mkt-cart-overlay');
     if (overlay) overlay.style.display = 'none';
+    if (mktHistoryPushed) {
+      mktHistoryPushed = false;
+      history.back();
+    }
   }
 
   function cartItemRow(id, qty) {
