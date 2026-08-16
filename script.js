@@ -939,7 +939,7 @@ function toggleFirstAid(id) {
 // Paste your deployed Cloudflare Worker URL here once you've followed the
 // deploy steps in cloudflare-sos-worker.js. Leave blank and SMS sending is
 // skipped automatically (email + WhatsApp still work either way).
-const SOS_SMS_WORKER_URL = ''; // e.g. 'https://sentrax-sos-sms.YOUR-SUBDOMAIN.workers.dev/'
+const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/'; // e.g. 'https://sentrax-sos-sms.YOUR-SUBDOMAIN.workers.dev/'
 
 // Reuses the exact same EmailJS project already proven working elsewhere in
 // the app (marketplace orders, ratings) — same public key, no new setup.
