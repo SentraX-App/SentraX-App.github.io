@@ -267,7 +267,19 @@
 
   function ingestFinalResult(text) {
     if (!text) return;
-    if (!currentRunText || text.indexOf(currentRunText) === 0 || currentRunText.indexOf(text) === 0) {
+    // Compared case-insensitively: this was the actual cause of the
+    // "hello hello I said hello I said you..." duplication bug reported
+    // on a real device. The engine was genuinely growing one phrase
+    // ("hello" → "hello I said" → "hello I said you" → ...), each new
+    // result was a true prefix-extension of the last — but its
+    // capitalization of the first word shifted (start-of-sentence "Hello"
+    // vs. mid-context "hello") between revisions, so the exact-match
+    // indexOf() check below failed to recognize it as the same growing
+    // run and treated every revision as a brand-new phrase instead,
+    // banking each partial version and stacking them all together.
+    const lower = text.toLowerCase();
+    const currentLower = currentRunText.toLowerCase();
+    if (!currentRunText || lower.indexOf(currentLower) === 0 || currentLower.indexOf(lower) === 0) {
       // Extends (or repeats, or is a rare same-or-shorter revision of)
       // the current run — keep whichever is longer/more complete.
       if (text.length >= currentRunText.length) currentRunText = text;
@@ -464,10 +476,21 @@
 
   function stopListening() {
     // Called when YOU tap the mic to stop — this is what actually sends
-    // whatever was captured. The engine's own onend (above) defers to
-    // finishListening() too, but only once userStoppedManually is true.
+    // whatever was captured. userStoppedManually is set immediately so
+    // no restart-on-drop kicks in, but the actual recognition.stop()
+    // call is delayed slightly: tapping the exact instant you finish your
+    // last word can interrupt the engine before it's finished capturing
+    // that word's audio, silently dropping it (this was cutting off
+    // trailing words like "...and sleep"). Giving it a brief moment to
+    // catch up first — while onresult keeps updating the transcript as
+    // normal in the meantime — fixes that without adding any perceptible
+    // delay to the UI, since the mic button already switches state
+    // immediately below.
     userStoppedManually = true;
-    try { recognition.stop(); } catch (e) { finishListening(); }
+    updateMicBtn();
+    setTimeout(function () {
+      try { recognition.stop(); } catch (e) { finishListening(); }
+    }, 500);
   }
 
   function toggleMic() {
