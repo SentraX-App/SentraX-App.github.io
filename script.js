@@ -830,6 +830,109 @@ function rateApp() {
     window.open(base + '?text=' + encodeURIComponent(msg), '_blank');
   }
 }
+// rateApp() (above) is kept for backward compatibility but is no longer
+// wired to any button — "Rate Sentra-X" now opens the in-app star rating
+// overlay below, which emails feedback directly to the team instead of
+// opening WhatsApp to a phone number.
+
+const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/LSvQxsxMdn73yr2vXN1avD';
+function openWhatsAppCommunity() {
+  window.open(COMMUNITY_WHATSAPP_URL, '_blank');
+}
+
+// Reuses the exact same EmailJS project/service/template/company inbox
+// already proven working for marketplace order notifications in store.js —
+// same public (browser-safe) key, no private key needed for a client-side
+// send, no new EmailJS setup required.
+const FEEDBACK_SELLER_EMAIL = 'sentraxforteltd@gmail.com';
+const FEEDBACK_EMAILJS_SERVICE_ID = 'service_sq7cgqb';
+const FEEDBACK_EMAILJS_TEMPLATE_ID = 'template_9clzjfk';
+const FEEDBACK_EMAILJS_PUBLIC_KEY = 'nAbELba6szw8IyjO-';
+
+let selectedRatingValue = 0;
+
+function openRatingOverlay() {
+  selectedRatingValue = 0;
+  document.querySelectorAll('#star-row .star-btn').forEach(function (s) {
+    s.textContent = '☆';
+    s.classList.remove('filled');
+  });
+  document.getElementById('rating-feedback').value = '';
+  document.getElementById('rating-error').textContent = '';
+  const box = document.querySelector('#rating-overlay .box');
+  box.innerHTML = '<h2>Rate Sentra-X</h2>' +
+    '<p>Your feedback helps us keep improving the app.</p>' +
+    '<div class="star-row" id="star-row">' +
+      '<span class="star-btn" data-value="1" onclick="selectStar(1)">☆</span>' +
+      '<span class="star-btn" data-value="2" onclick="selectStar(2)">☆</span>' +
+      '<span class="star-btn" data-value="3" onclick="selectStar(3)">☆</span>' +
+      '<span class="star-btn" data-value="4" onclick="selectStar(4)">☆</span>' +
+      '<span class="star-btn" data-value="5" onclick="selectStar(5)">☆</span>' +
+    '</div>' +
+    '<textarea id="rating-feedback" placeholder="What\'s working well, or what could be better? (optional)" rows="4"></textarea>' +
+    '<div class="error" id="rating-error"></div>' +
+    '<button id="rating-submit-btn" onclick="submitRating()">Submit Feedback</button>' +
+    '<button class="switch" onclick="closeRatingOverlay()">Not now</button>';
+  document.getElementById('rating-overlay').style.display = 'flex';
+}
+
+function closeRatingOverlay() {
+  document.getElementById('rating-overlay').style.display = 'none';
+}
+
+function selectStar(n) {
+  selectedRatingValue = n;
+  document.querySelectorAll('#star-row .star-btn').forEach(function (s) {
+    const v = parseInt(s.getAttribute('data-value'), 10);
+    if (v <= n) { s.textContent = '★'; s.classList.add('filled'); }
+    else { s.textContent = '☆'; s.classList.remove('filled'); }
+  });
+}
+
+function submitRating() {
+  const err = document.getElementById('rating-error');
+  err.textContent = '';
+  if (selectedRatingValue < 1) { err.textContent = 'Please select a star rating first.'; return; }
+
+  const feedbackText = document.getElementById('rating-feedback').value.trim();
+  const btn = document.getElementById('rating-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const name = localStorage.getItem('userName') || 'A Sentra-X user';
+  const stars = '★'.repeat(selectedRatingValue) + '☆'.repeat(5 - selectedRatingValue);
+  const message = 'NEW SENTRA-X APP RATING\n' +
+    'Rating: ' + stars + ' (' + selectedRatingValue + '/5)\n' +
+    'From: ' + name + '\n' +
+    'Feedback: ' + (feedbackText || '(no written feedback provided)');
+
+  fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      service_id: FEEDBACK_EMAILJS_SERVICE_ID,
+      template_id: FEEDBACK_EMAILJS_TEMPLATE_ID,
+      user_id: FEEDBACK_EMAILJS_PUBLIC_KEY,
+      template_params: {
+        to_email: FEEDBACK_SELLER_EMAIL,
+        patient_name: 'Sentra-X App Rating',
+        caregiver_name: selectedRatingValue + '/5 stars',
+        alert_message: message
+      }
+    })
+  })
+    .then(function (res) {
+      if (!res.ok) throw new Error('send failed');
+      const box = document.querySelector('#rating-overlay .box');
+      box.innerHTML = '<div class="rating-thanks">Thank you for your feedback! 🙏</div>' +
+        '<button onclick="closeRatingOverlay()">Done</button>';
+    })
+    .catch(function () {
+      btn.disabled = false;
+      btn.textContent = 'Submit Feedback';
+      err.textContent = 'Could not send right now — please check your connection and try again.';
+    });
+    }
 function shareToFamily() {
   const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
   const streak = localStorage.getItem('streak') || '0';
