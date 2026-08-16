@@ -397,6 +397,26 @@
     finalTranscript = '';
     lastInterim = '';
     userStoppedManually = false;
+
+    // If the AI's voice reply is still speaking (or just finished a
+    // moment ago), claiming the microphone immediately can silently fail
+    // — Android's audio subsystem doesn't always release the TTS output
+    // session the instant speech ends, and recognition.start() throws in
+    // a way indistinguishable from "already listening," so it was being
+    // swallowed as if nothing happened. This is specifically what made
+    // the FIRST tap right after the AI spoke capture nothing, while a
+    // second tap moments later (audio session now actually free) worked
+    // fine. Force-stopping speech and giving the OS a brief moment to
+    // truly release the session before claiming the mic avoids the race.
+    if (synth && synth.speaking) {
+      stopSpeaking();
+      setTimeout(claimMicrophone, 200);
+      return;
+    }
+    claimMicrophone();
+  }
+
+  function claimMicrophone() {
     // Once permission has been confirmed granted, skip getUserMedia
     // entirely and go straight to recognition.start(). Re-probing on
     // EVERY tap (open a mic stream, immediately close it, then hand the
@@ -422,9 +442,24 @@
     }
   }
 
-  function actuallyStart() {
-    try { recognition.start(); listening = true; updateMicBtn(); }
-    catch (e) { /* already running — ignore */ }
+  function actuallyStart(isRetry) {
+    try {
+      recognition.start();
+      listening = true;
+      updateMicBtn();
+    } catch (e) {
+      // Could genuinely be "already running" (harmless — a session is
+      // already active, nothing to do) OR a transient failure to actually
+      // claim the microphone hardware (e.g. still settling right after
+      // TTS, or after a just-ended previous session) — these throw
+      // identically, so there's no reliable way to tell them apart from
+      // the caught error alone. Retrying once after a brief pause makes
+      // the genuine-failure case self-heal automatically instead of
+      // silently doing nothing and requiring a second manual tap; if it
+      // really was "already running," this retry just throws again and
+      // is ignored the same as before.
+      if (!isRetry) setTimeout(function () { actuallyStart(true); }, 250);
+    }
   }
 
   function stopListening() {
