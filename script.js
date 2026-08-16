@@ -812,8 +812,7 @@ function revokeCaregiver(uid) {
   firebase.firestore().collection('users').doc(user.uid).update(update)
     .catch(function (err) { alert('Could not remove caregiver: ' + err.message); });
 }
-
-const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/K1QIZXLxBycG2WnAfCpuba';
+const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/LSvQxsxMdn73yr2vXN1avD';
 function openWhatsAppCommunity() {
   window.open(COMMUNITY_WHATSAPP_URL, '_blank');
 }
@@ -939,13 +938,36 @@ function toggleFirstAid(id) {
 // Paste your deployed Cloudflare Worker URL here once you've followed the
 // deploy steps in cloudflare-sos-worker.js. Leave blank and SMS sending is
 // skipped automatically (email + WhatsApp still work either way).
-const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/'; // e.g. 'https://sentrax-sos-sms.YOUR-SUBDOMAIN.workers.dev/'
+const SOS_SMS_WORKER_URL = ''; // e.g. 'https://sentrax-sos-sms.YOUR-SUBDOMAIN.workers.dev/'
 
 // Reuses the exact same EmailJS project already proven working elsewhere in
 // the app (marketplace orders, ratings) — same public key, no new setup.
 const SOS_EMAILJS_SERVICE_ID = 'service_sq7cgqb';
 const SOS_EMAILJS_TEMPLATE_ID = 'template_9clzjfk';
 const SOS_EMAILJS_PUBLIC_KEY = 'nAbELba6szw8IyjO-';
+
+// ---------------------------------------------------------------------
+// Passive location warm-up. Runs quietly on app load — NOT tied to the
+// SOS button. Purpose: by the time someone is actually in an emergency
+// and taps SOS, location permission has already been granted (so no
+// permission dialog interrupts the emergency) and a recent GPS fix is
+// already cached, so SOS can use it near-instantly instead of waiting on
+// a fresh fix that may time out under poor signal conditions — which is
+// what "(location unavailable — please call them)" meant in practice.
+// ---------------------------------------------------------------------
+function warmUpLocation() {
+  if (!('geolocation' in navigator)) return;
+  navigator.geolocation.getCurrentPosition(
+    function (pos) {
+      localStorage.setItem('lastKnownLat', pos.coords.latitude);
+      localStorage.setItem('lastKnownLng', pos.coords.longitude);
+      localStorage.setItem('lastKnownLocationAt', Date.now());
+    },
+    function () { /* permission denied or unavailable — SOS will just fall through to "please call them" */ },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+  );
+}
+warmUpLocation();
 
 function triggerSOS() {
   const confirmed = confirm('This will automatically send an SOS alert with your location to your saved caregiver by SMS and email, and also open WhatsApp. Continue?');
@@ -995,19 +1017,34 @@ function triggerSOS() {
     window.open(url, '_blank');
   }
 
+  function useCachedLocationOrGiveUp() {
+    const lat = localStorage.getItem('lastKnownLat');
+    const lng = localStorage.getItem('lastKnownLng');
+    const at = parseInt(localStorage.getItem('lastKnownLocationAt') || '0', 10);
+    const ageMinutes = (Date.now() - at) / 60000;
+    // A cached fix up to 30 minutes old is still far more useful in an
+    // emergency than nothing — worth using rather than discarding.
+    if (lat && lng && ageMinutes < 30) {
+      const link = 'https://maps.google.com/?q=' + lat + ',' + lng;
+      sendAlert(' Approximate last known location (' + Math.round(ageMinutes) + ' min ago): ' + link);
+    } else {
+      sendAlert(' (location unavailable — please call them)');
+    }
+  }
+
   if ('geolocation' in navigator) {
     navigator.geolocation.getCurrentPosition(
       function(pos) {
         const link = 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
         sendAlert(' Location: ' + link);
       },
-      function() { sendAlert(' (location unavailable — please call them)'); },
-      { timeout: 6000 }
+      useCachedLocationOrGiveUp,
+      { timeout: 8000, maximumAge: 300000 } // maximumAge lets the OS return an already-cached fix instantly instead of always forcing a fresh, slower GPS lock
     );
   } else {
-    sendAlert(' (location not supported on this device)');
+    useCachedLocationOrGiveUp();
   }
-          }
+}
 
 function setQuickStat(kind, value) {
   const today = todayStr();
