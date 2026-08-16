@@ -812,28 +812,6 @@ function revokeCaregiver(uid) {
   firebase.firestore().collection('users').doc(user.uid).update(update)
     .catch(function (err) { alert('Could not remove caregiver: ' + err.message); });
 }
-// Set this once you have a Google Business Profile or Play Store link.
-const RATE_URL = ''; // e.g. 'https://g.page/r/XXXXXXXXXXXX/review'
-
-// Company WhatsApp number feedback should always go to, in international
-// format with no + or spaces/dashes (e.g. '2348012345678').
-const FEEDBACK_WHATSAPP_NUMBER = '2349023237239'; // Sentra-X service/reviews number
-
-function rateApp() {
-  if (RATE_URL) {
-    window.open(RATE_URL, '_blank');
-  } else {
-    const msg = 'Hi Sentra-X team, I wanted to share some feedback about the app:';
-    const base = FEEDBACK_WHATSAPP_NUMBER
-      ? 'https://wa.me/' + FEEDBACK_WHATSAPP_NUMBER
-      : 'https://wa.me/';
-    window.open(base + '?text=' + encodeURIComponent(msg), '_blank');
-  }
-}
-// rateApp() (above) is kept for backward compatibility but is no longer
-// wired to any button — "Rate Sentra-X" now opens the in-app star rating
-// overlay below, which emails feedback directly to the team instead of
-// opening WhatsApp to a phone number.
 
 const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/LSvQxsxMdn73yr2vXN1avD';
 function openWhatsAppCommunity() {
@@ -958,14 +936,61 @@ function toggleFirstAid(id) {
   arrow.classList.toggle('open', !isOpen);
 }
 
+// Paste your deployed Cloudflare Worker URL here once you've followed the
+// deploy steps in cloudflare-sos-worker.js. Leave blank and SMS sending is
+// skipped automatically (email + WhatsApp still work either way).
+const SOS_SMS_WORKER_URL = ''; // e.g. 'https://sentrax-sos-sms.YOUR-SUBDOMAIN.workers.dev/'
+
+// Reuses the exact same EmailJS project already proven working elsewhere in
+// the app (marketplace orders, ratings) — same public key, no new setup.
+const SOS_EMAILJS_SERVICE_ID = 'service_sq7cgqb';
+const SOS_EMAILJS_TEMPLATE_ID = 'template_9clzjfk';
+const SOS_EMAILJS_PUBLIC_KEY = 'nAbELba6szw8IyjO-';
+
 function triggerSOS() {
-  const confirmed = confirm('This will send your live location and an SOS alert to your saved caregiver on WhatsApp. Continue?');
+  const confirmed = confirm('This will automatically send an SOS alert with your location to your saved caregiver by SMS and email, and also open WhatsApp. Continue?');
   if (!confirmed) return;
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   const cgPhone = (localStorage.getItem('cgPhone') || '').replace(/[^0-9]/g, '');
+  const cgEmail = localStorage.getItem('cgEmail') || '';
 
   function sendAlert(locationText) {
     const msg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.' + locationText;
+
+    // 1. SMS — automatic, no tap required, via the Cloudflare Worker so the
+    // Termii key never touches the browser. Silently skipped if no
+    // caregiver phone or worker URL is on file — never blocks the other
+    // two channels below.
+    if (cgPhone && SOS_SMS_WORKER_URL) {
+      fetch(SOS_SMS_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cgPhone, message: msg })
+      }).catch(function () { /* SMS failed — email and WhatsApp below still fire */ });
+    }
+
+    // 2. Email — automatic, no tap required, same EmailJS pattern already
+    // proven working for orders/ratings elsewhere in the app.
+    if (cgEmail) {
+      fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_id: SOS_EMAILJS_SERVICE_ID,
+          template_id: SOS_EMAILJS_TEMPLATE_ID,
+          user_id: SOS_EMAILJS_PUBLIC_KEY,
+          template_params: {
+            to_email: cgEmail,
+            patient_name: name,
+            caregiver_name: 'Emergency Alert',
+            alert_message: msg
+          }
+        })
+      }).catch(function () { /* Email failed — SMS and WhatsApp are independent, unaffected */ });
+    }
+
+    // 3. WhatsApp — kept as an additional channel, same as before. Requires
+    // a manual tap to actually send once it opens, unlike the two above.
     const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
     window.open(url, '_blank');
   }
@@ -982,7 +1007,7 @@ function triggerSOS() {
   } else {
     sendAlert(' (location not supported on this device)');
   }
-}
+          }
 
 function setQuickStat(kind, value) {
   const today = todayStr();
