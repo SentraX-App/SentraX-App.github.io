@@ -813,7 +813,7 @@ function revokeCaregiver(uid) {
     .catch(function (err) { alert('Could not remove caregiver: ' + err.message); });
 }
 
-const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/LSvQxsxMdn73yr2vXN1avD';
+const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/K1QIZXLxBycG2WnAfCpuba';
 function openWhatsAppCommunity() {
   window.open(COMMUNITY_WHATSAPP_URL, '_blank');
 }
