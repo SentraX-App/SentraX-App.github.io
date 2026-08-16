@@ -278,7 +278,30 @@ nav button.active .icon { filter: none; }
 #auth-overlay p { color: #93c5fd; font-size: 14px; margin-top: 0; }
 #auth-overlay input { background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.15); }
 #auth-overlay .error { color: #fca5a5; font-size: 13px; margin-top: 6px; min-height: 16px; }
-
+#rating-overlay {
+  position: fixed; inset: 0;
+  background: radial-gradient(circle at 30% 20%, #1e40af 0%, #0b1220 70%);
+  color: white; z-index: 1001; display: none; align-items: center; justify-content: center; padding: 24px;
+}
+#rating-overlay .box { max-width: 380px; width: 100%; text-align: center; }
+#rating-overlay h2 { margin-bottom: 4px; font-size: 24px; }
+#rating-overlay p { color: #93c5fd; font-size: 14px; margin-top: 0; margin-bottom: 18px; }
+#rating-overlay .star-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 18px; }
+#rating-overlay .star-btn {
+  font-size: 38px; line-height: 1; cursor: pointer; color: #475569;
+  transition: color 0.15s, transform 0.15s; user-select: none;
+}
+#rating-overlay .star-btn.filled { color: #fbbf24; transform: scale(1.08); }
+#rating-overlay textarea {
+  width: 100%; box-sizing: border-box; padding: 13px; margin: 6px 0;
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; font-size: 15px;
+  background: rgba(255,255,255,0.10); color: #f1f5f9; font-family: inherit; resize: vertical;
+}
+#rating-overlay textarea::placeholder { color: #94a3b8; }
+#rating-overlay .error { color: #fca5a5; font-size: 13px; margin-top: 6px; min-height: 16px; }
+#rating-overlay button { background: white; color: #1e3a8a; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+#rating-overlay button.switch { background: none; color: #93c5fd; box-shadow: none; margin-top: 4px; }
+#rating-overlay .rating-thanks { font-size: 16px; color: #86efac; font-weight: 700; padding: 20px 0; }
 .ai-msg { max-width: 80%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; }
 .ai-msg.user { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
 .ai-msg.bot { align-self: flex-start; background: #1e293b; color: #e2e8f0; border-bottom-left-radius: 4px; }
