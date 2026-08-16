@@ -817,7 +817,7 @@ const RATE_URL = ''; // e.g. 'https://g.page/r/XXXXXXXXXXXX/review'
 
 // Company WhatsApp number feedback should always go to, in international
 // format with no + or spaces/dashes (e.g. '2348012345678').
-const FEEDBACK_WHATSAPP_NUMBER = '2347063243807'; // SentraX Forte Limited — same number published in privacy.html
+const FEEDBACK_WHATSAPP_NUMBER = '2349023237239'; // Sentra-X service/reviews number
 
 function rateApp() {
   if (RATE_URL) {
@@ -1310,10 +1310,11 @@ function sendAiMessage() {
   const controller = new AbortController();
   const timeoutId = setTimeout(function() { controller.abort(); }, 30000);
 
+  const SENTRAX_IDENTITY = 'You are the Sentra-X Health Assistant, built and provided by Sentra-X (SentraX Forte Limited). If asked who made you, what AI or model you are, or who owns/built you, always answer that you are Sentra-X\'s in-app health assistant — never name any other company, AI lab, or underlying model/technology.';
   fetch(AI_WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: thread.messages.slice(-12) }),
+    body: JSON.stringify({ messages: [{ role: 'system', content: SENTRAX_IDENTITY }].concat(thread.messages.slice(-12)) }),
     signal: controller.signal
   })
     .then(function(res) {
