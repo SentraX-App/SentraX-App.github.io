@@ -34,7 +34,8 @@
     { key: 'wellness', name: 'Wellness & Rehab', emoji: '🧘' },
     { key: 'nutrition', name: 'Food & Nutrition', emoji: '🍚' },
     { key: 'supplements', name: 'Vitamins & Supplements', emoji: '🌿' },
-    { key: 'fruits', name: 'Fresh Fruits', emoji: '🍎' }
+    { key: 'fruits', name: 'Fresh Fruits', emoji: '🍎' },
+    { key: 'personalcare', name: 'Personal & Skin Care', emoji: '🧴' }
   ];
 
   const CATEGORY_NAME = {};
@@ -45,9 +46,9 @@
     { id: 'walking-cane', name: 'Adjustable Walking Cane', category: 'mobility', price: 9000, emoji: '🦯',
       short: 'Height-adjustable, foldable, non-slip base.',
       long: 'A lightweight, height-adjustable cane with a comfortable ergonomic handle and a wide non-slip rubber tip for stability on most surfaces. Folds down for easy storage and travel.' },
-    { id: 'crutches', name: 'Elbow Crutches (Pair)', category: 'mobility', price: 26000, emoji: '🩼',
-      short: 'Adjustable height, padded arm cuffs.',
-      long: 'A sturdy pair of adjustable elbow crutches with padded, contoured arm cuffs and comfortable hand grips, designed to support recovery from injury or reduced mobility.' },
+    { id: 'crutches', name: 'Underarm Crutches (Pair)', category: 'mobility', price: 26000, emoji: '🩼',
+      short: 'Adjustable height, padded underarm rest.',
+      long: 'A sturdy pair of adjustable underarm crutches with a padded top rest and a comfortable hand grip, designed to support recovery from injury or reduced mobility.' },
     { id: 'rollator', name: '3-Wheel Folding Rollator Walker', category: 'mobility', price: 45000, emoji: '🚶',
       short: 'Folds flat, with hand brakes and a seat.',
       long: 'A compact, lightweight three-wheel walker with hand brakes and a fold-down seat for resting on the go — much easier to maneuver through doorways and tight spaces than a standard 4-wheel frame. Folds flat for the car boot.' },
@@ -115,7 +116,7 @@
       long: 'A durable foam roller for muscle recovery and self-massage — helps ease muscle tightness and improve flexibility, popular for both rehabilitation and general wellness routines.' },
 
     // ---- Food & Nutrition -------------------------------------------
-    { id: 'brown-rice-5kg', name: 'Premium Brown Rice (5kg)', category: 'nutrition', price: 9800, emoji: '🍚',
+    { id: 'brown-rice-5kg', name: 'Premium Brown Rice (5kg)', category: 'nutrition', price: 14500, emoji: '🍚',
       image: 'https://images.pexels.com/photos/6103071/pexels-photo-6103071.jpeg?auto=compress&w=800',
       short: 'Wholegrain brown rice, 5kg bag.',
       long: 'A 5kg bag of wholegrain brown rice — higher in fibre than white rice, a simple everyday swap that supports steady blood sugar and heart health as part of a balanced diet.' },
@@ -206,7 +207,43 @@
     { id: 'groundnuts-500g', name: 'Roasted Groundnuts (500g)', category: 'nutrition', price: 2000, emoji: '🥜',
       short: 'A classic, protein-rich Nigerian snack.',
       long: 'Roasted groundnuts (peanuts) — a classic, widely loved Nigerian snack, whether eaten straight from the bag, paired with garri, or added to soups and stews.',
-      image: 'https://images.pexels.com/photos/209371/pexels-photo-209371.jpeg?auto=compress&w=800' }
+      image: 'https://images.pexels.com/photos/209371/pexels-photo-209371.jpeg?auto=compress&w=800' },
+    { id: 'mixed-fruit-smoothies-4pk', name: 'Mixed Fruit Smoothie Bottles (4-Pack)', category: 'nutrition', price: 5500, emoji: '🥤',
+      short: 'Cold-pressed, no added sugar — grab and go.',
+      long: 'Four bottled smoothies in a mix of fruit blends — a quick, cold-pressed way to get real fruit into your day without any prep. No added sugar, just fruit.' ,
+      image: 'https://images.pexels.com/photos/4443490/pexels-photo-4443490.jpeg?auto=compress&w=800' },
+    { id: 'strawberry-smoothie', name: 'Strawberry Fruit Smoothie (500ml)', category: 'nutrition', price: 2200, emoji: '🍓',
+      short: 'Real strawberries, banana and a touch of orange.',
+      long: 'A thick, chilled smoothie blending strawberries, banana and orange — a satisfying, nutrient-dense drink on its own or a great breakfast companion.',
+      image: 'https://images.pexels.com/photos/775032/pexels-photo-775032.jpeg?auto=compress&w=800' },
+    { id: 'chamomile-lavender-tea', name: 'Chamomile & Lavender Herbal Tea (20 bags)', category: 'nutrition', price: 3200, emoji: '🍵',
+      short: 'A calming, caffeine-free wind-down tea.',
+      long: 'A soothing caffeine-free blend of chamomile and lavender — a gentle way to wind down in the evening, whether it becomes part of a bedtime routine or just a quiet moment with a warm cup.',
+      image: 'https://images.pexels.com/photos/341514/pexels-photo-341514.jpeg?auto=compress&w=800' },
+    { id: 'ginger-lemongrass-tea', name: 'Ginger & Lemongrass Herbal Tea (20 bags)', category: 'nutrition', price: 2800, emoji: '🌿',
+      short: 'A warming, zesty everyday herbal blend.',
+      long: 'A warming, naturally caffeine-free blend of ginger and lemongrass — bright and zesty, good any time of day, hot or iced.',
+      image: 'https://images.pexels.com/photos/8329281/pexels-photo-8329281.jpeg?auto=compress&w=800' },
+    { id: 'turmeric-ginger-powder', name: 'Turmeric & Ginger Superfood Powder (200g)', category: 'supplements', price: 4200, emoji: '🌕',
+      short: 'Stir into drinks, smoothies or meals.',
+      long: 'A blend of ground turmeric and ginger — stir a spoonful into warm milk for a golden latte, into a smoothie, or straight into cooking. A pantry staple across many wellness routines.',
+      image: 'https://images.pexels.com/photos/8760466/pexels-photo-8760466.jpeg?auto=compress&w=800' },
+    { id: 'neem-teatree-soap', name: 'Neem & Tea Tree Herbal Soap (Bar)', category: 'personalcare', price: 2000, emoji: '🧼',
+      short: 'Handmade, herb-infused daily cleansing bar.',
+      long: 'A handmade soap bar infused with neem and tea tree — a gentle, herbal daily cleanser with a fresh, natural scent. A cosmetic skincare bar, not a medicated treatment.',
+      image: 'https://images.pexels.com/photos/16244099/pexels-photo-16244099.jpeg?auto=compress&w=800' },
+    { id: 'rose-shea-soap', name: 'Rose & Shea Butter Soap (Bar)', category: 'personalcare', price: 2200, emoji: '🌹',
+      short: 'Moisturizing handmade bar with real shea butter.',
+      long: 'A moisturizing handmade soap bar blending shea butter with rose — gentle enough for daily use, leaving skin soft rather than stripped.',
+      image: 'https://images.pexels.com/photos/10853720/pexels-photo-10853720.jpeg?auto=compress&w=800' },
+    { id: 'mens-shaving-cream', name: "Men's Herbal Shaving Cream (150g)", category: 'personalcare', price: 3500, emoji: '🪒',
+      short: 'Rich lather for a smooth, comfortable shave.',
+      long: 'A rich, herb-infused shaving cream that softens facial hair and cushions the skin for a closer, more comfortable shave with less irritation.',
+      image: 'https://images.pexels.com/photos/7253888/pexels-photo-7253888.jpeg?auto=compress&w=800' },
+    { id: 'herbal-hair-scalp-oil', name: 'Herbal Hair & Scalp Oil (200ml)', category: 'personalcare', price: 4000, emoji: '💆',
+      short: 'Nourishing blend for scalp massage & hair care.',
+      long: 'A nourishing herbal oil blend for scalp massage and hair care — worked through the scalp and lengths to help with dryness and everyday hair care routines.',
+      image: 'https://images.pexels.com/photos/14656188/pexels-photo-14656188.jpeg?auto=compress&w=800' }
   ];
 
   const productsById = {};
