@@ -80,7 +80,23 @@
     </div>
   </div>
 
-
+<div id="rating-overlay">
+    <div class="box">
+      <h2>Rate Sentra-X</h2>
+      <p>Your feedback helps us keep improving the app.</p>
+      <div class="star-row" id="star-row">
+        <span class="star-btn" data-value="1" onclick="selectStar(1)">☆</span>
+        <span class="star-btn" data-value="2" onclick="selectStar(2)">☆</span>
+        <span class="star-btn" data-value="3" onclick="selectStar(3)">☆</span>
+        <span class="star-btn" data-value="4" onclick="selectStar(4)">☆</span>
+        <span class="star-btn" data-value="5" onclick="selectStar(5)">☆</span>
+      </div>
+      <textarea id="rating-feedback" placeholder="What's working well, or what could be better? (optional)" rows="4"></textarea>
+      <div class="error" id="rating-error"></div>
+      <button id="rating-submit-btn" onclick="submitRating()">Submit Feedback</button>
+      <button class="switch" onclick="closeRatingOverlay()">Not now</button>
+    </div>
+</div>
   <div id="onboarding-overlay">
     <div class="box">
       <h2>Welcome to Sentra-X</h2>
@@ -431,7 +447,8 @@
     <button onclick="showScreen('articles')" id="nav-articles"><span class="icon">📰</span>Articles</button>
     <button onclick="showScreen('marketplace')" id="nav-marketplace"><span class="icon">🛍️</span>Marketplace</button>
     <button onclick="showScreen('rewards')" id="nav-rewards"><span class="icon">🪙</span>Rewards</button>
-    <button onclick="rateApp()" id="nav-rate"><span class="icon">⭐</span>Rate Sentra-X</button>
+    <button onclick="openRatingOverlay()" id="nav-rate"><span class="icon">⭐</span>Rate Sentra-X</button>
+    <button onclick="openWhatsAppCommunity()" id="nav-community"><span class="icon">👥</span>Sentra-X Health Community</button>
   </div>
 
   <nav>
