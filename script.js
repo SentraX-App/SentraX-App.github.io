@@ -817,7 +817,7 @@ const RATE_URL = ''; // e.g. 'https://g.page/r/XXXXXXXXXXXX/review'
 
 // Company WhatsApp number feedback should always go to, in international
 // format with no + or spaces/dashes (e.g. '2348012345678').
-const FEEDBACK_WHATSAPP_NUMBER = ''; // <-- fill this in
+const FEEDBACK_WHATSAPP_NUMBER = '2347063243807'; // SentraX Forte Limited — same number published in privacy.html
 
 function rateApp() {
   if (RATE_URL) {
@@ -1677,7 +1677,7 @@ function calculateBpmFromSamples(samples) {
 // Flags a fast/slow/uneven pulse and nudges the user toward a real manual
 // BP reading. This never estimates blood pressure itself.
 const HR_TACHY_BPM = 100;
-const HR_BRADY_BPM = 50;
+const HR_BRADY_BPM = 60; // standard clinical bradycardia threshold — was 50, which meant a resting rate of 50-59 bpm (a real bradycardia range) never triggered the prompt
 // A trimmed coefficient of variation (drops the single longest and shortest
 // interval before computing stdev/mean) above this is flagged as irregular.
 // Trimming matters because even with prominence filtering, camera PPG will
