@@ -86,6 +86,7 @@ function closeMoreMenu() {
 window.addEventListener('popstate', function() {
   document.getElementById('more-sheet').style.display = 'none';
   document.getElementById('more-sheet-backdrop').style.display = 'none';
+  document.getElementById('rating-overlay').style.display = 'none';
 });
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
@@ -851,10 +852,16 @@ function openRatingOverlay() {
     '<button id="rating-submit-btn" onclick="submitRating()">Submit Feedback</button>' +
     '<button class="switch" onclick="closeRatingOverlay()">Not now</button>';
   document.getElementById('rating-overlay').style.display = 'flex';
+  history.pushState({ ratingOverlay: true }, '');
 }
 
 function closeRatingOverlay() {
-  document.getElementById('rating-overlay').style.display = 'none';
+  const overlay = document.getElementById('rating-overlay');
+  if (overlay.style.display === 'flex' && history.state && history.state.ratingOverlay) {
+    history.back();
+  } else {
+    overlay.style.display = 'none';
+  }
 }
 
 function selectStar(n) {
@@ -938,7 +945,7 @@ function toggleFirstAid(id) {
 // Paste your deployed Cloudflare Worker URL here once you've followed the
 // deploy steps in cloudflare-sos-worker.js. Leave blank and SMS sending is
 // skipped automatically (email + WhatsApp still work either way).
-const SOS_SMS_WORKER_URL = ''; // e.g. 'https://sentrax-sos-sms.YOUR-SUBDOMAIN.workers.dev/'
+const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/';
 
 // Reuses the exact same EmailJS project already proven working elsewhere in
 // the app (marketplace orders, ratings) — same public key, no new setup.
