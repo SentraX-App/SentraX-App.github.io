@@ -1,8 +1,11 @@
 name: Sentra-X Alert Checker
 
+# Retired 2026-08-15 — superseded by the sentrax-alert-checker Cloudflare
+# Worker, to stop duplicate caregiver alerts and duplicate Termii SMS costs.
+# Schedule trigger removed below; workflow_dispatch is kept so this can
+# still be run manually as an emergency fallback if the Worker ever needs
+# to be rolled back.
 on:
-  schedule:
-    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 jobs:
