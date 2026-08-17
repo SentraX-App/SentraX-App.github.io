@@ -141,7 +141,7 @@ async function sendSMS(toPhone, message) {
       body: JSON.stringify({
         api_key: TERMII_API_KEY,
         to: digits,
-        from: 'N-Alert',
+        from: 'Termii',
         sms: message,
         type: 'plain',
         channel: 'generic'
