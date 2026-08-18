@@ -243,7 +243,31 @@
     { id: 'herbal-hair-scalp-oil', name: 'Herbal Hair & Scalp Oil (200ml)', category: 'personalcare', price: 5600, emoji: '💆',
       short: 'Nourishing blend for scalp massage & hair care.',
       long: 'A nourishing herbal oil blend for scalp massage and hair care — worked through the scalp and lengths to help with dryness and everyday hair care routines.',
-      image: 'https://images.pexels.com/photos/14656188/pexels-photo-14656188.jpeg?auto=compress&w=800' }
+      image: 'https://images.pexels.com/photos/14656188/pexels-photo-14656188.jpeg?auto=compress&w=800' },
+    { id: 'prenatal-multivitamin-60', name: 'Prenatal Multivitamin Tablets (60ct)', category: 'supplements', price: 8500, emoji: '🤰',
+      short: 'Daily support for pregnancy and postnatal nutrition.',
+      long: 'A daily multivitamin formulated for the extra nutritional needs of pregnancy and postnatal recovery — folic acid, iron, and calcium among its core nutrients.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Prenatal%20vitamin%20tablets.jpg?width=500' },
+    { id: 'mens-daily-multivitamin-30', name: "Men's Daily Vitality Multivitamin (30ct)", category: 'supplements', price: 9000, emoji: '💪',
+      short: 'Everyday multivitamin for energy and immune support.',
+      long: 'A daily multivitamin blend built for everyday energy, stamina, and immune support — a simple one-a-day addition to a busy routine.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Multivitamin%20picture.JPG?width=500' },
+    { id: 'whey-protein-shake-500g', name: 'Whey Protein Shake Powder (500g)', category: 'supplements', price: 14500, emoji: '🥤',
+      short: 'Mixes into a shake for workout recovery or extra protein.',
+      long: 'A whey protein powder that mixes into a quick shake — popular for post-workout recovery or simply topping up daily protein intake.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Whey%20powder.jpg?width=500' },
+    { id: 'collagen-beauty-capsules-60', name: 'Collagen Beauty Capsules (60ct)', category: 'supplements', price: 12300, emoji: '✨',
+      short: 'Daily capsules aimed at skin, hair, and joint support.',
+      long: 'Daily collagen capsules — a popular routine addition for skin elasticity, hair, and joint support as part of an everyday beauty and wellness regimen.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Capsules%20Spilling%20from%20Bottle%20(34356373370).jpg?width=500' },
+    { id: 'iron-rich-tonic-syrup-200ml', name: 'Iron-Rich Tonic Syrup (200ml)', category: 'naija-wellness', price: 16600, emoji: '🧪',
+      short: 'A daily liquid iron tonic, easy to take by the spoonful.',
+      long: 'A daily liquid iron tonic taken by the spoonful — an easy-to-take alternative to tablets for topping up iron intake as part of an everyday routine.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Sirop%20toux.jpg?width=500' },
+    { id: 'hormonal-balance-herbal-tea-20', name: 'Hormonal Balance Herbal Tea (20 bags)', category: 'naija-wellness', price: 5500, emoji: '🍵',
+      short: 'A spearmint-based herbal tea blend for cycle support.',
+      long: 'A spearmint-based herbal tea blend, popularly brewed as part of everyday routines around cycle and hormonal balance support.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Herbal%20tea%20in%20white%20mug.jpg?width=500' }
   ];
 
   const productsById = {};
