@@ -650,8 +650,13 @@ function saveCaregivers(list) {
 }
 
 let editingCaregiverId = null;
+const MAX_CAREGIVERS = 8; // matches the linked/invite caregiver cap (see generateInviteCode) — kept in sync intentionally
 
 function openAddCaregiverForm() {
+  if (loadCaregivers().length >= MAX_CAREGIVERS) {
+    alert('You can add up to ' + MAX_CAREGIVERS + ' caregivers. Remove one before adding another.');
+    return;
+  }
   editingCaregiverId = null;
   document.getElementById('cg-name').value = '';
   document.getElementById('cg-phone').value = '';
@@ -685,6 +690,10 @@ function saveCaregiverForm() {
   if (!name || !phone) { alert("Please enter both the caregiver's name and number."); return; }
 
   const list = loadCaregivers();
+  if (!editingCaregiverId && list.length >= MAX_CAREGIVERS) {
+    alert('You can add up to ' + MAX_CAREGIVERS + ' caregivers. Remove one before adding another.');
+    return;
+  }
   if (editingCaregiverId) {
     const entry = list.find(function (c) { return c.id === editingCaregiverId; });
     if (entry) { entry.name = name; entry.phone = phone; entry.email = email; }
@@ -725,27 +734,47 @@ function removeCaregiverEntry(id) {
 function generateInviteCode() {
   const user = firebase.auth().currentUser;
   if (!user) { alert('Please log in first.'); return; }
-  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
-  firebase.firestore().collection('invites').doc(code).set({
-    patientUid: user.uid,
-    patientName: localStorage.getItem('userName') || '',
-    createdAt: Date.now(),
-    expiresAt: expiresAt,
-    usedBy: null
-  }).then(function () {
-    const link = 'https://sentra-x.app/caregiver.html?code=' + code;
-    document.getElementById('invite-code-box').style.display = 'block';
-    document.getElementById('invite-code-text').textContent = code;
-    const name = localStorage.getItem('userName') || 'I';
-    const msg = name + ' would like you to help keep track of their health on Sentra-X. Tap this link to link your account: ' + link;
-    document.getElementById('invite-share-link').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+  // The linked-caregiver list is displayed as "(x/8)" but that cap was
+  // never actually enforced anywhere — someone could link more than 8
+  // despite the UI promising a limit. Checking it here for real, using
+  // the same MAX_CAREGIVERS number as the local caregiver list so both
+  // caps stay in sync.
+  firebase.firestore().collection('users').doc(user.uid).get().then(function (doc) {
+    const uids = (doc.exists && doc.data().caregiverUids) || [];
+    if (uids.length >= MAX_CAREGIVERS) {
+      alert('You can link up to ' + MAX_CAREGIVERS + ' caregivers. Remove one before inviting another.');
+      return;
+    }
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+    firebase.firestore().collection('invites').doc(code).set({
+      patientUid: user.uid,
+      patientName: localStorage.getItem('userName') || '',
+      createdAt: Date.now(),
+      expiresAt: expiresAt,
+      usedBy: null
+    }).then(function () {
+      const link = 'https://sentra-x.app/caregiver.html?code=' + code;
+      document.getElementById('invite-code-box').style.display = 'block';
+      document.getElementById('invite-code-text').textContent = code;
+      const name = localStorage.getItem('userName') || 'I';
+      const msg = name + ' would like you to help keep track of their health on Sentra-X. Tap this link to link your account: ' + link;
+      document.getElementById('invite-share-link').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+    }).catch(function (err) {
+      alert('Could not generate invite code: ' + err.message);
+    });
   }).catch(function (err) {
-    alert('Could not generate invite code: ' + err.message);
+    alert('Could not check your linked caregivers: ' + err.message);
   });
 }
 function renderCaregiverNote() {
   const list = loadCaregivers();
+  const addBtn = document.getElementById('cg-add-btn');
+  if (addBtn) {
+    const atLimit = list.length >= MAX_CAREGIVERS;
+    addBtn.textContent = atLimit ? 'Caregiver limit reached (' + MAX_CAREGIVERS + ')' : '+ Add Caregiver';
+    addBtn.disabled = atLimit;
+  }
   const box = document.getElementById('cg-list');
   if (list.length === 0) {
     box.innerHTML = '<div class="empty">No caregivers added yet</div>';
@@ -787,7 +816,7 @@ function renderLinkedCaregivers() {
         box.innerHTML = '<div class="empty" style="margin-top:10px;">No caregivers linked yet</div>';
         return;
       }
-      box.innerHTML = '<h4 style="margin:14px 0 8px;font-size:14px;color:#94a3b8;">Linked Caregivers (' + uids.length + '/8)</h4>' +
+      box.innerHTML = '<h4 style="margin:14px 0 8px;font-size:14px;color:#94a3b8;">Linked Caregivers (' + uids.length + '/' + MAX_CAREGIVERS + ')</h4>' +
         uids.map(function (uid) {
           const meta = info[uid] || {};
           const label = meta.email || 'Caregiver';
