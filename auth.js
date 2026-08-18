@@ -118,6 +118,7 @@ const consentEl = document.getElementById('auth-consent');
         if (data.cgEmail) localStorage.setItem('cgEmail', data.cgEmail);
         if (data.medHistory) localStorage.setItem('medHistory', JSON.stringify(data.medHistory));
         if (data.passport) localStorage.setItem('passport', JSON.stringify(data.passport));
+        if (data.passportPhoto) localStorage.setItem('passportPhoto', data.passportPhoto);
         if (data.quickSleep) localStorage.setItem('quick_sleep', JSON.stringify(data.quickSleep));
         if (data.quickActivity) localStorage.setItem('quick_activity', JSON.stringify(data.quickActivity));
         if (data.quickMood) localStorage.setItem('quick_mood', JSON.stringify(data.quickMood));
