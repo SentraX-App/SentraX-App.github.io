@@ -1240,45 +1240,204 @@ function populatePassportSelects() {
   if (sexSelect) sexSelect.innerHTML = SEXES.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
 }
 
+// True when the form was opened via editPassportCard() (pre-filled with
+// everything already saved) rather than left in its normal blank state.
+let passportEditMode = false;
+
 function savePassport() {
-  const passport = {
-    sex: document.getElementById('pp-sex').value,
-    age: document.getElementById('pp-age').value,
-    bloodGroup: document.getElementById('pp-bloodgroup').value,
-    genotype: document.getElementById('pp-genotype').value,
-    allergies: document.getElementById('pp-allergies').value.trim(),
-    conditions: document.getElementById('pp-conditions').value.trim(),
-    history: document.getElementById('pp-history').value.trim(),
-    vaccinations: document.getElementById('pp-vaccinations').value.trim(),
-    height: document.getElementById('pp-height').value,
-    weight: document.getElementById('pp-weight').value,
-    physician: document.getElementById('pp-physician').value.trim(),
-    insurance: document.getElementById('pp-insurance').value.trim(),
-    emergencyContact: document.getElementById('pp-emergency').value.trim()
-  };
+  const existing = JSON.parse(localStorage.getItem('passport') || '{}');
+  const sexVal = document.getElementById('pp-sex').value;
+  const bgVal = document.getElementById('pp-bloodgroup').value;
+  const gtVal = document.getElementById('pp-genotype').value;
+  const ageVal = document.getElementById('pp-age').value;
+  const heightVal = document.getElementById('pp-height').value;
+  const weightVal = document.getElementById('pp-weight').value;
+  const allergiesVal = document.getElementById('pp-allergies').value.trim();
+  const conditionsVal = document.getElementById('pp-conditions').value.trim();
+  const historyVal = document.getElementById('pp-history').value.trim();
+  const vaccinationsVal = document.getElementById('pp-vaccinations').value.trim();
+  const physicianVal = document.getElementById('pp-physician').value.trim();
+  const insuranceVal = document.getElementById('pp-insurance').value.trim();
+  const emergencyVal = document.getElementById('pp-emergency').value.trim();
+
+  let passport;
+  if (passportEditMode) {
+    // Editing the full card: the form was pre-filled with everything saved,
+    // so what's in it now IS the intended full record — save it exactly as
+    // shown, including any field the user deliberately cleared.
+    passport = {
+      sex: sexVal, age: ageVal, bloodGroup: bgVal, genotype: gtVal,
+      allergies: allergiesVal, conditions: conditionsVal, history: historyVal,
+      vaccinations: vaccinationsVal, height: heightVal, weight: weightVal,
+      physician: physicianVal, insurance: insuranceVal, emergencyContact: emergencyVal
+    };
+  } else {
+    // Quick add from the normal blank form: a blank field here means "I
+    // didn't touch this one", so merge onto the existing record and only
+    // overwrite fields the user actually filled in — never wipe the rest.
+    passport = {
+      sex: (sexVal && sexVal !== SEXES[0]) ? sexVal : existing.sex,
+      age: ageVal || existing.age,
+      bloodGroup: (bgVal && bgVal !== BLOOD_GROUPS[0]) ? bgVal : existing.bloodGroup,
+      genotype: (gtVal && gtVal !== GENOTYPES[0]) ? gtVal : existing.genotype,
+      allergies: allergiesVal || existing.allergies,
+      conditions: conditionsVal || existing.conditions,
+      history: historyVal || existing.history,
+      vaccinations: vaccinationsVal || existing.vaccinations,
+      height: heightVal || existing.height,
+      weight: weightVal || existing.weight,
+      physician: physicianVal || existing.physician,
+      insurance: insuranceVal || existing.insurance,
+      emergencyContact: emergencyVal || existing.emergencyContact
+    };
+  }
+
   localStorage.setItem('passport', JSON.stringify(passport));
-  document.getElementById('pp-saved-note').textContent = 'Saved';
   syncToFirestore({ passport: passport });
-  setTimeout(function() { document.getElementById('pp-saved-note').textContent = ''; }, 2000);
+  // Clear the form back to blank once saved, whether this was a quick add
+  // or a full edit — the saved details live on the passport card above,
+  // not sitting exposed in the input fields.
+  resetPassportForm();
+  renderPassportCard();
+  document.getElementById('pp-saved-note').textContent = '✓ Saved to your passport card above';
+  setTimeout(function() { document.getElementById('pp-saved-note').textContent = ''; }, 2500);
+}
+
+// Rebuilds the Sex/Blood Group/Genotype dropdowns (which also resets them
+// to their first/default option) and blanks every text field, without
+// touching what's already saved in localStorage.
+function resetPassportForm() {
+  passportEditMode = false;
+  populatePassportSelects();
+  ['pp-age', 'pp-allergies', 'pp-conditions', 'pp-history', 'pp-vaccinations',
+   'pp-height', 'pp-weight', 'pp-physician', 'pp-insurance', 'pp-emergency'
+  ].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const label = document.getElementById('pp-form-label');
+  if (label) label.textContent = 'Add or update a detail';
+}
+
+// Loads everything already saved into the form so the whole card can be
+// reviewed and edited at once, instead of adding one detail at a time.
+function editPassportCard() {
+  const p = JSON.parse(localStorage.getItem('passport') || '{}');
+  populatePassportSelects();
+  passportEditMode = true;
+  if (p.sex) document.getElementById('pp-sex').value = p.sex;
+  document.getElementById('pp-age').value = p.age || '';
+  if (p.bloodGroup) document.getElementById('pp-bloodgroup').value = p.bloodGroup;
+  if (p.genotype) document.getElementById('pp-genotype').value = p.genotype;
+  document.getElementById('pp-allergies').value = p.allergies || '';
+  document.getElementById('pp-conditions').value = p.conditions || '';
+  document.getElementById('pp-history').value = p.history || '';
+  document.getElementById('pp-vaccinations').value = p.vaccinations || '';
+  document.getElementById('pp-height').value = p.height || '';
+  document.getElementById('pp-weight').value = p.weight || '';
+  document.getElementById('pp-physician').value = p.physician || '';
+  document.getElementById('pp-insurance').value = p.insurance || '';
+  document.getElementById('pp-emergency').value = p.emergencyContact || '';
+  document.getElementById('pp-saved-note').textContent = '';
+  const label = document.getElementById('pp-form-label');
+  if (label) label.textContent = 'Editing your passport — update or clear anything below';
+  const sexField = document.getElementById('pp-sex');
+  if (sexField) sexField.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function renderPassport() {
-  const saved = JSON.parse(localStorage.getItem('passport') || '{}');
-  populatePassportSelects();
-  if (saved.sex) document.getElementById('pp-sex').value = saved.sex;
-  document.getElementById('pp-age').value = saved.age || '';
-  if (saved.bloodGroup) document.getElementById('pp-bloodgroup').value = saved.bloodGroup;
-  if (saved.genotype) document.getElementById('pp-genotype').value = saved.genotype;
-  document.getElementById('pp-allergies').value = saved.allergies || '';
-  document.getElementById('pp-conditions').value = saved.conditions || '';
-  document.getElementById('pp-history').value = saved.history || '';
-  document.getElementById('pp-vaccinations').value = saved.vaccinations || '';
-  document.getElementById('pp-height').value = saved.height || '';
-  document.getElementById('pp-weight').value = saved.weight || '';
-  document.getElementById('pp-physician').value = saved.physician || '';
-  document.getElementById('pp-insurance').value = saved.insurance || '';
-  document.getElementById('pp-emergency').value = saved.emergencyContact || '';
+  resetPassportForm();
+  const note = document.getElementById('pp-saved-note');
+  if (note) note.textContent = '';
+  renderPassportCard();
 }
+
+// Compact summary card shown above the entry form. Tapping the name/blood
+// group opens the full read-only overlay; the pencil opens the form
+// pre-filled for editing.
+function renderPassportCard() {
+  const box = document.getElementById('passport-card-box');
+  if (!box) return;
+  const p = JSON.parse(localStorage.getItem('passport') || '{}');
+  const hasData = p.sex || p.age || p.bloodGroup || p.genotype || p.allergies ||
+    p.conditions || p.history || p.vaccinations || p.height || p.weight ||
+    p.physician || p.insurance || p.emergencyContact;
+  if (!hasData) {
+    box.innerHTML = '<div class="empty" style="font-size:13px;">No medical passport saved yet — fill in a detail below and tap Save.</div>';
+    return;
+  }
+  const name = localStorage.getItem('userName') || 'Sentra-X User';
+  const subtitle = (p.bloodGroup && p.bloodGroup !== "Don't know" ? p.bloodGroup : 'Blood group not set') +
+    (p.genotype && p.genotype !== "Don't know" ? ' • ' + p.genotype : '');
+  box.innerHTML =
+    '<div class="pp-card">' +
+    '<div class="pp-card-icon" onclick="openPassportCardOverlay()">🪪</div>' +
+    '<div class="pp-card-info" onclick="openPassportCardOverlay()"><b>' + escapeHtml(name) + '</b><span>' + escapeHtml(subtitle) + '</span></div>' +
+    '<button class="pp-card-edit" onclick="editPassportCard()" aria-label="Edit passport">✏️</button>' +
+    '<div class="pp-card-arrow" onclick="openPassportCardOverlay()">→</div>' +
+    '</div>';
+}
+
+let passportOverlayHistoryPushed = false;
+
+// Full-detail read-only view — reuses the article/product reader overlay
+// styling for a consistent look, with its own gradient cover + detail rows.
+function openPassportCardOverlay() {
+  const p = JSON.parse(localStorage.getItem('passport') || '{}');
+  const name = localStorage.getItem('userName') || 'Sentra-X User';
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]');
+  const medNames = meds.map(function (m) { return m.name; }).join(', ') || 'None listed';
+  let overlay = document.getElementById('passport-card-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'passport-card-overlay';
+    document.body.appendChild(overlay);
+  }
+  function row(label, value) {
+    return '<div class="pp-detail-row"><span class="pp-detail-label">' + label + '</span><span class="pp-detail-value">' + escapeHtml(value || 'Not listed') + '</span></div>';
+  }
+  overlay.innerHTML =
+    '<button class="art-reader-back" onclick="closePassportCardOverlay()">←</button>' +
+    '<div class="pp-card-cover"><div class="pp-card-cover-icon">🪪</div><h2>' + escapeHtml(name) + '</h2><span class="art-reader-tag">Medical Passport</span></div>' +
+    '<div class="art-reader-body">' +
+    row('Sex', p.sex) +
+    row('Age', p.age) +
+    row('Blood Group', p.bloodGroup) +
+    row('Genotype', p.genotype) +
+    row('Allergies', p.allergies) +
+    row('Chronic Conditions', p.conditions) +
+    row('Medical History', p.history) +
+    row('Vaccination History', p.vaccinations) +
+    row('Height', p.height ? p.height + ' cm' : '') +
+    row('Weight', p.weight ? p.weight + ' kg' : '') +
+    row('Current Medications', medNames) +
+    row('Primary Physician', p.physician) +
+    row('Insurance', p.insurance) +
+    row('Emergency Contact', p.emergencyContact) +
+    '<div class="art-reader-footnote">Kept only in your account — never shared automatically. Use Print / Save as PDF or Generate QR Code below to share it yourself.</div>' +
+    '</div>';
+  history.pushState({ sxPassportOverlay: true }, '');
+  passportOverlayHistoryPushed = true;
+  overlay.style.display = 'block';
+  overlay.scrollTop = 0;
+}
+
+function closePassportCardOverlay() {
+  const overlay = document.getElementById('passport-card-overlay');
+  if (overlay) overlay.style.display = 'none';
+  if (passportOverlayHistoryPushed) {
+    passportOverlayHistoryPushed = false;
+    history.back();
+  }
+}
+
+window.addEventListener('popstate', function () {
+  const overlay = document.getElementById('passport-card-overlay');
+  if (overlay && overlay.style.display === 'block') {
+    overlay.style.display = 'none';
+    passportOverlayHistoryPushed = false;
+  }
+});
 
 function buildPassportSummary() {
   const p = JSON.parse(localStorage.getItem('passport') || '{}');
