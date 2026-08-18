@@ -1355,10 +1355,9 @@ function renderPassportPhotoPicker() {
       '<label class="pp-photo-preview" for="pp-photo-input">' +
         (photo ? '<img src="' + photo + '" alt="Passport photo">' : '🪪') +
       '</label>' +
-      '<input type="file" id="pp-photo-input" accept="image/*" capture="user" style="display:none;" onchange="handlePassportPhotoUpload(this)">' +
+      '<input type="file" id="pp-photo-input" accept="image/*" style="display:none;" onchange="handlePassportPhotoUpload(this)">' +
       '<div class="pp-photo-actions">' +
         '<label class="pp-photo-btn" for="pp-photo-input">' + (photo ? '📷 Change Photo' : '📷 Add Photo') + '</label>' +
-        (photo ? '<button type="button" class="pp-photo-btn pp-photo-remove" onclick="removePassportPhoto()">Remove</button>' : '') +
       '</div>' +
     '</div>';
 }
@@ -1389,15 +1388,6 @@ function handlePassportPhotoUpload(input) {
   };
   reader.readAsDataURL(file);
   input.value = '';
-}
-
-function removePassportPhoto() {
-  localStorage.removeItem('passportPhoto');
-  if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
-    syncToFirestore({ passportPhoto: firebase.firestore.FieldValue.delete() });
-  }
-  renderPassportCard();
-  renderPassportPhotoPicker();
 }
 
 function renderPassport() {
