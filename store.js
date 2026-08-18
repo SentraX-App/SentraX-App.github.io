@@ -49,6 +49,10 @@
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Smoke%20detector.JPG?width=500',
       short: 'Battery-powered smoke alarm for early fire warning at home.',
       long: 'A reliable, battery-powered smoke detector that gives an early audible warning if smoke is detected — one of the simplest, most effective home safety additions, especially in a household where every extra minute of warning matters.' },
+    { id: 'fire-extinguisher-1kg', name: 'Compact Home Fire Extinguisher (1kg, Dry Powder)', category: 'safety', price: 17000, emoji: '🧯',
+      image: 'https://images.pexels.com/photos/4805958/pexels-photo-4805958.jpeg?auto=compress&w=800',
+      short: 'A small dry-powder extinguisher for kitchen and home fire emergencies.',
+      long: 'A compact 1kg dry-powder fire extinguisher — small enough to keep in a kitchen cupboard or hallway, but effective on the everyday fire risks most homes actually face (cooking oil, electrical, general combustibles). Comes with a pressure gauge so you can check at a glance that it\u2019s still ready to use.' },
 
     // ---- First Aid & Comfort -------------------------------------------
     { id: 'hot-cold-pack', name: 'Reusable Hot & Cold Gel Pack', category: 'firstaid', price: 6400, emoji: '🧊',
