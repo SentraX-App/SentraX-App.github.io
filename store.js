@@ -274,7 +274,7 @@
       short: 'An eco-friendly everyday toothbrush.',
       long: 'A bamboo-handled toothbrush — a simple, everyday eco-friendly swap for a standard plastic toothbrush.' },
     { id: 'wooden-cutting-board', name: 'Wooden Cutting Board', category: 'kitchen-living', price: 4600, emoji: '🪵',
-      image: 'https://images.pexels.com/photos/5961/pexels-photo-5961.jpeg?auto=compress&w=800',
+      image: 'https://images.pexels.com/photos/5961/wood-vintage-wooden-board.jpg?auto=compress&w=800',
       short: 'A sturdy everyday board for food prep.',
       long: 'A sturdy wooden cutting board for everyday food prep — durable, easy to clean, and gentle on knife edges.' },
     { id: 'kids-lunch-box', name: 'Lunch Box (Kids & Adults)', category: 'kitchen-living', price: 3600, emoji: '🍱',
