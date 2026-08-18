@@ -463,7 +463,7 @@
           }
         });
 
-        let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine) — a fresh set featured daily</p></div>';
+        let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine) — a fresh set featured daily. Topic images via Wikimedia Commons contributors, used under Creative Commons licenses.</p></div>';
         shuffledItems.forEach(function (item, i) {
           medLibraryById[item.id] = item;
           const tag = MEDLIB_TAG_MAP[item.id] || 'Wellness';
