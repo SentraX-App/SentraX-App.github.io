@@ -101,7 +101,12 @@ header img { height: 30px; width: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0
   border-radius: 14px; padding: 14px 16px;
 }
 .pp-card-icon, .pp-card-info, .pp-card-arrow { cursor: pointer; }
-.pp-card-icon { font-size: 26px; flex-shrink: 0; }
+.pp-card-icon {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  font-size: 22px; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.08); overflow: hidden;
+}
+.pp-card-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pp-card-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .pp-card-info b { font-size: 15px; color: #f1f5f9; }
 .pp-card-info span { font-size: 12.5px; color: #93c5fd; }
@@ -120,8 +125,27 @@ header img { height: 30px; width: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0
   padding: 36px 20px 22px; text-align: center;
   background: linear-gradient(135deg, #0ea5e9, #4338ca);
 }
-.pp-card-cover-icon { font-size: 34px; margin-bottom: 6px; }
+.pp-card-cover-icon {
+  width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 10px;
+  font-size: 34px; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.16); border: 3px solid rgba(255,255,255,0.35); overflow: hidden;
+}
+.pp-card-cover-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pp-card-cover h2 { margin: 4px 0 10px; font-size: 20px; color: #fff; }
+.pp-photo-upload { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.pp-photo-preview {
+  width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0; cursor: pointer;
+  background: rgba(255,255,255,0.08); border: 2px dashed rgba(96,165,250,0.4);
+  display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden;
+}
+.pp-photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pp-photo-actions { display: flex; flex-direction: column; gap: 6px; }
+.pp-photo-btn {
+  width: auto; padding: 7px 14px; font-size: 13px; border-radius: 10px; cursor: pointer;
+  background: rgba(96,165,250,0.18); border: 1px solid rgba(96,165,250,0.3); color: #93c5fd;
+  box-shadow: none; margin: 0; display: inline-block;
+}
+.pp-photo-remove { color: #fca5a5; background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.3); }
 .pp-detail-row {
   display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
   padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
