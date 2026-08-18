@@ -91,6 +91,43 @@ header img { height: 30px; width: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0
   position: fixed; inset: 0; z-index: 2000; display: none;
   background: #0b1220; overflow-y: auto;
 }
+
+/* Medical Passport summary card + its full-detail overlay — reuses
+   .art-reader-back/.art-reader-body/.art-reader-tag for a consistent look. */
+.pp-card {
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(135deg, rgba(14,165,233,0.16), rgba(67,56,202,0.16));
+  border: 1px solid rgba(96,165,250,0.25);
+  border-radius: 14px; padding: 14px 16px;
+}
+.pp-card-icon, .pp-card-info, .pp-card-arrow { cursor: pointer; }
+.pp-card-icon { font-size: 26px; flex-shrink: 0; }
+.pp-card-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.pp-card-info b { font-size: 15px; color: #f1f5f9; }
+.pp-card-info span { font-size: 12.5px; color: #93c5fd; }
+.pp-card-arrow { font-size: 12.5px; color: #93c5fd; flex-shrink: 0; font-weight: 700; }
+.pp-card-edit {
+  width: auto; flex-shrink: 0; cursor: pointer;
+  background: rgba(255,255,255,0.08); box-shadow: none;
+  border-radius: 50%; width: 30px; height: 30px; padding: 0; margin: 0;
+  font-size: 13px; display: flex; align-items: center; justify-content: center;
+}
+#passport-card-overlay {
+  position: fixed; inset: 0; z-index: 2000; display: none;
+  background: #0b1220; overflow-y: auto;
+}
+.pp-card-cover {
+  padding: 36px 20px 22px; text-align: center;
+  background: linear-gradient(135deg, #0ea5e9, #4338ca);
+}
+.pp-card-cover-icon { font-size: 34px; margin-bottom: 6px; }
+.pp-card-cover h2 { margin: 4px 0 10px; font-size: 20px; color: #fff; }
+.pp-detail-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.pp-detail-label { font-size: 12.5px; color: #93c5fd; font-weight: 700; flex-shrink: 0; }
+.pp-detail-value { font-size: 14px; color: #e2e8f0; text-align: right; word-break: break-word; }
 #article-reader-overlay .art-reader-cover {
   height: 150px; display: flex; align-items: flex-end; padding: 16px;
 }
