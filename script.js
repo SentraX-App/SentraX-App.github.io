@@ -1317,6 +1317,7 @@ function resetPassportForm() {
   });
   const label = document.getElementById('pp-form-label');
   if (label) label.textContent = 'Add or update a detail';
+  renderPassportPhotoPicker();
 }
 
 // Loads everything already saved into the form so the whole card can be
@@ -1345,6 +1346,60 @@ function editPassportCard() {
   if (sexField) sexField.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+function renderPassportPhotoPicker() {
+  const box = document.getElementById('pp-photo-picker');
+  if (!box) return;
+  const photo = localStorage.getItem('passportPhoto');
+  box.innerHTML =
+    '<div class="pp-photo-upload">' +
+      '<label class="pp-photo-preview" for="pp-photo-input">' +
+        (photo ? '<img src="' + photo + '" alt="Passport photo">' : '🪪') +
+      '</label>' +
+      '<input type="file" id="pp-photo-input" accept="image/*" capture="user" style="display:none;" onchange="handlePassportPhotoUpload(this)">' +
+      '<div class="pp-photo-actions">' +
+        '<label class="pp-photo-btn" for="pp-photo-input">' + (photo ? '📷 Change Photo' : '📷 Add Photo') + '</label>' +
+        (photo ? '<button type="button" class="pp-photo-btn pp-photo-remove" onclick="removePassportPhoto()">Remove</button>' : '') +
+      '</div>' +
+    '</div>';
+}
+
+// Resizes/crops to a small square JPEG before storing, so the photo stays
+// well under Firestore's per-document size limit and doesn't bloat localStorage.
+function handlePassportPhotoUpload(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const img = new Image();
+    img.onload = function () {
+      const size = 320;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      localStorage.setItem('passportPhoto', dataUrl);
+      syncToFirestore({ passportPhoto: dataUrl });
+      renderPassportCard();
+      renderPassportPhotoPicker();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function removePassportPhoto() {
+  localStorage.removeItem('passportPhoto');
+  if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+    syncToFirestore({ passportPhoto: firebase.firestore.FieldValue.delete() });
+  }
+  renderPassportCard();
+  renderPassportPhotoPicker();
+}
+
 function renderPassport() {
   resetPassportForm();
   const note = document.getElementById('pp-saved-note');
@@ -1369,9 +1424,10 @@ function renderPassportCard() {
   const name = localStorage.getItem('userName') || 'Sentra-X User';
   const subtitle = (p.bloodGroup && p.bloodGroup !== "Don't know" ? p.bloodGroup : 'Blood group not set') +
     (p.genotype && p.genotype !== "Don't know" ? ' • ' + p.genotype : '');
+  const photo = localStorage.getItem('passportPhoto');
   box.innerHTML =
     '<div class="pp-card">' +
-    '<div class="pp-card-icon" onclick="openPassportCardOverlay()">🪪</div>' +
+    '<div class="pp-card-icon" onclick="openPassportCardOverlay()">' + (photo ? '<img src="' + photo + '" alt="">' : '🪪') + '</div>' +
     '<div class="pp-card-info" onclick="openPassportCardOverlay()"><b>' + escapeHtml(name) + '</b><span>' + escapeHtml(subtitle) + '</span></div>' +
     '<button class="pp-card-edit" onclick="editPassportCard()" aria-label="Edit passport">✏️</button>' +
     '<div class="pp-card-arrow" onclick="openPassportCardOverlay()">→</div>' +
@@ -1387,6 +1443,7 @@ function openPassportCardOverlay() {
   const name = localStorage.getItem('userName') || 'Sentra-X User';
   const meds = JSON.parse(localStorage.getItem('meds') || '[]');
   const medNames = meds.map(function (m) { return m.name; }).join(', ') || 'None listed';
+  const photo = localStorage.getItem('passportPhoto');
   let overlay = document.getElementById('passport-card-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -1398,7 +1455,7 @@ function openPassportCardOverlay() {
   }
   overlay.innerHTML =
     '<button class="art-reader-back" onclick="closePassportCardOverlay()">←</button>' +
-    '<div class="pp-card-cover"><div class="pp-card-cover-icon">🪪</div><h2>' + escapeHtml(name) + '</h2><span class="art-reader-tag">Medical Passport</span></div>' +
+    '<div class="pp-card-cover"><div class="pp-card-cover-icon">' + (photo ? '<img src="' + photo + '" alt="">' : '🪪') + '</div><h2>' + escapeHtml(name) + '</h2><span class="art-reader-tag">Medical Passport</span></div>' +
     '<div class="art-reader-body">' +
     row('Sex', p.sex) +
     row('Age', p.age) +
