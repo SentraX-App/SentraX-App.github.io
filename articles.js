@@ -70,7 +70,19 @@
     'immunization': 'Immunization',
     'urinary-incontinence': 'Wellness',
     'pain': 'Joint Health',
-    'flu': 'Respiratory'
+    'flu': 'Respiratory',
+    'cholesterol': 'Hypertension',
+    'obesity': 'Diet',
+    'smoking-cessation': 'Respiratory',
+    'back-pain': 'Joint Health',
+    'headache': 'Joint Health',
+    'menopause': "Women's Health",
+    'stress-management': 'Mental Health',
+    'allergy': 'Respiratory',
+    'skin-conditions': 'Skin Health',
+    'anemia': 'Wellness',
+    'thyroid-disease': 'Wellness',
+    'urinary-tract-infections': 'Wellness'
   };
 
   function fetchWithTimeout(url, timeoutMs) {
@@ -116,7 +128,8 @@
     Hypertension: '🩺', Diet: '🥗', Medication: '💊', Activity: '🚶',
     Sleep: '😴', Diabetes: '🩸', Wellness: '🧘', Caregiving: '🤝',
     'Joint Health': '🦴', 'Mental Health': '🧠', Respiratory: '🫁', Memory: '🧩',
-    Vision: '👁️', Hearing: '👂', Immunization: '💉'
+    Vision: '👁️', Hearing: '👂', Immunization: '💉',
+    "Women's Health": '🌷', 'Skin Health': '🧴'
   };
 
   const TAG_PHOTOS = {
@@ -138,13 +151,21 @@
       'https://commons.wikimedia.org/wiki/Special:FilePath/Blausen%200299%20Diabetes%20BloodGlucoseMeter.png?width=500',
       'https://commons.wikimedia.org/wiki/Special:FilePath/Glucometer.jpg?width=500'
     ],
-    'Joint Health': ['https://commons.wikimedia.org/wiki/Special:FilePath/Illustration%20of%20a%20joint%20with%20rheumatoid%20arthritis.png?width=500'],
+    'Joint Health': [
+      'https://commons.wikimedia.org/wiki/Special:FilePath/Illustration%20of%20a%20joint%20with%20rheumatoid%20arthritis.png?width=500',
+      'https://commons.wikimedia.org/wiki/Special:FilePath/Osteoporosis%20in%20Bones.jpg?width=500'
+    ],
     'Mental Health': ['https://commons.wikimedia.org/wiki/Special:FilePath/Human%20brain%20NIH.png?width=500'],
-    Respiratory: ['https://commons.wikimedia.org/wiki/Special:FilePath/Asthma%20attack-illustration%20NIH.jpg?width=500'],
+    Respiratory: [
+      'https://commons.wikimedia.org/wiki/Special:FilePath/Asthma%20attack-illustration%20NIH.jpg?width=500',
+      'https://commons.wikimedia.org/wiki/Special:FilePath/Lung%20structure%20normal.jpg?width=500'
+    ],
     Memory: ['https://commons.wikimedia.org/wiki/Special:FilePath/PET%20Alzheimer.jpg?width=500'],
     Vision: ['https://commons.wikimedia.org/wiki/Special:FilePath/Human%20eye%20diagram-sagittal%20view-NEI.jpg?width=500'],
     Hearing: ['https://commons.wikimedia.org/wiki/Special:FilePath/Anatomy%20of%20the%20Human%20Ear%20en.svg?width=500'],
-    Immunization: ['https://commons.wikimedia.org/wiki/Special:FilePath/US%20Navy%20050518-N-1485H-006%20Hospitalman%20Jessica%20Mayer%20of%20Mariss%2C%20Ill.%2C%20preps%20a%20syringe%20filled%20with%20measles%2C%20mumps%20and%20rubella%20vaccination%20before%20injecting%20a%20local%20woman%20the%20local%20village%20of%20Potts%20Dam.jpg?width=500']
+    Immunization: ['https://commons.wikimedia.org/wiki/Special:FilePath/US%20Navy%20050518-N-1485H-006%20Hospitalman%20Jessica%20Mayer%20of%20Mariss%2C%20Ill.%2C%20preps%20a%20syringe%20filled%20with%20measles%2C%20mumps%20and%20rubella%20vaccination%20before%20injecting%20a%20local%20woman%20the%20local%20village%20of%20Potts%20Dam.jpg?width=500'],
+    "Women's Health": ['https://commons.wikimedia.org/wiki/Special:FilePath/Symptoms%20of%20menopause%20(vector).svg?width=500'],
+    'Skin Health': ['https://commons.wikimedia.org/wiki/Special:FilePath/Anatomy%20The%20Skin%20-%20NCI%20Visuals%20Online.jpg?width=500']
   };
 
   const MEDLIB_PHOTO_OVERRIDE = {
