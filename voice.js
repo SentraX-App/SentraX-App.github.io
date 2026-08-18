@@ -267,19 +267,22 @@
 
   function ingestFinalResult(text) {
     if (!text) return;
-    // Compared case-insensitively: this was the actual cause of the
-    // "hello hello I said hello I said you..." duplication bug reported
-    // on a real device. The engine was genuinely growing one phrase
-    // ("hello" → "hello I said" → "hello I said you" → ...), each new
-    // result was a true prefix-extension of the last — but its
-    // capitalization of the first word shifted (start-of-sentence "Hello"
-    // vs. mid-context "hello") between revisions, so the exact-match
-    // indexOf() check below failed to recognize it as the same growing
-    // run and treated every revision as a brand-new phrase instead,
-    // banking each partial version and stacking them all together.
-    const lower = text.toLowerCase();
-    const currentLower = currentRunText.toLowerCase();
-    if (!currentRunText || lower.indexOf(currentLower) === 0 || currentLower.indexOf(lower) === 0) {
+    // Compared after stripping punctuation and casing, not just casing —
+    // this is why the duplication bug came back. The earlier lowercase-only
+    // fix handled the engine revising "Hello" → "hello" between growing
+    // revisions of the same phrase, but Android also revises PUNCTUATION
+    // mid-string between revisions (e.g. "hi sentra x" → "hi, sentra x" —
+    // a comma inserted before the rest of the phrase). That breaks a literal
+    // substring/prefix check even case-insensitively, since the comma means
+    // the old text no longer appears as a literal prefix of the new one —
+    // so the old (correct) run got wrongly archived as "finished" and the
+    // revised text started a new run, stacking both together in the output.
+    // Stripping to letters/digits/spaces before comparing survives any
+    // punctuation or spacing revision the engine makes along the way.
+    const normalize = function (s) { return s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim(); };
+    const norm = normalize(text);
+    const currentNorm = normalize(currentRunText);
+    if (!currentRunText || norm.indexOf(currentNorm) === 0 || currentNorm.indexOf(norm) === 0) {
       // Extends (or repeats, or is a rare same-or-shorter revision of)
       // the current run — keep whichever is longer/more complete.
       if (text.length >= currentRunText.length) currentRunText = text;
@@ -444,7 +447,16 @@
         .then(function (stream) {
           stream.getTracks().forEach(function (t) { t.stop(); }); // we only needed the permission grant
           micPermissionConfirmed = true;
-          actuallyStart();
+          // On the very first-ever use, the mic hardware is claimed here
+          // for the permission probe, released, then immediately re-claimed
+          // by recognition.start() below — that open→close→reopen on cold
+          // hardware doesn't always fully settle before audio capture
+          // actually begins, which was clipping the first word or two of
+          // the very first thing anyone ever said to it (e.g. "hi" getting
+          // dropped, or the next word being misheard). A brief pause here,
+          // same pattern already used for the TTS-to-mic handoff below,
+          // gives the hardware a moment to genuinely release first.
+          setTimeout(actuallyStart, 150);
         })
         .catch(function () {
           alert('Sentra-X needs microphone access to use voice input. Please allow microphone permission and try again.');
