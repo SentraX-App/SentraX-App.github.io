@@ -972,15 +972,12 @@ function toggleFirstAid(id) {
 }
 
 // Paste your deployed Cloudflare Worker URL here once you've followed the
-// deploy steps in cloudflare-sos-worker.js. Leave blank and SMS sending is
-// skipped automatically (email + WhatsApp still work either way).
+// deploy steps in cloudflare-sos-worker.js. That worker now sends BOTH SMS
+// (Termii) and email (EmailJS) server-side — independently, so Termii
+// approval still being pending never blocks the email half. Leave this
+// blank and the worker call is skipped automatically (WhatsApp still works
+// either way).
 const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/';
-
-// Reuses the exact same EmailJS project already proven working elsewhere in
-// the app (marketplace orders, ratings) — same public key, no new setup.
-const SOS_EMAILJS_SERVICE_ID = 'service_sq7cgqb';
-const SOS_EMAILJS_TEMPLATE_ID = 'template_9clzjfk';
-const SOS_EMAILJS_PUBLIC_KEY = 'nAbELba6szw8IyjO-';
 
 // ---------------------------------------------------------------------
 // Passive location warm-up. Runs quietly on app load — NOT tied to the
@@ -1041,40 +1038,25 @@ function triggerSOS() {
   function sendAlert(locationText) {
     const msg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.' + locationText;
 
-    // 1. SMS — automatic, no tap required, via the Cloudflare Worker so the
-    // Termii key never touches the browser. Silently skipped if no
-    // caregiver phone or worker URL is on file — never blocks the other
-    // two channels below.
-    if (cgPhone && SOS_SMS_WORKER_URL) {
+    // 1. SMS + email — both sent by the Cloudflare Worker, not the browser.
+    // Two reasons this lives server-side instead of split across two fetch
+    // calls here: the Termii key never touches the browser, and — more
+    // important for a genuine emergency — a mobile browser tab can get
+    // backgrounded or the screen locked the instant someone taps SOS and
+    // puts the phone down; once the worker has the request, both sends
+    // complete independently of whatever happens to the tab afterward.
+    // Silently skipped entirely if no worker URL is configured; skipped
+    // per-channel server-side if a caregiver phone/email isn't on file.
+    if (SOS_SMS_WORKER_URL && (cgPhone || cgEmail)) {
       fetch(SOS_SMS_WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cgPhone, message: msg })
-      }).catch(function () { /* SMS failed — email and WhatsApp below still fire */ });
+        body: JSON.stringify({ phone: cgPhone, email: cgEmail, name: name, message: msg })
+      }).catch(function () { /* Worker unreachable — WhatsApp below is still independent */ });
     }
 
-    // 2. Email — automatic, no tap required, same EmailJS pattern already
-    // proven working for orders/ratings elsewhere in the app.
-    if (cgEmail) {
-      fetch('https://api.emailjs.com/api/v1.0/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: SOS_EMAILJS_SERVICE_ID,
-          template_id: SOS_EMAILJS_TEMPLATE_ID,
-          user_id: SOS_EMAILJS_PUBLIC_KEY,
-          template_params: {
-            to_email: cgEmail,
-            patient_name: name,
-            caregiver_name: 'Emergency Alert',
-            alert_message: msg
-          }
-        })
-      }).catch(function () { /* Email failed — SMS and WhatsApp are independent, unaffected */ });
-    }
-
-    // 3. WhatsApp — kept as an additional channel, same as before. Requires
-    // a manual tap to actually send once it opens, unlike the two above.
+    // 2. WhatsApp — kept as an additional channel, same as before. Requires
+    // a manual tap to actually send once it opens, unlike the channel above.
     const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
     window.open(url, '_blank');
   }
