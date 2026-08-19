@@ -65,6 +65,17 @@ header img { height: 30px; width: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0
   pointer-events: none;
 }
 .art-cover-fallback { font-size: 34px; }
+/* Silent, non-interactive attribution for Wikimedia Commons–sourced images
+   (health library covers + a handful of store product photos). Small,
+   low-contrast, and pointer-events:none so it never blocks a tap or
+   crowds the surrounding UI — present for licensing, invisible in feel. */
+.img-credit {
+  position: absolute; bottom: 4px; right: 6px; z-index: 2;
+  font-size: 8px; font-weight: 500; letter-spacing: 0.2px;
+  color: rgba(255,255,255,0.5); text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+  pointer-events: none; white-space: nowrap;
+}
+.mkt-cover, .mkt-reader-cover { position: relative; }
 .art-cover .art-tag {
   position: absolute; top: 10px; left: 12px;
   font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
