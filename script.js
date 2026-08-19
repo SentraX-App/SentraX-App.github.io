@@ -1828,7 +1828,7 @@ function sendAiMessage() {
   fetch(AI_WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: systemMessages.concat(thread.messages.slice(-12)) }),
+    body: JSON.stringify({ messages: systemMessages.concat(thread.messages.slice(-24)) }),
     signal: controller.signal
   })
     .then(function(res) {
@@ -2241,4 +2241,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-}
+      }
