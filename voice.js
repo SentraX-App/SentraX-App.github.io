@@ -239,6 +239,25 @@
     observer.observe(screen, { attributes: true, attributeFilter: ['class'] });
   }
 
+  // Web Speech doesn't know "Sentra" — it isn't a dictionary word, so the
+  // engine substitutes the closest common English word it does know. This
+  // is a vocabulary limitation of the recognition engine itself, not a
+  // capture/timing issue — every race-condition fix above still matters
+  // and still applies, this specifically handles the one word the engine
+  // will never get right on its own no matter how cleanly the audio is
+  // captured. Deliberately scoped to "<confusable-word> x" as a pair, so
+  // it can only ever correct the app's own name being spoken back — it
+  // can never rewrite a real, unrelated health phrase like "central
+  // nervous system" or "central sleep apnea", since neither is followed
+  // by a bare "x".
+  const BRAND_MISHEAR_RE = /\b(central|centra|sentral|sentrall|centre|center|sundra|sundry|sandra|santra)\s+x\b/gi;
+  function correctBrandMishears(text) {
+    if (!text) return text;
+    return text.replace(BRAND_MISHEAR_RE, function (match) {
+      return match.charAt(0) === match.charAt(0).toUpperCase() ? 'Sentra X' : 'sentra x';
+    });
+  }
+
   let bankedTranscript = ''; // finalized speech from BEFORE the most recent internal restart — kept separate so a restart's fresh index-0 result can't silently overwrite it
   // completedSegments/currentRunText replace the earlier index-based
   // approach entirely. Evidence from a real device showed the previous
@@ -322,6 +341,21 @@
     recognition.continuous = true; // keep listening across natural pauses in speech instead of the engine cutting off after the first one
     recognition.maxAlternatives = 1;
 
+    // Best-effort vocabulary bias toward the app's own name. Browser support
+    // for SpeechGrammarList is inconsistent (some engines weight it lightly,
+    // some ignore it) — the regex correction above is the reliable fix and
+    // works regardless; this is free, harmless to add, and helps on engines
+    // that do honor it.
+    const GrammarListImpl = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+    if (GrammarListImpl) {
+      try {
+        const grammar = '#JSGF V1.0; grammar brand; public <brand> = Sentra X | SentraX | hi Sentra X ;';
+        const list = new GrammarListImpl();
+        list.addFromString(grammar, 1);
+        recognition.grammars = list;
+      } catch (e) { /* best effort — recognition still works fine without it */ }
+    }
+
     recognition.onresult = function (e) {
       const input = document.getElementById('ai-chat-input');
       let interim = '';
@@ -338,7 +372,7 @@
       }
       finalTranscript = currentFinalTranscript();
       lastInterim = interim;
-      const combined = (bankedTranscript + ' ' + finalTranscript + ' ' + interim).trim();
+      const combined = correctBrandMishears((bankedTranscript + ' ' + finalTranscript + ' ' + interim).trim());
       if (input) input.value = combined; // live preview, never auto-sent mid-session
     };
 
@@ -384,7 +418,7 @@
     // on screen) meant that trailing text was silently dropped, sometimes
     // leaving nothing to send at all even though the words were sitting
     // right there in the input box.
-    const text = (bankedTranscript + ' ' + finalTranscript + ' ' + lastInterim).trim();
+    const text = correctBrandMishears((bankedTranscript + ' ' + finalTranscript + ' ' + lastInterim).trim());
     bankedTranscript = '';
     completedSegments = [];
     currentRunText = '';
