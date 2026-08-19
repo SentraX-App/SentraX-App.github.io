@@ -39,6 +39,13 @@ function showScreen(name) {
     enableReminders();
   }
 
+  // Captured BEFORE the active class is reassigned below — this is what
+  // lets the 'ai' branch further down tell "genuinely navigating in from
+  // another screen" apart from "already here, showScreen('ai') fired again"
+  // (e.g. a second tap on the Assistant nav icon while already mid-chat).
+  const aiScreenEl = document.getElementById('ai-screen');
+  const aiWasAlreadyActive = !!(aiScreenEl && aiScreenEl.classList.contains('active'));
+
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.querySelectorAll('nav button').forEach(function(b) { b.classList.remove('active'); });
   document.querySelectorAll('#more-sheet button').forEach(function(b) { b.classList.remove('active'); });
@@ -52,7 +59,14 @@ function showScreen(name) {
   if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); renderMedHistory(); }
   if (name === 'family') { renderCaregiverNote(); renderLinkedCaregivers(); }
   if (name === 'passport') renderPassport();
-  if (name === 'ai') renderAiWelcome();
+  // Only re-render (and, for an existing thread, inject a fresh spoken
+  // "welcome back" line) on a genuine arrival into the AI screen. Without
+  // this guard, showScreen('ai') firing again while already there — e.g. a
+  // second tap on the Assistant icon mid-conversation — wiped the log and
+  // dropped an unrelated "welcome back" bubble on top of the real reply
+  // that was already showing, which is what made the conversation look
+  // like it was replying out of order / ignoring what was just said.
+  if (name === 'ai' && !aiWasAlreadyActive) renderAiWelcome();
   if (name === 'articles' && window.SentraXArticles) window.SentraXArticles.render();
   if (name === 'marketplace' && window.SentraXStore) window.SentraXStore.enter();
   if (name === 'rewards' && window.SentraXRewards) window.SentraXRewards.render();
@@ -2241,4 +2255,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-      }
+}
