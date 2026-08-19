@@ -176,7 +176,12 @@
     'headache': 'https://commons.wikimedia.org/wiki/Special:FilePath/Headache.svg?width=500',
     'thyroid-disease': 'https://commons.wikimedia.org/wiki/Special:FilePath/Thyroid%20and%20parathyroid%20glands.gif?width=500',
     'urinary-incontinence': 'https://commons.wikimedia.org/wiki/Special:FilePath/Illu%20bladder.jpg?width=500',
-    'urinary-tract-infections': 'https://commons.wikimedia.org/wiki/Special:FilePath/Illu%20bladder.jpg?width=500'
+    'urinary-tract-infections': 'https://commons.wikimedia.org/wiki/Special:FilePath/Illu%20bladder.jpg?width=500',
+    // Finishing the same cleanup pass as the 4 above — these 2 were the
+    // ones still falling into the generic "Joint Health" / "Wellness"
+    // pools without actually depicting the topic.
+    'pain': 'https://commons.wikimedia.org/wiki/Special:FilePath/1506%20Referred%20Pain%20Chart.jpg?width=500',
+    'anemia': 'https://commons.wikimedia.org/wiki/Special:FilePath/Redbloodcells.jpg?width=500'
   };
 
   function coverHtml(tag, photoUrl, sizeStyle, altIndex) {
