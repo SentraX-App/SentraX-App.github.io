@@ -182,8 +182,10 @@
     const altClass = altIndex % 2 === 1 ? ' art-cover-alt' : '';
     if (photo) {
       return '<div class="art-cover art-cover-photo' + altClass + '" data-tag="' + tag + '"' + (sizeStyle ? ' style="' + sizeStyle + '"' : '') + '>' +
-        '<img src="' + photo + '" alt="" loading="lazy" onerror="this.parentElement.classList.add(\'art-cover-fallback\');this.remove();">' +
-        '<span class="art-tag">' + tag + '</span></div>';
+        '<img src="' + photo + '" alt="" loading="lazy" onerror="var el=this.parentElement;el.classList.add(\'art-cover-fallback\');var cr=el.querySelector(\'.img-credit\');if(cr)cr.remove();this.remove();">' +
+        '<span class="art-tag">' + tag + '</span>' +
+        '<span class="img-credit">Wikimedia Commons</span>' +
+        '</div>';
     }
     return '<div class="art-cover' + altClass + '" data-tag="' + tag + '"' + (sizeStyle ? ' style="' + sizeStyle + '"' : '') + '><span class="art-tag">' + tag + '</span>' + emoji + '</div>';
   }
