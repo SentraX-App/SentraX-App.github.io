@@ -1023,7 +1023,7 @@ function warmUpLocation() {
       localStorage.removeItem('lastKnownLocationArea');
     },
     cacheIpLocation, // GPS denied/unavailable — fall back to approximate IP-based location instead of caching nothing
-    { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
   );
 }
 warmUpLocation();
@@ -1075,7 +1075,7 @@ function triggerSOS() {
         const area = localStorage.getItem('lastKnownLocationArea');
         sendAlert(' Approximate area only, not exact (' + (area || 'network-based') + '): ' + link);
       } else {
-        sendAlert(' Approximate last known location (' + Math.round(ageMinutes) + ' min ago): ' + link);
+        sendAlert(' Exact location, last known ' + Math.round(ageMinutes) + ' min ago: ' + link);
       }
       return;
     }
@@ -1103,10 +1103,10 @@ function triggerSOS() {
     navigator.geolocation.getCurrentPosition(
       function(pos) {
         const link = 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
-        sendAlert(' Location: ' + link);
+        sendAlert(' Exact location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link);
       },
       useCachedLocationOrGiveUp,
-      { timeout: 8000, maximumAge: 300000 } // maximumAge lets the OS return an already-cached fix instantly instead of always forcing a fresh, slower GPS lock
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 } // maximumAge:0 forces a brand-new GPS fix instead of accepting a stale cached one — an emergency should always use the freshest, most exact position available
     );
   } else {
     useCachedLocationOrGiveUp();
