@@ -241,7 +241,7 @@ function checkBP() {
 
 function alertCaregiverNow(sys, dia, level) {
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
-  const cgPhone = (localStorage.getItem('cgPhone') || '').replace(/[^0-9]/g, '');
+  const cgPhone = normalizeNigerianPhone(localStorage.getItem('cgPhone'));
   const msg = '\u26A0\uFE0F Sentra-X Alert: ' + name + "'s blood pressure just read " + sys + '/' + dia + ' (' + level + '). Please check on them.';
   const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
   window.open(url, '_blank');
@@ -683,9 +683,23 @@ function cancelCaregiverForm() {
   document.getElementById('cg-add-btn').style.display = 'block';
 }
 
+// Termii (and most SMS APIs) require E.164-style international format —
+// country code, no leading 0. Nigerian numbers are naturally typed/saved in
+// local format (0815...), which Termii rejects outright ("not a valid,
+// dialable number"). Normalizing once here means every caller — SOS, saving
+// a caregiver, WhatsApp links — gets a consistently correct number instead
+// of each needing its own fix.
+function normalizeNigerianPhone(raw) {
+  let digits = (raw || '').replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('0')) digits = '234' + digits.slice(1);
+  else if (!digits.startsWith('234')) digits = '234' + digits;
+  return digits;
+}
+
 function saveCaregiverForm() {
   const name = document.getElementById('cg-name').value.trim();
-  const phone = document.getElementById('cg-phone').value.trim();
+  const phone = normalizeNigerianPhone(document.getElementById('cg-phone').value.trim());
   const email = document.getElementById('cg-email').value.trim();
   if (!name || !phone) { alert("Please enter both the caregiver's name and number."); return; }
 
@@ -950,7 +964,7 @@ function shareToFamily() {
   const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
   const streak = localStorage.getItem('streak') || '0';
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
-  const cgPhone = (localStorage.getItem('cgPhone') || '').replace(/[^0-9]/g, '');
+  const cgPhone = normalizeNigerianPhone(localStorage.getItem('cgPhone'));
   const latest = vitals[0];
   let msg = 'Hi! This is ' + name + "'s Sentra-X health update. Current streak: " + streak + ' days. ';
   msg += latest ? ('Latest reading: ' + latest.sys + '/' + latest.dia + ' (' + latest.level + ').') : 'No readings logged yet.';
@@ -1032,7 +1046,7 @@ function triggerSOS() {
   const confirmed = confirm('This will automatically send an SOS alert with your location to your saved caregiver by SMS and email, and also open WhatsApp. Continue?');
   if (!confirmed) return;
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
-  const cgPhone = (localStorage.getItem('cgPhone') || '').replace(/[^0-9]/g, '');
+  const cgPhone = normalizeNigerianPhone(localStorage.getItem('cgPhone'));
   const cgEmail = localStorage.getItem('cgEmail') || '';
 
   function sendAlert(locationText) {
@@ -1052,7 +1066,45 @@ function triggerSOS() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cgPhone, email: cgEmail, name: name, message: msg })
-      }).catch(function () { /* Worker unreachable — WhatsApp below is still independent */ });
+      }).then(function (res) {
+        // A response coming back at all doesn't mean the alert actually went
+        // out — the worker can return 200 while one or both channels failed
+        // server-side (bad API key, provider rejected the address, etc.).
+        // Inspect the body so a silent per-channel failure is at least
+        // visible in Sentry, instead of looking identical to full success.
+        return res.text().then(function (bodyText) {
+          let body = null;
+          try { body = JSON.parse(bodyText); } catch (_e) { /* non-JSON response body */ }
+          const emailFailed = cgEmail && body && body.email && body.email.ok === false;
+          const smsFailed = cgPhone && body && body.sms && body.sms.ok === false;
+          if (!res.ok || emailFailed || smsFailed) {
+            console.error('Sentra-X SOS: worker reported a failure', res.status, bodyText);
+            if (typeof Sentry !== 'undefined' && Sentry.captureMessage) {
+              try {
+                Sentry.captureMessage('SOS worker reported a send failure', {
+                  level: 'error',
+                  extra: { status: res.status, body: bodyText, hadPhone: !!cgPhone, hadEmail: !!cgEmail }
+                });
+              } catch (_ignored) { /* best effort */ }
+            }
+            // TEMP DEBUG — remove once the SOS email issue is confirmed fixed.
+            // No dashboard/terminal needed: shows the real per-channel error
+            // text right on screen so it can be read straight off the phone.
+            setTimeout(function () {
+              const smsDetail = body && body.sms ? JSON.stringify(body.sms.detail) : '(no phone on file)';
+              const emailDetail = body && body.email ? JSON.stringify(body.email.detail) : '(no email on file)';
+              alert('SOS debug — worker status ' + res.status + '\n\nSMS: ' + smsDetail + '\n\nEmail: ' + emailDetail);
+            }, 300); // after the WhatsApp tab open below, so it doesn't block that
+          }
+        });
+      }).catch(function (err) {
+        // Worker unreachable entirely (offline, DNS, CORS) — WhatsApp below
+        // is still independent, but this should be visible too, not silent.
+        console.error('Sentra-X SOS: worker request failed', err && err.message);
+        if (typeof Sentry !== 'undefined' && Sentry.captureException) {
+          try { Sentry.captureException(err); } catch (_ignored) { /* best effort */ }
+        }
+      });
     }
 
     // 2. WhatsApp — kept as an additional channel, same as before. Requires
@@ -2165,4 +2217,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-}
+    }
