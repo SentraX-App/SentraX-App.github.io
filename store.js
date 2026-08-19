@@ -349,8 +349,10 @@
   // ---- Main grid render --------------------------------------------------
   function coverHtml(p) {
     const src = p.image || ('images/products/' + p.id + '.jpg');
+    const isWikimedia = !!(p.image && p.image.indexOf('wikimedia.org') !== -1);
     return '<div class="mkt-cover" data-category="' + p.category + '" onclick="SentraXStore.open(\'' + p.id + '\')">' +
-      '<img class="mkt-cover-img" src="' + src + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';">' +
+      '<img class="mkt-cover-img" src="' + src + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';var cr=this.parentElement.querySelector(\'.img-credit\');if(cr)cr.remove();">' +
+      (isWikimedia ? '<span class="img-credit">Wikimedia Commons</span>' : '') +
       '</div>';
   }
 
@@ -450,7 +452,7 @@
     const overlay = ensureOverlay('product-reader-overlay');
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXStore.closeProduct()">←</button>' +
-      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';"></div>' +
+      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';var cr=this.parentElement.querySelector(\'.img-credit\');if(cr)cr.remove();">' + (p.image && p.image.indexOf('wikimedia.org') !== -1 ? '<span class="img-credit">Wikimedia Commons</span>' : '') + '</div>' +
       '<div class="art-reader-body">' +
       '<div class="mkt-cat-tag" style="display:inline-block;">' + CATEGORY_EMOJI[p.category] + ' ' + CATEGORY_NAME[p.category] + '</div>' +
       '<h2>' + esc(p.name) + '</h2>' +
