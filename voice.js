@@ -58,6 +58,7 @@
 
   let recognition = null;
   let listening = false;
+  let micReady = false; // true only once recognition.onstart actually fires — see updateMicBtn
   let mutedReplies = localStorage.getItem('voice-muted-replies') === '1';
   let pendingLiveReplies = 0; // >0 means a real sendAiMessage() call is in flight
   let micPermissionConfirmed = false; // once true, skip re-probing getUserMedia on every tap
@@ -356,6 +357,11 @@
       } catch (e) { /* best effort — recognition still works fine without it */ }
     }
 
+    recognition.onstart = function () {
+      micReady = true;
+      updateMicBtn();
+    };
+
     recognition.onresult = function (e) {
       const input = document.getElementById('ai-chat-input');
       let interim = '';
@@ -400,6 +406,8 @@
       // captured.
       if (!userStoppedManually && listening) {
         bankCurrentTranscript();
+        micReady = false;
+        updateMicBtn();
         try { recognition.start(); return; } catch (err) { /* fall through to finishing */ }
       }
       finishListening();
@@ -434,6 +442,21 @@
   function updateMicBtn() {
     const btn = document.getElementById('voice-mic-btn');
     if (!btn) return;
+    if (listening && !micReady) {
+      // recognition.start() succeeding doesn't mean audio capture has
+      // actually begun yet — Android in particular has a real warm-up gap
+      // between the call returning and the engine truly listening, during
+      // which anything spoken is silently lost. That gap is what was
+      // making the first attempt after returning to the app (or after any
+      // restart) capture nothing, or drop the first word, even though no
+      // error ever occurred to catch. Rather than pretend we're ready
+      // before we are, this shows a distinct "starting up" state and
+      // waits for the engine's own onstart event (below) before inviting
+      // the person to actually speak.
+      btn.textContent = '🎙️…';
+      btn.title = 'Starting up — one moment…';
+      return;
+    }
     btn.textContent = listening ? '⏺️' : '🎙️';
     btn.title = listening ? 'Listening… tap to stop' : 'Tap to speak';
   }
@@ -446,6 +469,7 @@
     finalTranscript = '';
     lastInterim = '';
     userStoppedManually = false;
+    micReady = false;
 
     // If the AI's voice reply is still speaking (or just finished a
     // moment ago), claiming the microphone immediately can silently fail
