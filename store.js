@@ -293,10 +293,10 @@
       image: 'https://images.pexels.com/photos/9255018/pexels-photo-9255018.jpeg?auto=compress&w=800',
       short: 'Assorted plasters for everyday cuts and grazes.',
       long: 'An assorted pack of adhesive bandages in several sizes — a first-aid basic worth keeping stocked at home for everyday cuts, blisters, and grazes.' },
-    { id: 'antiseptic-wound-spray', name: 'Antiseptic Wound Spray', category: 'firstaid', price: 3100, emoji: '🧴',
-      image: 'https://images.pexels.com/photos/5146534/pexels-photo-5146534.jpeg?auto=compress&w=800',
-      short: 'Quick spray-on antiseptic for cleaning minor cuts and scrapes.',
-      long: 'A spray-on antiseptic for cleaning minor cuts, scrapes, and grazes before covering them — a quick, no-touch way to help keep small wounds clean.' }
+    { id: 'travel-first-aid-pouch', name: 'Travel First Aid Pouch', category: 'firstaid', price: 3400, emoji: '🎒',
+      image: 'https://images.pexels.com/photos/6562586/pexels-photo-6562586.jpeg?auto=compress&w=800',
+      short: 'Compact zippered pouch for on-the-go essentials.',
+      long: 'A compact, zippered pouch sized to fit in a bag, car glovebox, or backpack — pack it with your own plasters and basics so you always have a few essentials within reach.' }
   ];
 
   const productsById = {};
