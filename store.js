@@ -284,7 +284,19 @@
     { id: 'kids-lunch-box', name: 'Lunch Box (Kids & Adults)', category: 'kitchen-living', price: 3600, emoji: '🍱',
       image: 'https://images.pexels.com/photos/5852333/pexels-photo-5852333.jpeg?auto=compress&w=800',
       short: 'A compact box for packed lunches, school or work.',
-      long: 'A compact, easy-to-carry lunch box for packed meals and snacks — good for school runs, the office, or a day out.' }
+      long: 'A compact, easy-to-carry lunch box for packed meals and snacks — good for school runs, the office, or a day out.' },
+    { id: 'magnifying-glass', name: 'Large Lens Magnifying Glass', category: 'medaids', price: 6400, emoji: '🔍',
+      image: 'https://images.pexels.com/photos/906055/pexels-photo-906055.jpeg?auto=compress&w=800',
+      short: 'Handheld magnifier for reading small print and medicine labels.',
+      long: 'A handheld magnifying glass with a large, clear lens — makes reading medicine labels, dosage instructions, and small print far easier.' },
+    { id: 'adhesive-bandages-pack', name: 'Adhesive Bandages Variety Pack', category: 'firstaid', price: 2150, emoji: '🩹',
+      image: 'https://images.pexels.com/photos/9255018/pexels-photo-9255018.jpeg?auto=compress&w=800',
+      short: 'Assorted plasters for everyday cuts and grazes.',
+      long: 'An assorted pack of adhesive bandages in several sizes — a first-aid basic worth keeping stocked at home for everyday cuts, blisters, and grazes.' },
+    { id: 'antiseptic-wound-spray', name: 'Antiseptic Wound Spray', category: 'firstaid', price: 3100, emoji: '🧴',
+      image: 'https://images.pexels.com/photos/5146534/pexels-photo-5146534.jpeg?auto=compress&w=800',
+      short: 'Quick spray-on antiseptic for cleaning minor cuts and scrapes.',
+      long: 'A spray-on antiseptic for cleaning minor cuts, scrapes, and grazes before covering them — a quick, no-touch way to help keep small wounds clean.' }
   ];
 
   const productsById = {};
@@ -367,6 +379,31 @@
       '</div></div>';
   }
 
+  let shuffledProducts = PRODUCTS.slice();
+  let lastShuffleAt = 0;
+  const MARKETPLACE_RESHUFFLE_MS = 5 * 60 * 1000; // re-shuffle on return visits, not on every category click
+
+  function shuffleProducts() {
+    const arr = PRODUCTS.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    shuffledProducts = arr;
+    lastShuffleAt = Date.now();
+  }
+
+  // Called on tab entry only — reshuffles at most once per MARKETPLACE_RESHUFFLE_MS,
+  // then renders. Internal re-renders (category filter clicks) call renderStore()
+  // directly and reuse whatever order is already shuffled, so filtering never
+  // jumbles the grid mid-browse.
+  function enterStore() {
+    if (!lastShuffleAt || Date.now() - lastShuffleAt > MARKETPLACE_RESHUFFLE_MS) {
+      shuffleProducts();
+    }
+    renderStore();
+  }
+
   function renderStore() {
     const root = document.getElementById('marketplace-root');
     if (!root) return;
@@ -377,7 +414,7 @@
         return '<button class="mkt-chip' + (selectedCategory === c.key ? ' active' : '') + '" onclick="SentraXStore.selectCategory(\'' + c.key + '\')">' + c.emoji + ' ' + c.name + '</button>';
       }).join('') + '</div>';
 
-    const filtered = selectedCategory === 'all' ? PRODUCTS : PRODUCTS.filter(function (p) { return p.category === selectedCategory; });
+    const filtered = selectedCategory === 'all' ? shuffledProducts : shuffledProducts.filter(function (p) { return p.category === selectedCategory; });
 
     let gridInner = '';
     filtered.forEach(function (p, i) {
@@ -881,6 +918,7 @@
   if (typeof window !== 'undefined') {
     window.SentraXStore = {
       render: renderStore,
+      enter: enterStore,
       selectCategory: selectCategory,
       open: openProduct,
       closeProduct: closeProduct,
