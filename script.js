@@ -54,7 +54,7 @@ function showScreen(name) {
   if (name === 'passport') renderPassport();
   if (name === 'ai') renderAiWelcome();
   if (name === 'articles' && window.SentraXArticles) window.SentraXArticles.render();
-  if (name === 'marketplace' && window.SentraXStore) window.SentraXStore.render();
+  if (name === 'marketplace' && window.SentraXStore) window.SentraXStore.enter();
   if (name === 'rewards' && window.SentraXRewards) window.SentraXRewards.render();
 }
 // Opens/closes the "More" overflow sheet (First Aid, Passport, Assistant),
