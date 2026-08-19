@@ -11,12 +11,14 @@ const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID;
 const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
 const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY;
 const TERMII_API_KEY = process.env.TERMII_API_KEY;
+const TERMII_SENDER_ID = process.env.TERMII_SENDER_ID;
 
 console.log('Diagnostic - EMAILJS_SERVICE_ID present:', !!EMAILJS_SERVICE_ID, 'length:', (EMAILJS_SERVICE_ID || '').length);
 console.log('Diagnostic - EMAILJS_TEMPLATE_ID present:', !!EMAILJS_TEMPLATE_ID, 'length:', (EMAILJS_TEMPLATE_ID || '').length);
 console.log('Diagnostic - EMAILJS_PUBLIC_KEY present:', !!EMAILJS_PUBLIC_KEY, 'length:', (EMAILJS_PUBLIC_KEY || '').length);
 console.log('Diagnostic - EMAILJS_PRIVATE_KEY present:', !!EMAILJS_PRIVATE_KEY, 'length:', (EMAILJS_PRIVATE_KEY || '').length);
 console.log('Diagnostic - TERMII_API_KEY present:', !!TERMII_API_KEY, 'length:', (TERMII_API_KEY || '').length);
+console.log('Diagnostic - TERMII_SENDER_ID present:', !!TERMII_SENDER_ID, 'value:', TERMII_SENDER_ID || '(not set — falling back to the unregistered "Termii" demo sender)');
 
 // Nigeria is UTC+1 (WAT), no daylight saving. GitHub Actions runs in UTC,
 // so we shift "now" forward by 60 minutes to match the local time patients enter.
@@ -141,7 +143,7 @@ async function sendSMS(toPhone, message) {
       body: JSON.stringify({
         api_key: TERMII_API_KEY,
         to: digits,
-        from: 'Termii',
+        from: TERMII_SENDER_ID || 'Termii',
         sms: message,
         type: 'plain',
         channel: 'generic'
