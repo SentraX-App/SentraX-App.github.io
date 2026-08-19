@@ -358,13 +358,24 @@
     badge.style.display = n > 0 ? 'flex' : 'none';
   }
 
+  // Derives the actual Commons file description page (where the real
+  // author + license live) from a Special:FilePath image URL, so the credit
+  // tag can link to authoritative, always-current attribution instead of a
+  // static "Wikimedia Commons" label that names no one — several of these
+  // images are CC BY-SA, which requires crediting the specific author.
+  function wikimediaFilePageUrl(imageUrl) {
+    const m = imageUrl.match(/Special:FilePath\/([^?]+)/);
+    if (!m) return 'https://commons.wikimedia.org/';
+    return 'https://commons.wikimedia.org/wiki/File:' + m[1];
+  }
+
   // ---- Main grid render --------------------------------------------------
   function coverHtml(p) {
     const src = p.image || ('images/products/' + p.id + '.jpg');
     const isWikimedia = !!(p.image && p.image.indexOf('wikimedia.org') !== -1);
     return '<div class="mkt-cover" data-category="' + p.category + '" onclick="SentraXStore.open(\'' + p.id + '\')">' +
       '<img class="mkt-cover-img" src="' + src + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';var cr=this.parentElement.querySelector(\'.img-credit\');if(cr)cr.remove();">' +
-      (isWikimedia ? '<span class="img-credit">Wikimedia Commons</span>' : '') +
+      (isWikimedia ? '<a href="' + wikimediaFilePageUrl(p.image) + '" target="_blank" rel="noopener" class="img-credit" onclick="event.stopPropagation();">Wikimedia Commons</a>' : '') +
       '</div>';
   }
 
@@ -489,7 +500,7 @@
     const overlay = ensureOverlay('product-reader-overlay');
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXStore.closeProduct()">←</button>' +
-      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';var cr=this.parentElement.querySelector(\'.img-credit\');if(cr)cr.remove();">' + (p.image && p.image.indexOf('wikimedia.org') !== -1 ? '<span class="img-credit">Wikimedia Commons</span>' : '') + '</div>' +
+      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';var cr=this.parentElement.querySelector(\'.img-credit\');if(cr)cr.remove();">' + (p.image && p.image.indexOf('wikimedia.org') !== -1 ? '<a href="' + wikimediaFilePageUrl(p.image) + '" target="_blank" rel="noopener" class="img-credit">Wikimedia Commons</a>' : '') + '</div>' +
       '<div class="art-reader-body">' +
       '<div class="mkt-cat-tag" style="display:inline-block;">' + CATEGORY_EMOJI[p.category] + ' ' + CATEGORY_NAME[p.category] + '</div>' +
       '<h2>' + esc(p.name) + '</h2>' +
