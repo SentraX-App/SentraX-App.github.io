@@ -165,7 +165,18 @@
     'heart-disease': 'https://commons.wikimedia.org/wiki/Special:FilePath/Diagram%20of%20the%20human%20heart.svg?width=500',
     'stroke': 'https://commons.wikimedia.org/wiki/Special:FilePath/Types%20of%20Stroke.jpg?width=500',
     'kidney-disease': 'https://commons.wikimedia.org/wiki/Special:FilePath/Kidney%20nephron.jpg?width=500',
-    'healthy-aging': 'https://commons.wikimedia.org/wiki/Special:FilePath/Meditation%20Session.jpg?width=500'
+    'healthy-aging': 'https://commons.wikimedia.org/wiki/Special:FilePath/Meditation%20Session.jpg?width=500',
+    // Added: these 4 topics were previously falling into a tag whose photo
+    // pool didn't actually depict them (headache was showing an arthritis
+    // joint illustration via the "Joint Health" tag; the other three were
+    // falling into the generic "Wellness" pool — a meditation photo or a
+    // kidney illustration — none of which are what those articles are
+    // actually about). Direct overrides here mean these specific topics
+    // always get a genuinely matching image regardless of their tag.
+    'headache': 'https://commons.wikimedia.org/wiki/Special:FilePath/Headache.svg?width=500',
+    'thyroid-disease': 'https://commons.wikimedia.org/wiki/Special:FilePath/Thyroid%20and%20parathyroid%20glands.gif?width=500',
+    'urinary-incontinence': 'https://commons.wikimedia.org/wiki/Special:FilePath/Illu%20bladder.jpg?width=500',
+    'urinary-tract-infections': 'https://commons.wikimedia.org/wiki/Special:FilePath/Illu%20bladder.jpg?width=500'
   };
 
   function coverHtml(tag, photoUrl, sizeStyle, altIndex) {
