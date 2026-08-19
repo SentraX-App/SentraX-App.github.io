@@ -124,14 +124,6 @@
     return truncate(stripHtml(item.description || item.content || ''), SNIPPET_MAX_CHARS);
   }
 
-  const TAG_EMOJI = {
-    Hypertension: '🩺', Diet: '🥗', Medication: '💊', Activity: '🚶',
-    Sleep: '😴', Diabetes: '🩸', Wellness: '🧘', Caregiving: '🤝',
-    'Joint Health': '🦴', 'Mental Health': '🧠', Respiratory: '🫁', Memory: '🧩',
-    Vision: '👁️', Hearing: '👂', Immunization: '💉',
-    "Women's Health": '🌷', 'Skin Health': '🧴'
-  };
-
   const TAG_PHOTOS = {
     Hypertension: [
       'https://commons.wikimedia.org/wiki/Special:FilePath/Blood%20pressure%20monitoring.jpg?width=500',
@@ -177,17 +169,17 @@
   };
 
   function coverHtml(tag, photoUrl, sizeStyle, altIndex) {
-    const emoji = TAG_EMOJI[tag] || '📰';
-    const photo = photoUrl || (TAG_PHOTOS[tag] && TAG_PHOTOS[tag][0]);
+    // Every call site now always provides a real, pre-assigned photoUrl
+    // (see the global-pool, no-duplicates assignment in loadMedLibrary()
+    // below) — there is deliberately no emoji/icon fallback path left
+    // here at all, so a real image is the only possible outcome, not
+    // just the common case.
     const altClass = altIndex % 2 === 1 ? ' art-cover-alt' : '';
-    if (photo) {
-      return '<div class="art-cover art-cover-photo' + altClass + '" data-tag="' + tag + '"' + (sizeStyle ? ' style="' + sizeStyle + '"' : '') + '>' +
-        '<img src="' + photo + '" alt="" loading="lazy" onerror="var el=this.parentElement;el.classList.add(\'art-cover-fallback\');var cr=el.querySelector(\'.img-credit\');if(cr)cr.remove();this.remove();">' +
-        '<span class="art-tag">' + tag + '</span>' +
-        '<span class="img-credit">Wikimedia Commons</span>' +
-        '</div>';
-    }
-    return '<div class="art-cover' + altClass + '" data-tag="' + tag + '"' + (sizeStyle ? ' style="' + sizeStyle + '"' : '') + '><span class="art-tag">' + tag + '</span>' + emoji + '</div>';
+    return '<div class="art-cover art-cover-photo' + altClass + '" data-tag="' + tag + '"' + (sizeStyle ? ' style="' + sizeStyle + '"' : '') + '>' +
+      '<img src="' + photoUrl + '" alt="" loading="lazy" onerror="var el=this.parentElement;el.classList.add(\'art-cover-fallback\');var cr=el.querySelector(\'.img-credit\');if(cr)cr.remove();this.remove();">' +
+      '<span class="art-tag">' + tag + '</span>' +
+      '<span class="img-credit">Wikimedia Commons</span>' +
+      '</div>';
   }
 
   function renderArticles() {
@@ -471,19 +463,57 @@
         const shuffledItems = dailyFeaturedSlice(data.items);
         medLibraryById = {};
         medLibraryPhotoById = {};
+
+        // Global, no-duplicates photo assignment. Previously each tag only
+        // ever drew from its OWN small pool (round-robin), which wrapped
+        // around and repeated the same photo across multiple articles the
+        // moment a tag had more items than photos — the actual cause of
+        // two articles showing the same image. Fixed by tracking every
+        // photo used ANYWHERE in today's batch (across all tags) in one
+        // Set: each item first tries its own tag's next unused photo, and
+        // only borrows from another tag's pool if its own is exhausted —
+        // so same-topic photos are still preferred whenever possible, and
+        // a cross-tag borrow only happens when it's genuinely needed to
+        // avoid a repeat. With 23 unique photos across all tags combined
+        // and at most MEDLIB_DAILY_COUNT (12) articles shown per day, every
+        // article is guaranteed a real, unique photo — never a repeat, and
+        // (per coverHtml above) never an emoji fallback either.
+        const usedPhotos = new Set();
         const tagCounters = {};
+        const allPhotos = Object.keys(TAG_PHOTOS).reduce(function (acc, t) { return acc.concat(TAG_PHOTOS[t]); }, []);
+
+        function nextUnusedFrom(pool) {
+          for (let i = 0; i < pool.length; i++) {
+            if (!usedPhotos.has(pool[i])) return pool[i];
+          }
+          return null;
+        }
+
+        // Pre-register fixed overrides first, so the round-robin below can
+        // never hand out the same photo to a different article.
+        shuffledItems.forEach(function (item) {
+          if (MEDLIB_PHOTO_OVERRIDE[item.id]) usedPhotos.add(MEDLIB_PHOTO_OVERRIDE[item.id]);
+        });
+
         shuffledItems.forEach(function (item) {
           if (MEDLIB_PHOTO_OVERRIDE[item.id]) {
             medLibraryPhotoById[item.id] = MEDLIB_PHOTO_OVERRIDE[item.id];
             return;
           }
           const tag = MEDLIB_TAG_MAP[item.id] || 'Wellness';
-          const pool = TAG_PHOTOS[tag];
-          if (pool && pool.length) {
-            const n = tagCounters[tag] || 0;
-            medLibraryPhotoById[item.id] = pool[n % pool.length];
-            tagCounters[tag] = n + 1;
-          }
+          const ownPool = TAG_PHOTOS[tag] || [];
+          const n = tagCounters[tag] || 0;
+          tagCounters[tag] = n + 1;
+          // Prefer the tag's own pool, cycling from where this tag left off.
+          let chosen = nextUnusedFrom(ownPool.slice(n).concat(ownPool.slice(0, n)));
+          // Own pool exhausted (all already used elsewhere today) — borrow
+          // any still-unused photo from the full combined inventory.
+          if (!chosen) chosen = nextUnusedFrom(allPhotos);
+          // Only possible if daily count ever exceeds total inventory —
+          // falls back to the tag's first photo rather than emoji.
+          if (!chosen) chosen = ownPool[0] || allPhotos[0];
+          usedPhotos.add(chosen);
+          medLibraryPhotoById[item.id] = chosen;
         });
 
         let html = '<div class="articles-header" style="padding:16px 18px;margin-bottom:12px;"><h3 style="font-size:15px;">🏥 Health Library</h3><p>Full topic guides from MedlinePlus (U.S. National Library of Medicine) — a fresh set featured daily. Topic images via Wikimedia Commons contributors, used under Creative Commons licenses.</p></div>';
