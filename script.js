@@ -1087,14 +1087,6 @@ function triggerSOS() {
                 });
               } catch (_ignored) { /* best effort */ }
             }
-            // TEMP DEBUG — remove once the SOS email issue is confirmed fixed.
-            // No dashboard/terminal needed: shows the real per-channel error
-            // text right on screen so it can be read straight off the phone.
-            setTimeout(function () {
-              const smsDetail = body && body.sms ? JSON.stringify(body.sms.detail) : '(no phone on file)';
-              const emailDetail = body && body.email ? JSON.stringify(body.email.detail) : '(no email on file)';
-              alert('SOS debug — worker status ' + res.status + '\n\nSMS: ' + smsDetail + '\n\nEmail: ' + emailDetail);
-            }, 300); // after the WhatsApp tab open below, so it doesn't block that
           }
         });
       }).catch(function (err) {
@@ -1775,6 +1767,35 @@ function appendAiMessage(role, text) {
   return div;
 }
 
+// Summarizes the user's actual in-app health data so the AI coach can give
+// answers grounded in their real situation instead of purely generic advice.
+// Kept short and label:value style (not prose) to stay cheap on tokens.
+function buildAiHealthContext() {
+  const parts = [];
+  const condition = localStorage.getItem('userCondition');
+  if (condition) parts.push('Known condition: ' + condition);
+
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  if (vitals.length > 0) {
+    const v = vitals[0];
+    parts.push('Latest BP reading: ' + v.sys + '/' + v.dia + ' (' + v.level + ')' + (v.hr ? ', HR ' + v.hr : ''));
+  }
+
+  const meds = JSON.parse(localStorage.getItem('meds') || '[]').filter(isMedActive);
+  if (meds.length > 0) {
+    parts.push('Current medications: ' + meds.map(function (m) { return m.name + ' at ' + m.time; }).join(', '));
+    const medLogs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+    const adherence = getWeeklyAdherencePct(meds, medLogs);
+    if (adherence !== null) parts.push('7-day medication adherence: ' + adherence + '%');
+  }
+
+  const streak = localStorage.getItem('streak');
+  if (streak) parts.push('Current daily check-in streak: ' + streak + ' day(s)');
+
+  if (parts.length === 0) return '';
+  return 'Here is this user\'s current in-app health data — use it to personalize your answer when relevant, but do not recite it back verbatim unless asked: ' + parts.join('. ') + '.';
+}
+
 function sendAiMessage() {
   if (aiSendInFlight) return; // a reply is already being generated — ignore extra taps/enters/voice-sends until it lands
   const input = document.getElementById('ai-chat-input');
@@ -1801,10 +1822,13 @@ function sendAiMessage() {
   const timeoutId = setTimeout(function() { controller.abort(); }, 30000);
 
   const SENTRAX_IDENTITY = 'You are the Sentra-X Health Assistant, built and provided by Sentra-X (SentraX Forte Limited). If asked who made you, what AI or model you are, or who owns/built you, always answer that you are Sentra-X\'s in-app health assistant — never name any other company, AI lab, or underlying model/technology.';
+  const healthContext = buildAiHealthContext();
+  const systemMessages = [{ role: 'system', content: SENTRAX_IDENTITY }];
+  if (healthContext) systemMessages.push({ role: 'system', content: healthContext });
   fetch(AI_WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: [{ role: 'system', content: SENTRAX_IDENTITY }].concat(thread.messages.slice(-12)) }),
+    body: JSON.stringify({ messages: systemMessages.concat(thread.messages.slice(-12)) }),
     signal: controller.signal
   })
     .then(function(res) {
