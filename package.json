@@ -1,0 +1,8 @@
+{
+  "name": "sentrax-alert-checker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@block65/webcrypto-web-push": "^1.0.0"
+  }
+}
