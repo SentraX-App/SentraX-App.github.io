@@ -511,7 +511,7 @@ function checkDueMeds() {
 // Public half of the VAPID key pair used to sign push messages — safe to
 // expose client-side by design (this is what proves a push claiming to be
 // from Sentra-X actually is; the private half never leaves the server).
-const VAPID_PUBLIC_KEY = 'BF6IGEZ6f1ZMgvkKAwvY8029Rp7FF9EcP03nlWWYnv2JZQqMWXqrOr7li2vEnhUlmJlN7LwWJhCIWlU2-o0-Ec0';
+const VAPID_PUBLIC_KEY = 'BOVKb7yg86nVhkWDVLaOe0iuljVUDs7axNMG21lpQHBuaXBBS5kzZ5sLDAJU50rXQ8EpwOPg4cLJHZmloHExf_g';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -524,24 +524,38 @@ function urlBase64ToUint8Array(base64String) {
 
 // Subscribes this device to push and saves the subscription to the user's
 // own Firestore doc, so a server-side check can reach this exact device
-// even when the app is fully closed — sw.js's 'push' listener already
-// exists and is ready for this, it just never had a subscriber before.
-// Safe to call repeatedly: subscribing again with the same key returns the
-// existing subscription rather than creating a duplicate, and this never
-// touches anything unrelated to push.
+// even when the app is fully closed. Safe to call repeatedly: subscribing
+// again with the same key returns the existing subscription rather than
+// creating a duplicate, and this never touches anything unrelated to push.
 function ensurePushSubscription() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   if (Notification.permission !== 'granted') return;
   navigator.serviceWorker.ready.then(function (reg) {
     return reg.pushManager.getSubscription().then(function (existing) {
-      if (existing) return existing;
-      return reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      // The VAPID key pair was regenerated once already (the previous
+      // private key was lost, so the old public key became permanently
+      // unusable). A subscription created under that old key would look
+      // completely valid here — getSubscription() has no way to know its
+      // key is now orphaned — and would silently never receive anything.
+      // Tracking which key the current subscription was made with, and
+      // forcing a fresh one whenever that doesn't match the key actually
+      // in use, is what catches that instead of failing silently forever.
+      if (existing && localStorage.getItem('push-vapid-key-used') === VAPID_PUBLIC_KEY) {
+        return existing;
+      }
+      const resubscribe = existing ? existing.unsubscribe() : Promise.resolve();
+      return resubscribe.then(function () {
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
       });
     });
   }).then(function (sub) {
-    if (sub) syncToFirestore({ pushSubscription: sub.toJSON() });
+    if (sub) {
+      localStorage.setItem('push-vapid-key-used', VAPID_PUBLIC_KEY);
+      syncToFirestore({ pushSubscription: sub.toJSON() });
+    }
   }).catch(function (err) {
     console.error('Sentra-X: push subscription failed', err && err.message);
   });
@@ -2358,4 +2372,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-  }
+          }
