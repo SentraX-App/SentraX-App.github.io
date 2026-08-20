@@ -433,6 +433,47 @@ function toggleCheckin() {
   arrow.classList.toggle('open', !isOpen);
 }
 
+// A distinctive, self-contained alarm tone for medication reminders — built
+// with the Web Audio API instead of an audio file, so it needs no asset,
+// works offline, and adds nothing to cache/download size. Three rising
+// two-note chimes, deliberately different from a generic notification
+// "ping" so it's recognizable specifically as Sentra-X's medication alarm.
+// Only usable while the app is actually open (foreground) — no browser lets
+// a background system notification play a custom sound file, only the
+// phone's own default notification tone, which is a platform limit, not
+// something fixable from here.
+let medAlarmAudioCtx = null;
+function playMedAlarmSound() {
+  try {
+    if (!medAlarmAudioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      medAlarmAudioCtx = new AudioCtx();
+    }
+    const ctx = medAlarmAudioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    const beep = function(startTime, freq, duration) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.35, startTime + 0.02);
+      gain.gain.linearRampToValueAtTime(0, startTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration + 0.02);
+    };
+    for (let i = 0; i < 3; i++) {
+      const t = now + i * 0.55;
+      beep(t, 880, 0.16);
+      beep(t + 0.18, 1175, 0.22);
+    }
+  } catch (e) { /* best effort — a failed tone shouldn't block the notification/vibration below */ }
+}
+
 function checkDueMeds() {
   expireOldMeds();
   const meds = JSON.parse(localStorage.getItem('meds') || '[]').filter(isMedActive);
@@ -447,17 +488,63 @@ function checkDueMeds() {
   if (due.length > 0) {
     const names = due.map(function(m){ return m.name; }).join(', ');
     banner.innerHTML = '<div class="alert-banner">⏰ ' + due.length + ' medication' + (due.length > 1 ? 's' : '') + ' due or overdue today: ' + names + '</div>';
-    if (Notification.permission === 'granted' && localStorage.getItem('reminders-muted') !== '1' && !sessionStorage.getItem('notified-' + today)) {
+
+    // Re-fires whenever the SET of currently-due meds changes, not just
+    // once for the entire day — previously a single daily flag meant a
+    // second medication becoming due later that same day never alerted at
+    // all, since the first one had already "used up" the day's one notice.
+    const dueKey = today + ':' + due.map(function(m){ return m.id; }).sort().join(',');
+    if (Notification.permission === 'granted' && localStorage.getItem('reminders-muted') !== '1' && sessionStorage.getItem('notified-set') !== dueKey) {
       if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
         navigator.serviceWorker.getRegistration().then(function(reg) {
           if (reg) reg.showNotification('Sentra-X reminder', { body: 'Time for: ' + names, icon: 'icon-192-1.png', badge: 'icon-192-1.png', vibrate: [200, 100, 200, 100, 200], requireInteraction: true });
         });
       }
-      sessionStorage.setItem('notified-' + today, '1');
+      if (document.visibilityState === 'visible') playMedAlarmSound();
+      sessionStorage.setItem('notified-set', dueKey);
     }
   } else {
     banner.innerHTML = '';
   }
+}
+
+// Public half of the VAPID key pair used to sign push messages — safe to
+// expose client-side by design (this is what proves a push claiming to be
+// from Sentra-X actually is; the private half never leaves the server).
+const VAPID_PUBLIC_KEY = 'BF6IGEZ6f1ZMgvkKAwvY8029Rp7FF9EcP03nlWWYnv2JZQqMWXqrOr7li2vEnhUlmJlN7LwWJhCIWlU2-o0-Ec0';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const output = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+  return output;
+}
+
+// Subscribes this device to push and saves the subscription to the user's
+// own Firestore doc, so a server-side check can reach this exact device
+// even when the app is fully closed — sw.js's 'push' listener already
+// exists and is ready for this, it just never had a subscriber before.
+// Safe to call repeatedly: subscribing again with the same key returns the
+// existing subscription rather than creating a duplicate, and this never
+// touches anything unrelated to push.
+function ensurePushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  navigator.serviceWorker.ready.then(function (reg) {
+    return reg.pushManager.getSubscription().then(function (existing) {
+      if (existing) return existing;
+      return reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    });
+  }).then(function (sub) {
+    if (sub) syncToFirestore({ pushSubscription: sub.toJSON() });
+  }).catch(function (err) {
+    console.error('Sentra-X: push subscription failed', err && err.message);
+  });
 }
 
 function syncReminderButtonState() {
@@ -502,7 +589,7 @@ function enableReminders() {
   }
 
   Notification.requestPermission().then(function(perm) {
-    if (perm === 'granted') localStorage.setItem('reminders-muted', '0');
+    if (perm === 'granted') { localStorage.setItem('reminders-muted', '0'); ensurePushSubscription(); }
     syncReminderButtonState();
   });
 }
@@ -1055,6 +1142,7 @@ function warmUpLocation() {
   );
 }
 warmUpLocation();
+if ('Notification' in window && Notification.permission === 'granted') ensurePushSubscription();
 
 function triggerSOS() {
   const confirmed = confirm('This will automatically send an SOS alert with your location to your saved caregiver by SMS and email, and also open WhatsApp. Continue?');
@@ -1597,6 +1685,21 @@ expireOldMeds();
 refreshAllUI();
 syncReminderButtonState();
 if (window.SentraXRewards) window.SentraXRewards.checkDailyStreak();
+// Browsers won't let audio start playing without a user gesture having
+// happened first in this session — without this, the alarm tone would
+// silently fail to play when checkDueMeds() fires from the 60-second
+// background timer rather than from a direct tap.
+document.addEventListener('click', function unlockMedAlarmAudio() {
+  playMedAlarmSound && (function () {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx && !medAlarmAudioCtx) medAlarmAudioCtx = new AudioCtx();
+      if (medAlarmAudioCtx && medAlarmAudioCtx.state === 'suspended') medAlarmAudioCtx.resume();
+    } catch (e) { /* best effort */ }
+  })();
+  document.removeEventListener('click', unlockMedAlarmAudio);
+}, { once: true });
+
 setInterval(checkDueMeds, 60000);
 
 const AI_WORKER_URL = 'https://sentrax-ai.alecedoh1994.workers.dev/';
@@ -2255,4 +2358,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-      }
+  }
