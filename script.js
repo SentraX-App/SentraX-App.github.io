@@ -1108,6 +1108,14 @@ function toggleFirstAid(id) {
 // either way).
 const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/';
 
+// A genuine GPS fix is typically accurate to within tens of meters outdoors.
+// Anything much looser than that is usually the browser falling back to
+// WiFi/cell-tower positioning — which can be off by hundreds of meters to a
+// few kilometers, and tends to return the same stale estimate repeatedly
+// (especially indoors) rather than tracking real movement. Treating that as
+// "exact" is actively misleading in an emergency, so it's gated out here.
+const MAX_EXACT_ACCURACY_M = 100;
+
 // ---------------------------------------------------------------------
 // Passive location warm-up. Runs quietly on app load — NOT tied to the
 // SOS button. Purpose: by the time someone is actually in an emergency
@@ -1126,8 +1134,12 @@ function warmUpLocation() {
   if (!('geolocation' in navigator)) return;
   navigator.geolocation.getCurrentPosition(
     function (pos) {
+      // A low-accuracy fix isn't worth caching at all — better to have SOS
+      // try a fresh live fix later than reuse a stale, imprecise one.
+      if (pos.coords.accuracy > MAX_EXACT_ACCURACY_M) return;
       localStorage.setItem('lastKnownLat', pos.coords.latitude);
       localStorage.setItem('lastKnownLng', pos.coords.longitude);
+      localStorage.setItem('lastKnownAccuracy', pos.coords.accuracy);
       localStorage.setItem('lastKnownLocationAt', Date.now());
     },
     function () { /* denied/unavailable — nothing cached, SOS will fall through to "please call them" */ },
@@ -1203,13 +1215,16 @@ function triggerSOS() {
   function useCachedLocationOrGiveUp() {
     const lat = localStorage.getItem('lastKnownLat');
     const lng = localStorage.getItem('lastKnownLng');
+    const accuracy = parseFloat(localStorage.getItem('lastKnownAccuracy') || 'Infinity');
     const at = parseInt(localStorage.getItem('lastKnownLocationAt') || '0', 10);
     const ageMinutes = (Date.now() - at) / 60000;
     // A cached fix up to 30 minutes old is still far more useful in an
-    // emergency than nothing — worth using rather than discarding. This is
-    // always a real GPS fix now (no IP-based caching happens anymore), so
-    // no "approximate" branch is needed here.
-    if (lat && lng && ageMinutes < 30) {
+    // emergency than nothing — worth using rather than discarding. Only
+    // trusted if it actually met the same accuracy bar as a live fix would
+    // (warmUpLocation only caches fixes that already pass this, but the
+    // check is repeated here in case an older cached value predates that
+    // gate, or lastKnownAccuracy is missing for any other reason).
+    if (lat && lng && ageMinutes < 30 && accuracy <= MAX_EXACT_ACCURACY_M) {
       const link = 'https://maps.google.com/?q=' + lat + ',' + lng;
       sendAlert(' Exact location, last known ' + Math.round(ageMinutes) + ' min ago: ' + link);
       return;
@@ -1221,6 +1236,9 @@ function triggerSOS() {
   if ('geolocation' in navigator) {
     navigator.geolocation.getCurrentPosition(
       function(pos) {
+        // A fresh but low-accuracy fix (WiFi/cell-tower based) is no more
+        // trustworthy than one that failed outright — fall back the same way.
+        if (pos.coords.accuracy > MAX_EXACT_ACCURACY_M) { useCachedLocationOrGiveUp(); return; }
         const link = 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
         sendAlert(' Exact location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link);
       },
@@ -2331,4 +2349,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-    }
+        }
