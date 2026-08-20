@@ -1116,42 +1116,21 @@ const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/';
 // already cached, so SOS can use it near-instantly instead of waiting on
 // a fresh fix that may time out under poor signal conditions.
 //
-// IP-based fallback: on some installed builds, Android never grants the
-// app location permission at all (a packaging issue, not something a web
-// page can request its way around) — navigator.geolocation then fails
-// every single time, with no way to fix it from JS. Falling back to an
-// IP-based lookup here means SOS still has *something* useful to send
-// instead of "(location unavailable)" on those installs, without needing
-// every user to reinstall an updated app first. It's approximate
-// (city/neighborhood-level, not GPS-precise) — cached location is always
-// labeled so a caregiver knows which kind they're looking at.
+// Exact GPS only — no IP-based fallback. An IP lookup is only accurate to
+// city/neighborhood level, which isn't precise enough to be useful for
+// finding someone in an emergency, and could even mislead a caregiver
+// into checking the wrong area. If a real GPS fix can't be obtained, SOS
+// should say so plainly rather than send an approximate guess.
 // ---------------------------------------------------------------------
-function cacheIpLocation() {
-  fetch('https://ipapi.co/json/')
-    .then(function (r) { return r.json(); })
-    .then(function (loc) {
-      if (loc && loc.latitude && loc.longitude) {
-        localStorage.setItem('lastKnownLat', loc.latitude);
-        localStorage.setItem('lastKnownLng', loc.longitude);
-        localStorage.setItem('lastKnownLocationAt', Date.now());
-        localStorage.setItem('lastKnownLocationApprox', 'true');
-        localStorage.setItem('lastKnownLocationArea', [loc.city, loc.region].filter(Boolean).join(', '));
-      }
-    })
-    .catch(function () { /* no network fallback available either — SOS will fall through to "please call them" */ });
-}
-
 function warmUpLocation() {
-  if (!('geolocation' in navigator)) { cacheIpLocation(); return; }
+  if (!('geolocation' in navigator)) return;
   navigator.geolocation.getCurrentPosition(
     function (pos) {
       localStorage.setItem('lastKnownLat', pos.coords.latitude);
       localStorage.setItem('lastKnownLng', pos.coords.longitude);
       localStorage.setItem('lastKnownLocationAt', Date.now());
-      localStorage.removeItem('lastKnownLocationApprox');
-      localStorage.removeItem('lastKnownLocationArea');
     },
-    cacheIpLocation, // GPS denied/unavailable — fall back to approximate IP-based location instead of caching nothing
+    function () { /* denied/unavailable — nothing cached, SOS will fall through to "please call them" */ },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
   );
 }
@@ -1227,36 +1206,16 @@ function triggerSOS() {
     const at = parseInt(localStorage.getItem('lastKnownLocationAt') || '0', 10);
     const ageMinutes = (Date.now() - at) / 60000;
     // A cached fix up to 30 minutes old is still far more useful in an
-    // emergency than nothing — worth using rather than discarding.
+    // emergency than nothing — worth using rather than discarding. This is
+    // always a real GPS fix now (no IP-based caching happens anymore), so
+    // no "approximate" branch is needed here.
     if (lat && lng && ageMinutes < 30) {
       const link = 'https://maps.google.com/?q=' + lat + ',' + lng;
-      const isApprox = localStorage.getItem('lastKnownLocationApprox') === 'true';
-      if (isApprox) {
-        const area = localStorage.getItem('lastKnownLocationArea');
-        sendAlert(' Approximate area only, not exact (' + (area || 'network-based') + '): ' + link);
-      } else {
-        sendAlert(' Exact location, last known ' + Math.round(ageMinutes) + ' min ago: ' + link);
-      }
+      sendAlert(' Exact location, last known ' + Math.round(ageMinutes) + ' min ago: ' + link);
       return;
     }
-    // No cache at all yet (e.g. SOS tapped seconds after first opening the
-    // app, before warm-up finished) — try one last live IP-based lookup
-    // before giving up. Same fallback as warmUpLocation, just inline here
-    // so SOS never has to wait on it more than once.
-    fetch('https://ipapi.co/json/')
-      .then(function (r) { return r.json(); })
-      .then(function (loc) {
-        if (loc && loc.latitude && loc.longitude) {
-          const link = 'https://maps.google.com/?q=' + loc.latitude + ',' + loc.longitude;
-          const area = [loc.city, loc.region].filter(Boolean).join(', ');
-          sendAlert(' Approximate area only, not exact (' + (area || 'network-based') + '): ' + link);
-        } else {
-          sendAlert(' (location unavailable — please call them)');
-        }
-      })
-      .catch(function () {
-        sendAlert(' (location unavailable — please call them)');
-      });
+    // No usable exact fix — say so plainly rather than guess.
+    sendAlert(' Location unavailable — please call to make sure they\'re okay.');
   }
 
   if ('geolocation' in navigator) {
@@ -2372,4 +2331,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-          }
+    }
