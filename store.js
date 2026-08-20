@@ -1,12 +1,9 @@
 /*
  * store.js — Sentra-X Marketplace
  * ========================================
- * Sells ordinary, low-regulatory-risk consumer goods: home safety items,
- * medication organizers (the organizer itself, never medication), everyday
- * food and fresh produce, fitness/wellness accessories, personal care, and
- * kitchen/hydration essentials — nothing prescription-only, no medical
- * devices, no vitamins/supplements, no products marketed around a disease
- * or medical condition.
+ * Sells non-regulated medical aids and wellness items (monitors, mobility
+ * aids, first aid supplies, support braces, medication organizers, etc.)
+ * — nothing prescription-only or clinically regulated.
  *
  * Fully functional end to end — browse, product detail, cart, quantity
  * changes, checkout form, order confirmation — EXCEPT the actual payment
@@ -29,14 +26,10 @@
 
   // ---- Catalog -------------------------------------------------------
   const CATEGORIES = [
-    { key: 'safety', name: 'Home Safety & Alerts', emoji: '🆘' },
-    { key: 'firstaid', name: 'First Aid & Comfort', emoji: '🩹' },
-    { key: 'medaids', name: 'Medication Aids', emoji: '💊' },
     { key: 'wellness', name: 'Fitness & Wellness', emoji: '🧘' },
-    { key: 'nutrition', name: 'Food & Nutrition', emoji: '🍚' },
-    { key: 'fruits', name: 'Fresh Fruits', emoji: '🍎' },
-    { key: 'personalcare', name: 'Personal & Skin Care', emoji: '🧴' },
-    { key: 'kitchen-living', name: 'Kitchen & Everyday Living', emoji: '🧺' }
+    { key: 'comfort', name: 'Home Comfort & Accessibility', emoji: '🛋️' },
+    { key: 'medaids', name: 'Medication Aids', emoji: '💊' },
+    { key: 'kitchen-living', name: 'Kitchen & Everyday Living', emoji: '🍽️' }
   ];
 
   const CATEGORY_NAME = {};
@@ -44,259 +37,118 @@
   CATEGORIES.forEach(function (c) { CATEGORY_NAME[c.key] = c.name; CATEGORY_EMOJI[c.key] = c.emoji; });
 
   const PRODUCTS = [
-    // ---- Home Safety & Alerts -----------------------------------------
-    { id: 'smoke-detector', name: 'Home Smoke Detector', category: 'safety', price: 15000, emoji: '🚨',
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Smoke%20detector.JPG?width=500',
-      short: 'Battery-powered smoke alarm for early fire warning at home.',
-      long: 'A reliable, battery-powered smoke detector that gives an early audible warning if smoke is detected — one of the simplest, most effective home safety additions, especially in a household where every extra minute of warning matters.' },
-    { id: 'fire-extinguisher-1kg', name: 'Compact Home Fire Extinguisher (1kg, Dry Powder)', category: 'safety', price: 23400, emoji: '🧯',
-      image: 'https://images.pexels.com/photos/4805958/pexels-photo-4805958.jpeg?auto=compress&w=800',
-      short: 'A small dry-powder extinguisher for kitchen and home fire emergencies.',
-      long: 'A compact 1kg dry-powder fire extinguisher — small enough to keep in a kitchen cupboard or hallway, but effective on the everyday fire risks most homes actually face (cooking oil, electrical, general combustibles). Comes with a pressure gauge so you can check at a glance that it\u2019s still ready to use.' },
-
-    // ---- First Aid & Comfort -------------------------------------------
-    { id: 'hot-cold-pack', name: 'Reusable Hot & Cold Gel Pack', category: 'firstaid', price: 11700, emoji: '🧊',
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Cold%20Hot%20Pack.jpg?width=500',
+    { id: 'hot-cold-pack', name: 'Reusable Hot & Cold Gel Pack', category: 'comfort', price: 11700, emoji: '🧊',
       short: 'Freeze it or warm it — flexible and reusable for everyday comfort.',
-      long: 'A flexible, reusable gel pack you can freeze for cold or warm up for heat — a simple, reusable comfort accessory to keep at home.' },
-    { id: 'hot-water-bottle', name: 'Rubber Hot Water Bottle', category: 'firstaid', price: 10400, emoji: '🍶',
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Hot%20Water%20Bottle.jpg?width=500',
+      long: 'A flexible, reusable gel pack you can freeze for cold or warm up for heat — a simple, reusable comfort accessory to keep at home.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Cold%20Hot%20Pack.jpg?width=500' },
+    { id: 'hot-water-bottle', name: 'Rubber Hot Water Bottle', category: 'comfort', price: 10400, emoji: '🍶',
       short: 'Classic warmth for cold nights.',
-      long: 'A traditional rubber hot water bottle for soothing warmth on cold nights — a simple, everyday household comfort item.' },
-    { id: 'first-aid-box', name: 'Compact First Aid Box (Home & Office)', category: 'firstaid', price: 22100, emoji: '📦',
-      image: 'https://images.pexels.com/photos/5149757/pexels-photo-5149757.jpeg?auto=compress&w=800',
+      long: 'A traditional rubber hot water bottle for soothing warmth on cold nights — a simple, everyday household comfort item.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Hot%20Water%20Bottle.jpg?width=500' },
+    { id: 'first-aid-box', name: 'Compact First Aid Box (Home & Office)', category: 'comfort', price: 22100, emoji: '📦',
       short: 'A simple, wall-mountable box for everyday minor cuts and scrapes.',
-      long: 'A compact, no-frills first aid box for home or office — covers everyday minor cuts and scrapes without the bulk of a full kit. Easy to keep in a kitchen drawer, car, or by the front door.' },
-
-    // ---- Medication Aids -------------------------------------------------
-    { id: 'pill-organizer', name: 'Weekly Pill Organizer (7-Day, AM/PM)', category: 'medaids', price: 11700, emoji: '💊',
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Pilulier%20semainier.JPG?width=500',
-      short: 'Morning & evening compartments for every day of the week.',
-      long: 'A 7-day pill organizer with separate morning and evening compartments for each day, making it easy to see at a glance whether today\'s doses have been taken — helpful for keeping track of a routine.' },
-
-    // ---- Fitness & Wellness ----------------------------------------------
-    { id: 'exercise-mat', name: 'Foam Exercise / Yoga Mat', category: 'wellness', price: 22100, emoji: '🧘',
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Yoga%20mat.jpg?width=500',
-      short: 'Cushioned mat for gentle exercise, stretching, or daily movement.',
-      long: 'A comfortable foam exercise mat for light stretching, yoga, or gentle daily movement routines — non-slip surface, easy to clean, rolls up for storage.' },
-    { id: 'resistance-bands', name: 'Resistance Exercise Bands (Set)', category: 'wellness', price: 18200, emoji: '🎗️',
-      image: 'https://images.pexels.com/photos/6339598/pexels-photo-6339598.jpeg?auto=compress&w=800',
-      short: 'Set of bands for gentle strength and mobility exercises.',
-      long: 'A set of resistance bands in varying strengths for gentle strength-building and everyday mobility exercises — low-impact and adjustable to fitness level.' },
-    { id: 'foam-roller', name: 'Foam Roller', category: 'wellness', price: 23400, emoji: '🎢',
-      image: 'https://images.pexels.com/photos/6207527/pexels-photo-6207527.jpeg?auto=compress&w=800',
-      short: 'Roller for muscle care, stretching, and tension relief.',
-      long: 'A durable foam roller for muscle care and self-massage — helps ease tightness and improve flexibility, popular as part of an everyday fitness or stretching routine.' },
-    { id: 'skipping-rope', name: 'Skipping / Jump Rope', category: 'wellness', price: 7200, emoji: '🪢',
-      image: 'https://images.pexels.com/photos/6339602/pexels-photo-6339602.jpeg?auto=compress&w=800',
-      short: 'Adjustable rope for everyday cardio exercise.',
-      long: 'A lightweight, adjustable-length skipping rope — a simple, portable way to fit in some cardio at home, in the yard, or on the go.' },
-    { id: 'gym-duffel-bag', name: 'Sports & Gym Duffel Bag', category: 'wellness', price: 27300, emoji: '🎒',
-      image: 'https://images.pexels.com/photos/8555309/pexels-photo-8555309.jpeg?auto=compress&w=800',
-      short: 'Roomy duffel bag for gym kit, gear, or travel.',
-      long: 'A durable, roomy duffel bag with a comfortable shoulder strap — plenty of space for gym kit, workout gear, or a quick overnight trip.' },
-    { id: 'moisturizing-foot-lotion', name: 'Moisturizing Foot & Body Lotion', category: 'wellness', price: 11700, emoji: '🧴',
-      image: 'https://images.pexels.com/photos/5797999/pexels-photo-5797999.jpeg?auto=compress&w=800',
+      long: 'A compact, no-frills first aid box for home or office — covers everyday minor cuts and scrapes without the bulk of a full kit. Easy to keep in a kitchen drawer, car, or by the front door.',
+      image: 'https://images.pexels.com/photos/5149757/pexels-photo-5149757.jpeg?auto=compress&w=800' },
+    { id: 'moisturizing-foot-lotion', name: 'Moisturizing Foot & Body Lotion', category: 'comfort', price: 11700, emoji: '🧴',
       short: 'Deeply moisturizing lotion for everyday dry-skin care.',
-      long: 'A deeply moisturizing, fragrance-conscious lotion for feet and body — a gentle daily choice for dry or sensitive skin.' },
-
-    // ---- Food & Nutrition -------------------------------------------
-    { id: 'brown-rice-5kg', name: 'Premium Brown Rice (5kg)', category: 'nutrition', price: 29900, emoji: '🍚',
-      image: 'https://images.pexels.com/photos/6103071/pexels-photo-6103071.jpeg?auto=compress&w=800',
-      short: 'Wholegrain brown rice, 5kg bag.',
-      long: 'A 5kg bag of wholegrain brown rice — higher in fibre than white rice, a simple everyday swap for your rice bowl.' },
-    { id: 'pure-honey-500ml', name: 'Pure Natural Honey (500ml)', category: 'nutrition', price: 18200, emoji: '🍯',
-      image: 'https://images.pexels.com/photos/4480158/pexels-photo-4480158.jpeg?auto=compress&w=800',
-      short: 'Unprocessed natural honey, 500ml jar.',
-      long: 'A 500ml jar of pure, unprocessed natural honey — a natural sweetener alternative to refined sugar, commonly used in tea, on toast, or in cooking.' },
-    { id: 'rolled-oats-1kg', name: 'Rolled Oats (1kg)', category: 'nutrition', price: 13600, emoji: '🥣',
-      image: 'https://images.pexels.com/photos/1080105/pexels-photo-1080105.jpeg?auto=compress&w=800',
-      short: 'Wholegrain rolled oats, 1kg pack.',
-      long: 'A 1kg pack of wholegrain rolled oats — a high-fibre breakfast staple that\'s quick to prepare.' },
-    { id: 'fresh-ginger-500g', name: 'Fresh Ginger Root (500g)', category: 'nutrition', price: 4600, emoji: '🫚',
-      image: 'https://images.pexels.com/photos/20234970/pexels-photo-20234970.jpeg?auto=compress&w=800',
-      short: 'Fresh ginger root, 500g.',
-      long: 'Fresh ginger root, 500g — a kitchen staple used in cooking, teas, and everyday Nigerian kitchens.' },
-    { id: 'zobo-drink', name: 'Chilled Zobo (Hibiscus) Drink (1.5L)', category: 'nutrition', price: 5200, emoji: '🥤',
-      short: 'A tangy, refreshing hibiscus drink, a Nigerian favorite.',
-      long: 'A bottle of chilled zobo — a tangy, deep-red hibiscus drink loved across Nigeria, made from dried roselle sepals. Refreshing on its own, and a popular alternative to sugary soft drinks.',
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Zobo%20drink%20(hibiscus%20juice)%2001.png?width=500' },
-    { id: 'tiger-nuts-500g', name: 'Dried Tiger Nuts / Aya (500g)', category: 'nutrition', price: 8400, emoji: '🌰',
-      short: 'A crunchy, naturally sweet everyday snack.',
-      long: 'Dried tiger nuts (aya) — a crunchy, naturally sweet snack popular across Nigeria, eaten on their own or blended into the well-loved tiger nut milk drink (kunu aya).',
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Dried%20tiger%20nuts%20at%20bakin%20dogo%20market.jpg?width=500' },
-    { id: 'garlic-bulbs-250g', name: 'Fresh Garlic Bulbs (250g)', category: 'nutrition', price: 3900, emoji: '🧄',
-      short: 'A kitchen everyday essential for cooking and seasoning.',
-      long: 'Fresh garlic bulbs — an everyday kitchen essential for seasoning soups, stews, and sauces, and one of the most commonly used aromatics in Nigerian cooking.',
-      image: 'https://images.pexels.com/photos/2920402/pexels-photo-2920402.jpeg?auto=compress&w=800' },
-    { id: 'cashew-nuts-500g', name: 'Roasted Cashew Nuts (500g)', category: 'nutrition', price: 16900, emoji: '🥜',
-      short: 'A protein-rich, satisfying everyday snack.',
-      long: 'Roasted cashew nuts — a satisfying, protein-rich snack, and one of Nigeria\'s own major cash crops. Good on their own, in a trail mix, or added to a meal for extra crunch.',
-      image: 'https://images.pexels.com/photos/4663476/pexels-photo-4663476.jpeg?auto=compress&w=800' },
-    { id: 'groundnuts-500g', name: 'Roasted Groundnuts (500g)', category: 'nutrition', price: 5800, emoji: '🥜',
-      short: 'A classic, protein-rich Nigerian snack.',
-      long: 'Roasted groundnuts (peanuts) — a classic, widely loved Nigerian snack, whether eaten straight from the bag, paired with garri, or added to soups and stews.',
-      image: 'https://images.pexels.com/photos/209371/pexels-photo-209371.jpeg?auto=compress&w=800' },
-    { id: 'mixed-fruit-smoothies-4pk', name: 'Mixed Fruit Smoothie Bottles (4-Pack)', category: 'nutrition', price: 15600, emoji: '🥤',
-      short: 'Cold-pressed, no added sugar — grab and go.',
-      long: 'Four bottled smoothies in a mix of fruit blends — a quick, cold-pressed way to get real fruit into your day without any prep. No added sugar, just fruit.' ,
-      image: 'https://images.pexels.com/photos/4443490/pexels-photo-4443490.jpeg?auto=compress&w=800' },
-    { id: 'strawberry-smoothie', name: 'Strawberry Fruit Smoothie (500ml)', category: 'nutrition', price: 6500, emoji: '🍓',
-      short: 'Real strawberries, banana and a touch of orange.',
-      long: 'A thick, chilled smoothie blending strawberries, banana and orange — a satisfying drink on its own or a great breakfast companion.',
-      image: 'https://images.pexels.com/photos/775032/pexels-photo-775032.jpeg?auto=compress&w=800' },
-    { id: 'chamomile-lavender-tea', name: 'Chamomile & Lavender Herbal Tea (20 bags)', category: 'nutrition', price: 9800, emoji: '🍵',
-      short: 'A calming, caffeine-free wind-down tea.',
-      long: 'A soothing caffeine-free blend of chamomile and lavender — a gentle way to wind down in the evening, whether it becomes part of a bedtime routine or just a quiet moment with a warm cup.',
-      image: 'https://images.pexels.com/photos/341514/pexels-photo-341514.jpeg?auto=compress&w=800' },
-    { id: 'ginger-lemongrass-tea', name: 'Ginger & Lemongrass Herbal Tea (20 bags)', category: 'nutrition', price: 9100, emoji: '🌿',
-      short: 'A warming, zesty everyday herbal blend.',
-      long: 'A warming, naturally caffeine-free blend of ginger and lemongrass — bright and zesty, good any time of day, hot or iced.',
-      image: 'https://images.pexels.com/photos/8329281/pexels-photo-8329281.jpeg?auto=compress&w=800' },
-    { id: 'turmeric-ginger-powder', name: 'Turmeric & Ginger Powder (200g)', category: 'nutrition', price: 10400, emoji: '🌕',
-      short: 'Stir into drinks, smoothies or meals.',
-      long: 'A blend of ground turmeric and ginger — stir a spoonful into warm milk for a golden latte, into a smoothie, or straight into cooking. A pantry staple in many Nigerian kitchens.',
-      image: 'https://images.pexels.com/photos/8760466/pexels-photo-8760466.png?auto=compress&w=800' },
-    { id: 'moringa-powder-250g', name: 'Moringa Leaf Powder (250g)', category: 'nutrition', price: 11000, emoji: '🌿',
-      short: 'Nutrient-dense leaf powder, a popular local ingredient.',
-      long: 'Dried, ground moringa leaf powder — a nutrient-dense addition to smoothies, tea, or meals, and a popular everyday food ingredient across Nigerian kitchens.',
-      image: 'https://images.pexels.com/photos/1313432/pexels-photo-1313432.jpeg?auto=compress&w=800' },
-
-    // ---- Fresh Fruits ---------------------------------------------------
-    { id: 'fruit-basket-mixed', name: 'Mixed Fruit Basket (Seasonal)', category: 'fruits', price: 27300, emoji: '🧺',
-      image: 'https://images.pexels.com/photos/15626438/pexels-photo-15626438.jpeg?auto=compress&w=800',
-      short: 'A seasonal mix of fresh fruit, basket-packed.',
-      long: 'A basket of fresh seasonal fruit, hand-picked and ready to eat — a thoughtful gift for a loved one, or a simple way to keep fresh fruit stocked at home. Contents vary by season and availability.' },
-    { id: 'apples-1kg', name: 'Fresh Apples (1kg)', category: 'fruits', price: 10400, emoji: '🍎',
-      image: 'https://images.pexels.com/photos/220911/pexels-photo-220911.jpeg?auto=compress&w=800',
-      short: 'Fresh apples, approx. 1kg.',
-      long: 'Fresh, crisp apples — approximately 1kg per order. A simple, high-fibre snack that travels well and needs no preparation.' },
-    { id: 'oranges-1kg', name: 'Fresh Oranges (1kg)', category: 'fruits', price: 4600, emoji: '🍊',
-      image: 'https://images.pexels.com/photos/3737623/pexels-photo-3737623.jpeg?auto=compress&w=800',
-      short: 'Fresh juicy oranges, approx. 1kg.',
-      long: 'Fresh, juicy oranges — approximately 1kg per order. A good everyday source of Vitamin C, whether eaten whole or juiced.' },
-    { id: 'bananas-bunch', name: 'Fresh Bananas (Bunch)', category: 'fruits', price: 5800, emoji: '🍌',
-      image: 'https://images.pexels.com/photos/365810/pexels-photo-365810.jpeg?auto=compress&w=800',
-      short: 'A fresh bunch of ripe bananas.',
-      long: 'A fresh bunch of ripe bananas — a convenient, potassium-rich snack, good for energy and easy on the stomach.' },
-    { id: 'watermelon-whole', name: 'Fresh Watermelon (Whole)', category: 'fruits', price: 7800, emoji: '🍉',
-      short: 'A juicy, hydrating everyday favorite.',
-      long: 'A whole fresh watermelon — juicy, naturally hydrating, and one of the most popular fruits for hot weather across Nigeria.',
-      image: 'https://images.pexels.com/photos/880447/pexels-photo-880447.jpeg?auto=compress&w=800' },
-    { id: 'pawpaw-whole', name: 'Fresh Pawpaw / Papaya (Whole)', category: 'fruits', price: 5200, emoji: '🥭',
-      short: 'A soft, naturally sweet everyday fruit.',
-      long: 'A whole fresh pawpaw (papaya) — soft, naturally sweet, and a common everyday fruit across Nigerian markets, whether eaten on its own or blended into a smoothie.',
-      image: 'https://images.pexels.com/photos/4113833/pexels-photo-4113833.jpeg?auto=compress&w=800' },
-    { id: 'fresh-coconut', name: 'Fresh Coconut (Whole)', category: 'fruits', price: 3900, emoji: '🥥',
-      short: 'Coconut water and flesh in one whole fruit.',
-      long: 'A whole fresh coconut — crack it open for naturally refreshing coconut water, or scoop out the flesh for snacking or cooking. A popular find at markets and roadside stalls across Nigeria.',
-      image: 'https://images.pexels.com/photos/1803516/pexels-photo-1803516.jpeg?auto=compress&w=800' },
-    { id: 'fresh-pineapple', name: 'Fresh Pineapple (Whole)', category: 'fruits', price: 5200, emoji: '🍍',
-      image: 'https://images.pexels.com/photos/14772875/pexels-photo-14772875.jpeg?auto=compress&w=800',
-      short: 'A juicy, tropical everyday fruit.',
-      long: 'A whole fresh pineapple — sweet, juicy, and a popular everyday fruit across Nigerian markets, whether eaten fresh, blended, or added to a fruit salad.' },
-    { id: 'fresh-avocado', name: 'Fresh Avocado (Pack of 3)', category: 'fruits', price: 6500, emoji: '🥑',
-      image: 'https://images.pexels.com/photos/3029520/pexels-photo-3029520.jpeg?auto=compress&w=800',
-      short: 'Creamy, ripe avocados, pack of 3.',
-      long: 'Three fresh avocados — creamy and versatile, good sliced on toast, in a salad, or blended into a smoothie.' },
-
-    // ---- Personal & Skin Care --------------------------------------------
-    { id: 'neem-teatree-soap', name: 'Neem & Tea Tree Herbal Soap (Bar)', category: 'personalcare', price: 5800, emoji: '🧼',
+      long: 'A deeply moisturizing, fragrance-conscious lotion for feet and body — a gentle daily choice for dry or sensitive skin.',
+      image: 'https://images.pexels.com/photos/5797999/pexels-photo-5797999.jpeg?auto=compress&w=800' },
+    { id: 'neem-teatree-soap', name: 'Neem & Tea Tree Herbal Soap (Bar)', category: 'comfort', price: 5800, emoji: '🧼',
       short: 'Handmade, herb-infused daily cleansing bar.',
       long: 'A handmade soap bar infused with neem and tea tree — a gentle, herbal daily cleanser with a fresh, natural scent. A cosmetic skincare bar, not a medicated treatment.',
       image: 'https://images.pexels.com/photos/16244099/pexels-photo-16244099.jpeg?auto=compress&w=800' },
-    { id: 'rose-shea-soap', name: 'Rose & Shea Butter Soap (Bar)', category: 'personalcare', price: 5800, emoji: '🌹',
+    { id: 'rose-shea-soap', name: 'Rose & Shea Butter Soap (Bar)', category: 'comfort', price: 6100, emoji: '🌹',
       short: 'Moisturizing handmade bar with real shea butter.',
       long: 'A moisturizing handmade soap bar blending shea butter with rose — gentle enough for daily use, leaving skin soft rather than stripped.',
       image: 'https://images.pexels.com/photos/10853720/pexels-photo-10853720.jpeg?auto=compress&w=800' },
-    { id: 'mens-shaving-cream', name: "Men's Herbal Shaving Cream (150g)", category: 'personalcare', price: 10400, emoji: '🪒',
+    { id: 'mens-shaving-cream', name: "Men's Herbal Shaving Cream (150g)", category: 'comfort', price: 8300, emoji: '🪒',
       short: 'Rich lather for a smooth, comfortable shave.',
       long: 'A rich, herb-infused shaving cream that softens facial hair and cushions the skin for a closer, more comfortable shave with less irritation.',
       image: 'https://images.pexels.com/photos/7253888/pexels-photo-7253888.jpeg?auto=compress&w=800' },
-    { id: 'herbal-hair-scalp-oil', name: 'Herbal Hair & Scalp Oil (200ml)', category: 'personalcare', price: 11700, emoji: '💆',
+    { id: 'herbal-hair-scalp-oil', name: 'Herbal Hair & Scalp Oil (200ml)', category: 'comfort', price: 9100, emoji: '💆',
       short: 'Nourishing blend for scalp massage & hair care.',
-      long: 'A nourishing herbal oil blend for scalp massage and hair care — worked through the scalp and lengths as part of an everyday hair care routine.',
+      long: 'A nourishing herbal oil blend for scalp massage and hair care — worked through the scalp and lengths to help with dryness and everyday hair care routines.',
       image: 'https://images.pexels.com/photos/14656188/pexels-photo-14656188.jpeg?auto=compress&w=800' },
-    { id: 'sleep-eye-mask', name: 'Sleep Eye Mask', category: 'personalcare', price: 6500, emoji: '😴',
-      image: 'https://images.pexels.com/photos/6541082/pexels-photo-6541082.jpeg?auto=compress&w=800',
+    { id: 'sleep-eye-mask', name: 'Sleep Eye Mask', category: 'comfort', price: 4300, emoji: '😴',
       short: 'Soft, light-blocking mask for better sleep.',
-      long: 'A soft, contoured sleep mask that blocks out light — a simple everyday accessory for naps, travel, or a darker bedroom at night.' },
-    { id: 'microfiber-towel', name: 'Quick-Dry Microfiber Towel', category: 'personalcare', price: 9100, emoji: '🧻',
-      image: 'https://images.pexels.com/photos/11370616/pexels-photo-11370616.jpeg?auto=compress&w=800',
-      short: 'Lightweight, fast-drying towel for home, gym, or travel.',
-      long: 'A lightweight, fast-drying microfiber towel — compact enough for a gym bag or travel case, and quicker to dry than a regular cotton towel.' },
-
-    // ---- Kitchen & Everyday Living -----------------------------------
-    { id: 'insulated-water-bottle', name: 'Insulated Stainless Steel Water Bottle', category: 'kitchen-living', price: 19500, emoji: '🥤',
-      image: 'https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&w=800',
+      long: 'A soft, contoured eye mask that blocks light for better sleep — useful at home, while traveling, or for daytime naps.',
+      image: 'https://images.pexels.com/photos/6787202/pexels-photo-6787202.jpeg?auto=compress&w=800' },
+    { id: 'microfiber-towel', name: 'Quick-Dry Microfiber Towel', category: 'comfort', price: 6700, emoji: '🧻',
+      short: 'Lightweight, fast-drying, compact for travel or gym.',
+      long: 'A lightweight, fast-drying microfiber towel — compact enough for the gym bag or travel case, while still absorbing well.',
+      image: 'https://images.pexels.com/photos/6693658/pexels-photo-6693658.jpeg?auto=compress&w=800' },
+    { id: 'bamboo-toothbrush', name: 'Bamboo Toothbrush', category: 'comfort', price: 2400, emoji: '🪥',
+      short: 'Biodegradable handle, soft bristles.',
+      long: 'An everyday toothbrush with a biodegradable bamboo handle and soft bristles — a simple, eco-friendly swap for the bathroom.',
+      image: 'https://images.pexels.com/photos/3737576/pexels-photo-3737576.jpeg?auto=compress&w=800' },
+    { id: 'rechargeable-led-torch', name: 'Rechargeable LED Torch', category: 'comfort', price: 9700, emoji: '🔦',
+      short: 'USB-rechargeable, bright and reliable for home use.',
+      long: 'A bright, USB-rechargeable LED torch for home use — handy during power outages or for everyday around-the-house use, no disposable batteries needed.',
+      image: 'https://images.pexels.com/photos/6800226/pexels-photo-6800226.jpeg?auto=compress&w=800' },
+    { id: 'magnifying-glass', name: 'Large Lens Magnifying Glass', category: 'comfort', price: 6800, emoji: '🔍',
+      short: 'Comfortable grip, wide lens for reading and close-up tasks.',
+      long: 'A magnifying glass with a wide lens and comfortable grip — useful for reading small print, labels, or any close-up task around the house.',
+      image: 'https://images.pexels.com/photos/6153354/pexels-photo-6153354.jpeg?auto=compress&w=800' },
+    { id: 'adhesive-bandages-pack', name: 'Adhesive Bandages Variety Pack', category: 'comfort', price: 3600, emoji: '🩹',
+      short: 'Assorted sizes for everyday minor cuts and scrapes.',
+      long: 'An assorted pack of adhesive bandages in various sizes — a household essential for everyday minor cuts and scrapes.',
+      image: 'https://images.pexels.com/photos/3873201/pexels-photo-3873201.jpeg?auto=compress&w=800' },
+    { id: 'travel-first-aid-pouch', name: 'Travel First Aid Pouch', category: 'comfort', price: 7200, emoji: '🎒',
+      short: 'Compact, empty pouch to organize your own supplies.',
+      long: 'A compact, empty organizer pouch sized for a small first aid kit — pack it with your own everyday supplies for travel, the car, or a bag.',
+      image: 'https://images.pexels.com/photos/4386466/pexels-photo-4386466.jpeg?auto=compress&w=800' },
+    { id: 'exercise-mat', name: 'Foam Exercise / Yoga Mat', category: 'wellness', price: 14300, emoji: '🧘',
+      short: 'Cushioned mat for gentle exercise, stretching, or physio routines.',
+      long: 'A comfortable foam exercise mat for light stretching, physiotherapy exercises, or gentle daily movement routines — non-slip surface, easy to clean, rolls up for storage.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Yoga%20mat.jpg?width=500' },
+    { id: 'resistance-bands', name: 'Resistance Exercise Bands (Set)', category: 'wellness', price: 9400, emoji: '🎗️',
+      short: 'Set of bands for gentle strength and mobility exercises.',
+      long: 'A set of resistance bands in varying strengths for gentle strength-building, joint mobility, and physiotherapy-style exercises — low-impact and adjustable to fitness level.',
+      image: 'https://images.pexels.com/photos/6339598/pexels-photo-6339598.jpeg?auto=compress&w=800' },
+    { id: 'foam-roller', name: 'Foam Roller', category: 'wellness', price: 14300, emoji: '🎢',
+      short: 'Roller for muscle recovery, stretching, and tension relief.',
+      long: 'A durable foam roller for muscle recovery and self-massage — helps ease muscle tightness and improve flexibility, popular for both rehabilitation and general wellness routines.',
+      image: 'https://images.pexels.com/photos/6207527/pexels-photo-6207527.jpeg?auto=compress&w=800' },
+    { id: 'skipping-rope', name: 'Skipping / Jump Rope', category: 'wellness', price: 4800, emoji: '🪢',
+      short: 'Adjustable length, simple cardio anytime.',
+      long: 'An adjustable-length skipping rope for quick, simple cardio at home or outdoors — no gym required.',
+      image: 'https://images.pexels.com/photos/4162451/pexels-photo-4162451.jpeg?auto=compress&w=800' },
+    { id: 'gym-duffel-bag', name: 'Sports & Gym Duffel Bag', category: 'wellness', price: 13600, emoji: '🎒',
+      short: 'Spacious, durable bag for gym or travel.',
+      long: 'A spacious, durable duffel bag for the gym, sports, or a weekend trip — room for kit, shoes, and everyday essentials.',
+      image: 'https://images.pexels.com/photos/4662354/pexels-photo-4662354.jpeg?auto=compress&w=800' },
+    { id: 'pill-organizer', name: 'Weekly Pill Organizer (7-Day, AM/PM)', category: 'medaids', price: 6200, emoji: '💊',
+      short: 'Morning & evening compartments for every day of the week.',
+      long: 'A 7-day pill organizer with separate morning and evening compartments for each day, making it easy to see at a glance whether today\'s doses have been taken — helpful for managing several medications at once.',
+      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Pilulier%20semainier.JPG?width=500' },
+    { id: 'insulated-water-bottle', name: 'Insulated Stainless Steel Water Bottle', category: 'kitchen-living', price: 9800, emoji: '🍶',
       short: 'Keeps drinks cold or hot for hours.',
-      long: 'A double-walled insulated stainless steel bottle that keeps drinks cold or hot for hours — a durable everyday alternative to single-use bottles.' },
-    { id: 'sports-water-bottle', name: 'Everyday Sports Water Bottle', category: 'kitchen-living', price: 6500, emoji: '💧',
-      image: 'https://images.pexels.com/photos/12478893/pexels-photo-12478893.jpeg?auto=compress&w=800',
-      short: 'Lightweight reusable bottle for gym, work, or school.',
-      long: 'A lightweight, reusable water bottle for everyday hydration at the gym, work, or school — simple and easy to carry.' },
-    { id: 'glass-storage-jars', name: 'Glass Food Storage Jars (Set)', category: 'kitchen-living', price: 16900, emoji: '🫙',
-      image: 'https://images.pexels.com/photos/8580763/pexels-photo-8580763.jpeg?auto=compress&w=800',
-      short: 'Airtight glass jars for pantry storage.',
-      long: 'A set of clear glass jars with airtight lids — good for storing rice, beans, spices, or snacks neatly in the pantry.' },
-    { id: 'meal-prep-containers', name: 'Reusable Meal Prep Containers (Set)', category: 'kitchen-living', price: 14300, emoji: '🍱',
-      image: 'https://images.pexels.com/photos/30635720/pexels-photo-30635720.jpeg?auto=compress&w=800',
-      short: 'Stackable containers for meal prep or leftovers.',
-      long: 'A set of stackable, reusable containers for portioning meals ahead, packing lunch, or storing leftovers — microwave- and dishwasher-friendly.' },
-    { id: 'reusable-tote-bag', name: 'Reusable Canvas Tote Bag', category: 'kitchen-living', price: 6500, emoji: '🛍️',
-      image: 'https://images.pexels.com/photos/8148587/pexels-photo-8148587.jpeg?auto=compress&w=800',
-      short: 'Sturdy everyday bag for groceries or errands.',
-      long: 'A sturdy, reusable canvas tote bag — handy for grocery runs, market trips, or everyday errands instead of single-use plastic bags.' },
-
-    // ---- Batch 2 additions (see chat for verification notes) ---------
-    { id: 'rechargeable-led-torch', name: 'Rechargeable LED Torch', category: 'safety', price: 19500, emoji: '🔦',
-      image: 'https://images.pexels.com/photos/985117/pexels-photo-985117.jpeg?auto=compress&w=800',
-      short: 'A reliable rechargeable torch for power outages or outdoor use.',
-      long: 'A rechargeable LED torch for power outages, night walks, or general household use — a simple, practical safety item to keep charged and within reach.' },
-    { id: 'green-tea-20bags', name: 'Green Tea (20 bags)', category: 'nutrition', price: 7800, emoji: '🍵',
-      image: 'https://images.pexels.com/photos/4390014/pexels-photo-4390014.jpeg?auto=compress&w=800',
-      short: 'A classic everyday tea, hot or iced.',
-      long: 'A box of 20 green tea bags — a simple, naturally light everyday tea, good hot in the morning or iced through the afternoon.' },
-    { id: 'chia-seeds-250g', name: 'Chia Seeds (250g)', category: 'nutrition', price: 11000, emoji: '🌱',
-      image: 'https://images.pexels.com/photos/3682192/pexels-photo-3682192.jpeg?auto=compress&w=800',
-      short: 'Stir into smoothies, yoghurt, or overnight oats.',
-      long: 'A jar of chia seeds — stir into a smoothie, yoghurt, or overnight oats for added texture, a popular everyday addition for anyone building healthier breakfast habits.' },
-    { id: 'dried-dates-500g', name: 'Dried Dates (500g)', category: 'nutrition', price: 9800, emoji: '🌴',
-      image: 'https://images.pexels.com/photos/20632756/pexels-photo-20632756.jpeg?auto=compress&w=800',
-      short: 'A naturally sweet, ready-to-eat everyday snack.',
-      long: 'Dried dates — a naturally sweet, ready-to-eat snack straight from the pack, popular on their own, added to smoothies, or stirred into oats.' },
-    { id: 'fresh-mango', name: 'Fresh Mango (Pack of 2)', category: 'fruits', price: 5800, emoji: '🥭',
-      image: 'https://images.pexels.com/photos/7543137/pexels-photo-7543137.jpeg?auto=compress&w=800',
-      short: 'Sweet, juicy mangoes — a tropical everyday favorite.',
-      long: 'Two fresh mangoes — sweet and juicy, a popular tropical fruit across Nigerian markets, eaten fresh, sliced into a salad, or blended into a smoothie.' },
-    { id: 'fresh-grapes-500g', name: 'Fresh Grapes (500g)', category: 'fruits', price: 14300, emoji: '🍇',
-      image: 'https://images.pexels.com/photos/3085151/pexels-photo-3085151.jpeg?auto=compress&w=800',
-      short: 'A sweet, snackable bunch of fresh grapes.',
-      long: 'A bunch of fresh grapes — a sweet, easy, no-prep snack, good on their own or added to a fruit plate.' },
-    { id: 'bamboo-toothbrush', name: 'Bamboo Toothbrush', category: 'personalcare', price: 3200, emoji: '🪥',
-      image: 'https://images.pexels.com/photos/3654597/pexels-photo-3654597.jpeg?auto=compress&w=800',
-      short: 'An eco-friendly everyday toothbrush.',
-      long: 'A bamboo-handled toothbrush — a simple, everyday eco-friendly swap for a standard plastic toothbrush.' },
-    { id: 'wooden-cutting-board', name: 'Wooden Cutting Board', category: 'kitchen-living', price: 11000, emoji: '🪵',
-      image: 'https://images.pexels.com/photos/5961/wood-vintage-wooden-board.jpg?auto=compress&w=800',
-      short: 'A sturdy everyday board for food prep.',
-      long: 'A sturdy wooden cutting board for everyday food prep — durable, easy to clean, and gentle on knife edges.' },
-    { id: 'kids-lunch-box', name: 'Lunch Box (Kids & Adults)', category: 'kitchen-living', price: 9800, emoji: '🍱',
-      image: 'https://images.pexels.com/photos/5852333/pexels-photo-5852333.jpeg?auto=compress&w=800',
-      short: 'A compact box for packed lunches, school or work.',
-      long: 'A compact, easy-to-carry lunch box for packed meals and snacks — good for school runs, the office, or a day out.' },
-    { id: 'magnifying-glass', name: 'Large Lens Magnifying Glass', category: 'medaids', price: 13000, emoji: '🔍',
-      image: 'https://images.pexels.com/photos/906055/pexels-photo-906055.jpeg?auto=compress&w=800',
-      short: 'Handheld magnifier for reading small print and medicine labels.',
-      long: 'A handheld magnifying glass with a large, clear lens — makes reading medicine labels, dosage instructions, and small print far easier.' },
-    { id: 'adhesive-bandages-pack', name: 'Adhesive Bandages Variety Pack', category: 'firstaid', price: 5200, emoji: '🩹',
-      image: 'https://images.pexels.com/photos/9255018/pexels-photo-9255018.jpeg?auto=compress&w=800',
-      short: 'Assorted plasters for everyday cuts and grazes.',
-      long: 'An assorted pack of adhesive bandages in several sizes — a first-aid basic worth keeping stocked at home for everyday cuts, blisters, and grazes.' },
-    { id: 'travel-first-aid-pouch', name: 'Travel First Aid Pouch', category: 'firstaid', price: 8400, emoji: '🎒',
-      image: 'https://images.pexels.com/photos/6562586/pexels-photo-6562586.jpeg?auto=compress&w=800',
-      short: 'Compact zippered pouch for on-the-go essentials.',
-      long: 'A compact, zippered pouch sized to fit in a bag, car glovebox, or backpack — pack it with your own plasters and basics so you always have a few essentials within reach.' }
+      long: 'A double-walled insulated stainless steel water bottle — keeps drinks cold or hot for hours, an everyday reusable swap for single-use bottles.',
+      image: 'https://images.pexels.com/photos/4239146/pexels-photo-4239146.jpeg?auto=compress&w=800' },
+    { id: 'sports-water-bottle', name: 'Everyday Sports Water Bottle', category: 'kitchen-living', price: 4200, emoji: '🥤',
+      short: 'Lightweight, leak-proof, easy to carry.',
+      long: 'A lightweight, leak-proof sports water bottle — easy to carry to the gym, work, or school for everyday hydration.',
+      image: 'https://images.pexels.com/photos/4753986/pexels-photo-4753986.jpeg?auto=compress&w=800' },
+    { id: 'glass-storage-jars', name: 'Glass Food Storage Jars (Set)', category: 'kitchen-living', price: 8900, emoji: '🫙',
+      short: 'Airtight glass jars for pantry organization.',
+      long: 'A set of airtight glass storage jars for the pantry — keeps dry goods fresh and your shelves organized.',
+      image: 'https://images.pexels.com/photos/4198668/pexels-photo-4198668.jpeg?auto=compress&w=800' },
+    { id: 'meal-prep-containers', name: 'Reusable Meal Prep Containers (Set)', category: 'kitchen-living', price: 7600, emoji: '🍱',
+      short: 'Stackable, microwave-safe containers.',
+      long: 'A set of stackable, microwave-safe meal prep containers — an easy everyday way to portion, store, and reheat meals.',
+      image: 'https://images.pexels.com/photos/4198567/pexels-photo-4198567.jpeg?auto=compress&w=800' },
+    { id: 'reusable-tote-bag', name: 'Reusable Canvas Tote Bag', category: 'kitchen-living', price: 3900, emoji: '👜',
+      short: 'Sturdy, everyday shopping tote.',
+      long: 'A sturdy canvas tote bag for everyday shopping or errands — a simple reusable swap for single-use bags.',
+      image: 'https://images.pexels.com/photos/6068958/pexels-photo-6068958.jpeg?auto=compress&w=800' },
+    { id: 'wooden-cutting-board', name: 'Wooden Cutting Board', category: 'kitchen-living', price: 6300, emoji: '🪵',
+      short: 'Durable everyday kitchen prep board.',
+      long: 'A durable wooden cutting board for everyday kitchen prep — sized for daily chopping and food prep.',
+      image: 'https://images.pexels.com/photos/4198718/pexels-photo-4198718.jpeg?auto=compress&w=800' },
+    { id: 'kids-lunch-box', name: 'Lunch Box (Kids & Adults)', category: 'kitchen-living', price: 5400, emoji: '🍱',
+      short: 'Compartmentalized, easy to pack and carry.',
+      long: 'A compartmentalized lunch box for kids or adults — easy to pack, carry, and clean for everyday school or work lunches.',
+      image: 'https://images.pexels.com/photos/8951240/pexels-photo-8951240.jpeg?auto=compress&w=800' }
   ];
 
   const productsById = {};
@@ -358,24 +210,16 @@
     badge.style.display = n > 0 ? 'flex' : 'none';
   }
 
-  // Derives the actual Commons file description page (where the real
-  // author + license live) from a Special:FilePath image URL, so the credit
-  // tag can link to authoritative, always-current attribution instead of a
-  // static "Wikimedia Commons" label that names no one — several of these
-  // images are CC BY-SA, which requires crediting the specific author.
   function wikimediaFilePageUrl(imageUrl) {
-    const m = imageUrl.match(/Special:FilePath\/([^?]+)/);
-    if (!m) return 'https://commons.wikimedia.org/';
-    return 'https://commons.wikimedia.org/wiki/File:' + m[1];
+    const m = /Special:FilePath\/([^?]+)/.exec(imageUrl || '');
+    return m ? 'https://commons.wikimedia.org/wiki/File:' + m[1] : null;
   }
 
   // ---- Main grid render --------------------------------------------------
   function coverHtml(p) {
     const src = p.image || ('images/products/' + p.id + '.jpg');
-    const isWikimedia = !!(p.image && p.image.indexOf('wikimedia.org') !== -1);
     return '<div class="mkt-cover" data-category="' + p.category + '" onclick="SentraXStore.open(\'' + p.id + '\')">' +
-      '<img class="mkt-cover-img" src="' + src + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';var cr=this.parentElement.querySelector(\'.img-credit\');if(cr)cr.remove();">' +
-      (isWikimedia ? '<a href="' + wikimediaFilePageUrl(p.image) + '" target="_blank" rel="noopener" class="img-credit" onclick="event.stopPropagation();">Wikimedia Commons</a>' : '') +
+      '<img class="mkt-cover-img" src="' + src + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';">' +
       '</div>';
   }
 
@@ -390,28 +234,19 @@
       '</div></div>';
   }
 
-  let shuffledProducts = PRODUCTS.slice();
-  let lastShuffleAt = 0;
-  const MARKETPLACE_RESHUFFLE_MS = 5 * 60 * 1000; // re-shuffle on return visits, not on every category click
-
   function shuffleProducts() {
     const arr = PRODUCTS.slice();
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
     }
-    shuffledProducts = arr;
-    lastShuffleAt = Date.now();
+    return arr;
   }
 
-  // Called on tab entry only — reshuffles at most once per MARKETPLACE_RESHUFFLE_MS,
-  // then renders. Internal re-renders (category filter clicks) call renderStore()
-  // directly and reuse whatever order is already shuffled, so filtering never
-  // jumbles the grid mid-browse.
+  let hasEntered = false;
+
   function enterStore() {
-    if (!lastShuffleAt || Date.now() - lastShuffleAt > MARKETPLACE_RESHUFFLE_MS) {
-      shuffleProducts();
-    }
+    hasEntered = true;
     renderStore();
   }
 
@@ -425,7 +260,7 @@
         return '<button class="mkt-chip' + (selectedCategory === c.key ? ' active' : '') + '" onclick="SentraXStore.selectCategory(\'' + c.key + '\')">' + c.emoji + ' ' + c.name + '</button>';
       }).join('') + '</div>';
 
-    const filtered = selectedCategory === 'all' ? shuffledProducts : shuffledProducts.filter(function (p) { return p.category === selectedCategory; });
+    const filtered = selectedCategory === 'all' ? PRODUCTS : PRODUCTS.filter(function (p) { return p.category === selectedCategory; });
 
     let gridInner = '';
     filtered.forEach(function (p, i) {
@@ -442,7 +277,7 @@
       '<button class="mkt-cart-btn" onclick="SentraXStore.openCart()">🛒<span id="mkt-cart-badge" class="mkt-cart-badge" style="display:none;">0</span></button>' +
       '</div></div>' +
       chipsHtml + gridHtml +
-      '<p style="font-size:11px;color:#64748b;text-align:center;margin-top:6px;">Non-prescription health & mobility aids only.</p>';
+      '<p style="font-size:11px;color:#64748b;text-align:center;margin-top:6px;">Non-prescription health & mobility aids only. Card payment via Paystack is launching soon.</p>';
 
     updateCartBadge();
     if (window.SentraXAds) SentraXAds.init(root);
@@ -500,7 +335,7 @@
     const overlay = ensureOverlay('product-reader-overlay');
     overlay.innerHTML =
       '<button class="art-reader-back" onclick="SentraXStore.closeProduct()">←</button>' +
-      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';var cr=this.parentElement.querySelector(\'.img-credit\');if(cr)cr.remove();">' + (p.image && p.image.indexOf('wikimedia.org') !== -1 ? '<a href="' + wikimediaFilePageUrl(p.image) + '" target="_blank" rel="noopener" class="img-credit">Wikimedia Commons</a>' : '') + '</div>' +
+      '<div class="mkt-reader-cover" data-category="' + p.category + '"><img class="mkt-cover-img" src="' + (p.image || ('images/products/' + p.id + '.jpg')) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.style.display=\'none\';"></div>' +
       '<div class="art-reader-body">' +
       '<div class="mkt-cat-tag" style="display:inline-block;">' + CATEGORY_EMOJI[p.category] + ' ' + CATEGORY_NAME[p.category] + '</div>' +
       '<h2>' + esc(p.name) + '</h2>' +
@@ -514,7 +349,7 @@
       '<button onclick="SentraXStore.changeDetailQty(1)">+</button>' +
       '</div></div>' +
       '<button onclick="SentraXStore.addToCartFromDetail()">Add to Cart — ' + formatPrice(p.price * detailQty) + '</button>' +
-      '<div class="art-reader-footnote">Non-prescription item. Secure card payment via Paystack.</div>' +
+      '<div class="art-reader-footnote">Non-prescription item. Card payment via Paystack is launching soon — orders are confirmed manually until then.</div>' +
       (window.SentraXAds ? SentraXAds.slotHtml('sx-ad-inline') : '') +
       '</div>';
     if (window.SentraXAds) SentraXAds.init(overlay);
@@ -616,8 +451,8 @@
     renderCheckoutStep();
   }
 
-  let coinsToApply = 0; // reset each time checkout is (re)opened, see proceedToCheckout()
-  let pendingFallbackOrder = null; // set when Paystack couldn't be used, so the customer can explicitly choose to proceed without it
+  let coinsToApply = 0;
+  let pendingFallbackOrder = null;
 
   function coinDiscountNaira() {
     const rewards = window.SentraXRewards;
@@ -631,7 +466,7 @@
     const total = cartTotal(getCart());
     const balance = rewards.getCoins();
     if (coinsToApply > 0) {
-      coinsToApply = 0; // was on, turn off
+      coinsToApply = 0;
     } else {
       const coinsNeededForFullOrder = Math.ceil(total / rewards.coinToNgn);
       coinsToApply = Math.min(balance, coinsNeededForFullOrder);
@@ -674,11 +509,6 @@
       '<button onclick="SentraXStore.placeOrder()">Pay ' + formatPrice(payable) + '</button>');
   }
 
-  // Emails the store owner directly the moment an order is placed. Orders
-  // otherwise only save into the buyer's own private Firestore document —
-  // with no shared "orders" collection or admin view, this email is
-  // currently the ONLY way a new order gets noticed. Uses EmailJS's public
-  // (browser-safe) key — no private key needed for a client-side send.
   const SELLER_EMAIL = 'sentraxforteltd@gmail.com';
   const EMAILJS_SERVICE_ID = 'service_sq7cgqb';
   const EMAILJS_TEMPLATE_ID = 'template_9clzjfk';
@@ -719,10 +549,6 @@
     });
   }
 
-  // TODO: replace with your real Paystack public key (test key is fine to
-  // start — Paystack test keys work immediately, no merchant verification
-  // needed, and show their own "TEST MODE" banner automatically so nobody
-  // is misled). Get it from Paystack Dashboard → Settings → API Keys & Webhooks.
   const PAYSTACK_PUBLIC_KEY = 'pk_live_a6b2acb7e65e0b4eb742f559d1ce231345df3e8d';
 
   function placeOrder() {
@@ -763,9 +589,6 @@
       createdAt: Date.now()
     };
 
-    // Fully covered by coin discount — nothing left to charge. Paystack
-    // doesn't support ₦0 transactions and would hang if we tried, so skip
-    // it entirely and finalize the order as paid via coins.
     if (payable <= 0) {
       order.status = 'paid';
       order.paystackRef = 'COIN_REDEMPTION';
@@ -804,9 +627,6 @@
           ]
         },
         onLoad: function () {
-          // Popup actually rendered — the "stuck loading" case Paystack's own
-          // docs warn about (transaction never loads) no longer applies here,
-          // so cancel our own fallback timer.
           popupLoaded = true;
         },
         onSuccess: function (result) {
@@ -829,11 +649,6 @@
         }
       });
 
-      // Paystack's own guidance: if the transaction hasn't loaded within
-      // ~10 seconds, cancel it and fall back — rather than leaving the
-      // customer staring at a popup stuck on its own loading spinner with
-      // no way out, which is what v1's setup()/openIframe() had no
-      // mechanism to prevent.
       setTimeout(function () {
         if (!popupLoaded && !paystackSettled) {
           try { popup.cancelTransaction(transaction.id); } catch (e) { /* best effort */ }
@@ -845,11 +660,6 @@
 
     } catch (e) {
       resetButton();
-      // Report to Sentry (already loaded on the page, just never called) —
-      // this catch block was silently swallowing the real error before,
-      // so "couldn't be opened" on another device gave zero diagnostic
-      // info. Now the actual thrown error/stack is visible in the Sentry
-      // dashboard, and the on-screen message includes the real reason too.
       if (typeof Sentry !== 'undefined' && Sentry.captureException) {
         try { Sentry.captureException(e); } catch (_ignored) { /* best effort */ }
       }
@@ -857,14 +667,6 @@
     }
   }
 
-  // Shown when Paystack genuinely can't be used (SDK blocked/failed to load,
-  // popup didn't load in time, or threw an error). Previously this silently
-  // completed the order as "pending payment" with zero visible feedback —
-  // which, from the customer's side, looked exactly like tapping Pay and
-  // having nothing happen at all. Now the customer sees why, and explicitly
-  // chooses to continue without paying by card (order stays pending,
-  // confirmed manually) rather than that decision being made silently for
-  // them or being left stuck on an unresponsive popup.
   function offerManualFallback(order, errEl, reason) {
     pendingFallbackOrder = order;
     if (errEl) {
