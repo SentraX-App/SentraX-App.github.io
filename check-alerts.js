@@ -146,7 +146,7 @@ async function sendSMS(toPhone, message) {
         from: TERMII_SENDER_ID || 'Termii',
         sms: message,
         type: 'plain',
-        channel: 'generic'
+        channel: 'dnd' // was 'generic' — see sentrax-sos-sms.js's comment for why
       })
     });
     const text = await res.text();
