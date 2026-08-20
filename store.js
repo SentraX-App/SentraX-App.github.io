@@ -315,8 +315,23 @@
 
   // ---- Cart (persisted in localStorage as { productId: qty }) ----------
   function getCart() {
-    try { return JSON.parse(localStorage.getItem('mkt-cart') || '{}'); }
-    catch (e) { return {}; }
+    let cart;
+    try { cart = JSON.parse(localStorage.getItem('mkt-cart') || '{}'); }
+    catch (e) { cart = {}; }
+    // Self-heal: a cart entry can outlive its product (e.g. removed from
+    // the catalogue in a later update). Without this, the badge count
+    // (raw quantity sum) and the cart total/list (which can only count
+    // products it can still find) silently disagree — badge says "2",
+    // checkout shows ₦0 and no items. Prune anything that no longer
+    // resolves to a real product, and persist the cleaned-up cart.
+    let changed = false;
+    Object.keys(cart).forEach(function (id) {
+      if (!productsById[id]) { delete cart[id]; changed = true; }
+    });
+    if (changed) {
+      try { localStorage.setItem('mkt-cart', JSON.stringify(cart)); } catch (e) { /* best effort */ }
+    }
+    return cart;
   }
 
   function saveCart(cart) {
