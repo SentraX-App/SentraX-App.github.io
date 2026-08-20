@@ -50,6 +50,39 @@ self.addEventListener('activate', function (event) {
   self.clients.claim();
 });
 
+// Fires when a push message actually arrives from the server — this is
+// the piece that makes a notification appear even with the app fully
+// closed, not just backgrounded. Was referenced as if it already existed
+// but didn't; this is genuinely new, added alongside everything above,
+// not replacing any of it.
+self.addEventListener('push', function (event) {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data ? event.data.text() : '' }; }
+  const title = data.title || 'Sentra-X';
+  const options = {
+    body: data.body || '',
+    icon: 'icon-192-1.png',
+    badge: 'icon-192-1.png',
+    vibrate: [200, 100, 200, 100, 200],
+    requireInteraction: true,
+    data: { url: data.url || './' }
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || './';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clients) {
+      for (let i = 0; i < clients.length; i++) {
+        if ('focus' in clients[i]) return clients[i].focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener('fetch', function (event) {
   const request = event.request;
 
