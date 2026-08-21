@@ -181,7 +181,11 @@
     // ones still falling into the generic "Joint Health" / "Wellness"
     // pools without actually depicting the topic.
     'pain': 'https://commons.wikimedia.org/wiki/Special:FilePath/1506%20Referred%20Pain%20Chart.jpg?width=500',
-    'anemia': 'https://commons.wikimedia.org/wiki/Special:FilePath/Redbloodcells.jpg?width=500'
+    'anemia': 'https://commons.wikimedia.org/wiki/Special:FilePath/Redbloodcells.jpg?width=500',
+    // 'back-pain' was falling into the same 'Joint Health' pool as arthritis
+    // and osteoporosis — neither of which is back pain. Direct override to
+    // an image that's actually of the lower back.
+    'back-pain': 'https://commons.wikimedia.org/wiki/Special:FilePath/Lower%20back%20pain.jpg?width=500'
   };
 
   function coverHtml(tag, photoUrl, sizeStyle, altIndex) {
