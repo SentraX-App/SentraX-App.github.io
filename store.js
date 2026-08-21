@@ -32,196 +32,99 @@
     { key: 'wellness', name: 'Fitness & Wellness' },
     { key: 'personalcare', name: 'Personal & Travel Accessories' },
     { key: 'kitchen-living', name: 'Kitchen & Everyday Living' },
-    { key: 'stationery', name: 'Stationery & Office' },
-    { key: 'computer-desk', name: 'Computer / Desk Accessories' }
+    { key: 'stationery', name: 'Stationery & Office' }
   ];
 
   const CATEGORY_NAME = {};
   CATEGORIES.forEach(function (c) { CATEGORY_NAME[c.key] = c.name; });
 
     const PRODUCTS = [
-    // ---- Fitness & Wellness ----------------------------------------------
+    // ---- Fitness & Wellness ------------------------------------------------
     { id: 'exercise-mat', name: 'Foam Exercise / Yoga Mat', category: 'wellness', price: 22100,
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Yoga%20mat.jpg?width=500',
       short: 'Cushioned mat for gentle exercise, stretching, or daily movement.',
       long: 'A comfortable foam exercise mat for light stretching, yoga, or gentle daily movement routines — non-slip surface, easy to clean, rolls up for storage.' },
+    
     { id: 'resistance-bands', name: 'Resistance Exercise Bands (Set)', category: 'wellness', price: 18200,
       image: 'https://images.pexels.com/photos/6339598/pexels-photo-6339598.jpeg?auto=compress&w=800',
       short: 'Set of bands for gentle strength and mobility exercises.',
       long: 'A set of resistance bands in varying strengths for gentle strength-building and everyday mobility exercises — low-impact and adjustable to fitness level.' },
-    { id: 'foam-roller', name: 'Foam Roller', category: 'wellness', price: 23400,
-      image: 'https://images.pexels.com/photos/6207527/pexels-photo-6207527.jpeg?auto=compress&w=800',
-      short: 'Roller for muscle care, stretching, and tension relief.',
-      long: 'A durable foam roller for muscle care and self-massage — helps ease tightness and improve flexibility, popular as part of an everyday fitness or stretching routine.' },
+    
     { id: 'skipping-rope', name: 'Skipping / Jump Rope', category: 'wellness', price: 7200,
       image: 'https://images.pexels.com/photos/6339602/pexels-photo-6339602.jpeg?auto=compress&w=800',
       short: 'Adjustable rope for everyday cardio exercise.',
       long: 'A lightweight, adjustable-length skipping rope — a simple, portable way to fit in some cardio at home, in the yard, or on the go.' },
+    
     { id: 'gym-duffel-bag', name: 'Sports & Gym Duffel Bag', category: 'wellness', price: 27300,
       image: 'https://images.pexels.com/photos/8555309/pexels-photo-8555309.jpeg?auto=compress&w=800',
       short: 'Roomy duffel bag for gym kit, gear, or travel.',
       long: 'A durable, roomy duffel bag with a comfortable shoulder strap — plenty of space for gym kit, workout gear, or a quick overnight trip.' },
+
+    { id: 'yoga-block', name: 'Yoga Block', category: 'wellness', price: 4800,
+      image: 'https://images.pexels.com/photos/6752163/pexels-photo-6752163.jpeg?auto=compress&w=800',
+      short: 'A supportive block for stretching, balance, and yoga.',
+      long: 'A lightweight foam yoga block for extra support and reach during stretching, balance work, or yoga practice — useful for beginners and experienced practitioners alike.' },
+
+    { id: 'ab-wheel', name: 'Ab Wheel / Core Roller', category: 'wellness', price: 8900,
+      image: 'https://images.pexels.com/photos/8032772/pexels-photo-8032772.jpeg?auto=compress&w=800',
+      short: 'A simple wheel for core and ab strength exercises.',
+      long: 'A simple rolling wheel for core and abdominal strength exercises at home — an easy, low-cost way to work the midsection as part of a regular fitness routine.' },
+
+    { id: 'stability-exercise-ball', name: 'Stability / Exercise Ball', category: 'wellness', price: 9500,
+      image: 'https://images.pexels.com/photos/6454030/pexels-photo-6454030.jpeg?auto=compress&w=800',
+      short: 'A large inflatable ball for balance, core, and stretching.',
+      long: 'A large inflatable exercise ball for balance work, core exercises, and stretching — a simple, versatile addition to a home fitness routine.' },
+    
 
     // ---- Personal & Travel Accessories -------------------------------------
     { id: 'sleep-eye-mask', name: 'Sleep Eye Mask', category: 'personalcare', price: 6500,
       image: 'https://images.pexels.com/photos/6541082/pexels-photo-6541082.jpeg?auto=compress&w=800',
       short: 'Soft, light-blocking mask for better sleep.',
       long: 'A soft, contoured sleep mask that blocks out light — a simple everyday accessory for naps, travel, or a darker bedroom at night.' },
-    { id: 'microfiber-towel', name: 'Quick-Dry Microfiber Towel', category: 'personalcare', price: 9100,
-      image: 'https://images.pexels.com/photos/11370616/pexels-photo-11370616.jpeg?auto=compress&w=800',
-      short: 'Lightweight, fast-drying towel for home, gym, or travel.',
-      long: 'A lightweight, fast-drying microfiber towel — compact enough for a gym bag or travel case, and quicker to dry than a regular cotton towel.' },
-
-    // ---- Kitchen & Everyday Living -----------------------------------,
+    
     { id: 'bamboo-toothbrush', name: 'Bamboo Toothbrush', category: 'personalcare', price: 3200,
       image: 'https://images.pexels.com/photos/3654597/pexels-photo-3654597.jpeg?auto=compress&w=800',
       short: 'An eco-friendly everyday toothbrush.',
       long: 'A bamboo-handled toothbrush — a simple, everyday eco-friendly swap for a standard plastic toothbrush.' },
 
-    // ---- Kitchen & Everyday Living ------------------------------------------
+    { id: 'cooling-sports-towel', name: 'Sports Cooling-Down Towel', category: 'personalcare', price: 4200,
+      image: 'https://images.pexels.com/photos/5038791/pexels-photo-5038791.jpeg?auto=compress&w=800',
+      short: 'A towel for wiping down and cooling off after exercise.',
+      long: 'A soft, absorbent towel for wiping down and cooling off after a workout, walk, or time outdoors — a simple everyday gym-bag essential.' },
+    
+
+    // ---- Kitchen & Everyday Living -----------------------------------------
     { id: 'insulated-water-bottle', name: 'Insulated Stainless Steel Water Bottle', category: 'kitchen-living', price: 19500,
       image: 'https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&w=800',
       short: 'Keeps drinks cold or hot for hours.',
       long: 'A double-walled insulated stainless steel bottle that keeps drinks cold or hot for hours — a durable everyday alternative to single-use bottles.' },
+    
     { id: 'reusable-bottle-600ml', name: '600ml Reusable Water Bottle', category: 'kitchen-living', price: 5400,
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/A%20blue%20water%20bottle.jpg?width=500',
       short: 'A compact everyday bottle, 600ml.',
       long: 'A compact 600ml reusable water bottle for everyday hydration — easy to carry in a bag or hold in one hand.' },
+    
     { id: 'reusable-bottle-1000ml', name: '1000ml Reusable Water Bottle', category: 'kitchen-living', price: 7100,
       image: 'https://images.pexels.com/photos/18381807/pexels-photo-18381807.jpeg?auto=compress&w=800',
       short: 'A larger everyday bottle, 1000ml.',
       long: 'A larger 1000ml reusable water bottle for those who want fewer refills through the day — same easy-carry design as our 600ml bottle, just bigger.' },
+    
     { id: 'vacuum-flask-steel', name: 'Stainless-Steel Vacuum Flask', category: 'kitchen-living', price: 6400,
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/A%20stainless%20steel%20thermoflask.jpg?width=500',
       short: 'A classic steel flask for hot or cold drinks.',
       long: 'A classic stainless-steel vacuum flask — sturdy, easy to clean, and a household staple for keeping tea, coffee, or cold drinks at temperature for hours.' },
-    { id: 'glass-storage-jars', name: 'Glass Food Storage Jars (Set)', category: 'kitchen-living', price: 16900,
-      image: 'https://images.pexels.com/photos/8580763/pexels-photo-8580763.jpeg?auto=compress&w=800',
-      short: 'Airtight glass jars for pantry storage.',
-      long: 'A set of clear glass jars with airtight lids — good for storing rice, beans, spices, or snacks neatly in the pantry.' },
-    { id: 'meal-prep-containers', name: 'Reusable Meal Prep Containers (Set)', category: 'kitchen-living', price: 14300,
-      image: 'https://images.pexels.com/photos/30635720/pexels-photo-30635720.jpeg?auto=compress&w=800',
-      short: 'Stackable containers for meal prep or leftovers.',
-      long: 'A set of stackable, reusable containers for portioning meals ahead, packing lunch, or storing leftovers — microwave- and dishwasher-friendly.' },
-    { id: 'reusable-tote-bag', name: 'Reusable Canvas Tote Bag', category: 'kitchen-living', price: 6500,
-      image: 'https://images.pexels.com/photos/8148587/pexels-photo-8148587.jpeg?auto=compress&w=800',
-      short: 'Sturdy everyday bag for groceries or errands.',
-      long: 'A sturdy, reusable canvas tote bag — handy for grocery runs, market trips, or everyday errands instead of single-use plastic bags.' },
-
-    // ---- Batch 2 additions (see chat for verification notes) ---------,
-    // rechargeable-led-torch removed entirely — electronics/battery items
-    // have their own SON certification pathway, unverified for this
-    // supplier, so removed rather than left in any hidden/held state.
-    { id: 'wooden-cutting-board', name: 'Wooden Cutting Board', category: 'kitchen-living', price: 11000,
-      image: 'https://images.pexels.com/photos/6208155/pexels-photo-6208155.jpeg?auto=compress&w=800',
-      short: 'A sturdy everyday board for food prep.',
-      long: 'A sturdy wooden cutting board for everyday food prep — durable, easy to clean, and gentle on knife edges.' },
+    
     { id: 'kids-lunch-box', name: 'Lunch Box (Kids & Adults)', category: 'kitchen-living', price: 9800,
       image: 'https://images.pexels.com/photos/5852333/pexels-photo-5852333.jpeg?auto=compress&w=800',
       short: 'A compact box for packed lunches, school or work.',
       long: 'A compact, easy-to-carry lunch box for packed meals and snacks — good for school runs, the office, or a day out.' },
 
-    // ---- Batch 3 additions — sourced from an audited catalog document,
-    // each image individually verified before adding (see chat). Items
-    // that would duplicate an existing product (resistance bands, yoga
-    // mat, jump rope, chopping board, tote bag) or had a mismatched/
-    // unverifiable photo (plastic storage basket, cleaning cloth set)
-    // were left out per the source document's own "accuracy over count"
-    // rule, rather than force a weak match.
-    { id: 'household-storage-box', name: 'Household Storage Box', category: 'kitchen-living', price: 6400,
-      image: 'https://images.pexels.com/photos/13969210/pexels-photo-13969210.jpeg?auto=compress&w=800',
-      short: 'A lidded plastic box for tidy household storage.',
-      long: 'A lidded plastic storage box for keeping household items organized and dust-free — stacks neatly on a shelf or in a cupboard.' },
-    { id: 'woven-storage-basket', name: 'Woven Storage Basket', category: 'kitchen-living', price: 7500,
-      image: 'https://images.pexels.com/photos/31390662/pexels-photo-31390662.jpeg?auto=compress&w=800',
-      short: 'A woven basket for tidy, decorative storage.',
-      long: 'A woven storage basket that looks good left out — handy for towels, toys, laundry, or general household clutter.' },
-    { id: 'plastic-laundry-basket', name: 'Plastic Laundry Basket', category: 'kitchen-living', price: 10000,
-      image: 'https://images.pexels.com/photos/4959881/pexels-photo-4959881.jpeg?auto=compress&w=800',
-      short: 'A sturdy basket for carrying and sorting laundry.',
-      long: 'A sturdy plastic laundry basket for carrying, sorting, and storing washing — light enough to carry full, easy to wipe clean.' },
-    { id: 'dish-rack', name: 'Dish Rack', category: 'kitchen-living', price: 12300,
-      image: 'https://images.pexels.com/photos/15040068/pexels-photo-15040068.jpeg?auto=compress&w=800',
-      short: 'Holds washed dishes while they air-dry.',
-      long: 'A dish rack that holds washed plates, cups, and cutlery while they air-dry by the sink — keeps the counter tidy in the meantime.' },
-    { id: 'lunch-bag', name: 'Reusable Lunch Bag', category: 'kitchen-living', price: 5000,
-      image: 'https://images.pexels.com/photos/9885402/pexels-photo-9885402.jpeg?auto=compress&w=800',
-      short: 'A soft carry bag for packed lunches.',
-      long: 'A soft, reusable lunch bag for carrying packed meals to school, work, or a day out — easier to fold flat and stow than a rigid box.' },
-    { id: 'hanging-toiletry-pouch', name: 'Hanging Travel Toiletry Pouch', category: 'personalcare', price: 6500,
-      image: 'https://images.pexels.com/photos/9185867/pexels-photo-9185867.jpeg?auto=compress&w=800',
-      short: 'Hangs from a hook or door for easy access while travelling.',
-      long: 'A toiletry pouch with a hook, so it hangs from a door or rail instead of taking up counter space — handy in a hotel bathroom or shared space.' },
-    { id: 'compact-umbrella', name: 'Compact Umbrella', category: 'personalcare', price: 5400,
-      image: 'https://images.pexels.com/photos/5052681/pexels-photo-5052681.jpeg?auto=compress&w=800',
-      short: 'Folds small enough for an everyday bag.',
-      long: 'A compact umbrella that folds down small enough to keep in a bag or car for whenever the rain catches you out.' },
-    { id: 'wooden-serving-tray', name: 'Wooden Serving Tray', category: 'kitchen-living', price: 31400,
-      image: 'https://images.pexels.com/photos/6962405/pexels-photo-6962405.jpeg?auto=compress&w=800',
-      short: 'A tray for carrying food or drinks around the home.',
-      long: 'A wooden serving tray for carrying drinks, snacks, or a full meal from the kitchen to the table — also doubles as a neat breakfast-in-bed tray.' },
-    { id: 'kitchen-spatula', name: 'Kitchen Spatula', category: 'kitchen-living', price: 4500,
-      image: 'https://images.pexels.com/photos/5514723/pexels-photo-5514723.jpeg?auto=compress&w=800',
-      short: 'An everyday spatula for cooking and flipping.',
-      long: 'A sturdy kitchen spatula for everyday cooking — flipping, stirring, and serving without scratching non-stick pans.' },
-    { id: 'measuring-cup', name: 'Measuring Cup', category: 'kitchen-living', price: 4000,
-      image: 'https://images.pexels.com/photos/8113743/pexels-photo-8113743.jpeg?auto=compress&w=800',
-      short: 'A clear cup with marked measurements for cooking and baking.',
-      long: 'A clear measuring cup with marked measurement lines — handy for cooking, baking, or measuring liquids accurately.' },
-    { id: 'wooden-kitchen-spoon', name: 'Wooden Kitchen Spoon', category: 'kitchen-living', price: 3500,
-      image: 'https://images.pexels.com/photos/8474057/pexels-photo-8474057.jpeg?auto=compress&w=800',
-      short: 'A classic wooden spoon for everyday cooking.',
-      long: 'A classic wooden cooking spoon — gentle on pots and pans, and a staple in most kitchens for stirring and serving.' },
-    { id: 'dish-drying-rack', name: 'Dish Drying Rack', category: 'kitchen-living', price: 18900,
-      image: 'https://images.pexels.com/photos/3869662/pexels-photo-3869662.jpeg?auto=compress&w=800',
-      short: 'A rack for air-drying washed dishes by the sink.',
-      long: 'A dish drying rack that sits by the sink, holding washed plates and bowls upright to air-dry without stacking wet dishes on the counter.' },
-    { id: 'measuring-spoon-set', name: 'Measuring Spoon Set', category: 'kitchen-living', price: 4000,
-      image: 'https://images.pexels.com/photos/9737802/pexels-photo-9737802.jpeg?auto=compress&w=800',
-      short: 'A set of spoons for accurate cooking and baking measurements.',
-      long: 'A set of measuring spoons in graduated sizes — for accurately measuring spices, baking ingredients, or liquids in everyday cooking.' },
-    { id: 'microfiber-cleaning-cloth', name: 'Microfiber Cleaning Cloth', category: 'kitchen-living', price: 3500,
-      image: 'https://images.pexels.com/photos/4440608/pexels-photo-4440608.jpeg?auto=compress&w=800',
-      short: 'A reusable cloth for everyday surface cleaning.',
-      long: 'A reusable microfiber cleaning cloth for wiping down counters, tables, and other everyday surfaces — washable and reusable instead of paper towels.' },
-    { id: 'kitchen-sponge', name: 'Kitchen Sponge', category: 'kitchen-living', price: 3500,
-      image: 'https://images.pexels.com/photos/4440527/pexels-photo-4440527.jpeg?auto=compress&w=800',
-      short: 'An everyday sponge for washing dishes.',
-      long: 'A standard kitchen sponge for everyday dish washing and surface cleanup.' },
-
-    // ---- New batch: stationery & one kitchen item, all Pexels-verified --
+    // ---- Stationery & Office -----------------------------------------------
     { id: 'daily-notes-planner', name: 'Daily Notes Planner', category: 'stationery', price: 10000,
       image: 'https://images.pexels.com/photos/8581059/pexels-photo-8581059.jpeg?auto=compress&w=800',
       short: 'A daily planner for notes, tasks, and priorities.',
-      long: 'A simple daily notes planner for jotting down tasks, reminders, and priorities — an easy paper-based way to stay organized day to day.' },
-    { id: 'sticky-notes-pack', name: 'Sticky Notes Pack', category: 'stationery', price: 3500,
-      image: 'https://images.pexels.com/photos/6991439/pexels-photo-6991439.jpeg?auto=compress&w=800',
-      short: 'A pack of sticky notes for quick reminders.',
-      long: 'A pack of sticky notes for quick reminders, labels, or to-do lists — stick them anywhere you need a note to catch your eye.' },
-    { id: 'memo-notepad', name: 'Memo Notepad', category: 'stationery', price: 4000,
-      image: 'https://images.pexels.com/photos/7794001/pexels-photo-7794001.jpeg?auto=compress&w=800',
-      short: 'A simple notepad for everyday notes.',
-      long: 'A simple, everyday notepad for jotting down notes, messages, or lists — a handy desk or bag essential.' },
-    { id: 'pencil-case', name: 'Pencil Case', category: 'stationery', price: 6000,
-      image: 'https://images.pexels.com/photos/5963052/pexels-photo-5963052.jpeg?auto=compress&w=800',
-      short: 'A case for keeping pens and pencils organized.',
-      long: 'A sturdy pencil case for keeping pens, pencils, and small stationery items organized in a bag or on a desk.' },
-    { id: 'pencil-pouch', name: 'Pencil Pouch', category: 'stationery', price: 6500,
-      image: 'https://images.pexels.com/photos/7396388/pexels-photo-7396388.jpeg?auto=compress&w=800',
-      short: 'A soft pouch for everyday stationery.',
-      long: 'A soft, zippered pouch for carrying pens, pencils, and everyday stationery — compact enough for a bag or backpack.' },
-    { id: 'ice-cube-tray', name: 'Ice Cube Tray', category: 'kitchen-living', price: 5000,
-      image: 'https://images.pexels.com/photos/8287262/pexels-photo-8287262.jpeg?auto=compress&w=800',
-      short: 'A flexible tray for freezing ice cubes or herbs.',
-      long: 'A flexible ice cube tray — freeze water, juice, or herbs in neat portions for drinks and cooking.' },
-    { id: 'mouse-pad-basic', name: 'Basic Computer Mouse Pad', category: 'computer-desk', price: 5000,
-      image: 'https://images.pexels.com/photos/7538509/pexels-photo-7538509.jpeg?auto=compress&w=800',
-      short: 'A simple everyday mouse pad for desk or home office use.',
-      long: 'A basic mouse pad with a smooth surface for everyday desk use — sized for a standard mouse, whether at home, office, or study.' },
-    { id: 'mouse-mat-large-desk', name: 'Large Desk Mouse Mat', category: 'computer-desk', price: 8500,
-      image: 'https://images.pexels.com/photos/27559487/pexels-photo-27559487.jpeg?auto=compress&w=800',
-      short: 'An extended desk mat with more room for mouse and keyboard.',
-      long: 'A large desk mouse mat that extends across more of the desk surface — extra room for the mouse alongside a keyboard, for a tidier everyday desk setup. Keyboard, mouse, and laptop shown for scale are not included.' }
+      long: 'A simple daily notes planner for jotting down tasks, reminders, and priorities — an easy paper-based way to stay organized day to day.' }
+
   ];
 
   // ============================================================================
@@ -414,7 +317,7 @@
       '<div><h3>Marketplace</h3><p>Everyday fitness, hydration, and household essentials, delivered to your door.</p></div>' +
       '<button class="mkt-cart-btn" onclick="SentraXStore.openCart()" aria-label="Cart">🛒<span id="mkt-cart-badge" class="mkt-cart-badge" style="display:none;">0</span></button>' +
       '</div></div>' +
-      '<p class="mkt-disclaimer">Sentra-X Marketplace focuses on ordinary consumer fitness, lifestyle, household and organizational products — not medicines, medical devices, diagnostic tools, or treatments, and no product here is claimed to diagnose, treat, cure, or prevent any disease or condition.</p>' +
+      '<p class="mkt-disclaimer">Sentra-X Marketplace offers everyday health-related products for the home — none of them are medicines, medical devices, diagnostic tools, or treatments, and we do not claim that any product here diagnoses, treats, cures, or prevents any disease or condition.</p>' +
       chipsHtml + gridHtml;
 
     updateCartBadge();
