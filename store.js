@@ -32,7 +32,8 @@
     { key: 'wellness', name: 'Fitness & Wellness' },
     { key: 'personalcare', name: 'Personal & Travel Accessories' },
     { key: 'kitchen-living', name: 'Kitchen & Everyday Living' },
-    { key: 'stationery', name: 'Stationery & Office' }
+    { key: 'stationery', name: 'Stationery & Office' },
+    { key: 'computer-desk', name: 'Computer / Desk Accessories' }
   ];
 
   const CATEGORY_NAME = {};
@@ -221,7 +222,15 @@
     { id: 'ice-cube-tray', name: 'Ice Cube Tray', category: 'kitchen-living', price: 5000,
       image: 'https://images.pexels.com/photos/8287262/pexels-photo-8287262.jpeg?auto=compress&w=800',
       short: 'A flexible tray for freezing ice cubes or herbs.',
-      long: 'A flexible ice cube tray — freeze water, juice, or herbs in neat portions for drinks and cooking.' }
+      long: 'A flexible ice cube tray — freeze water, juice, or herbs in neat portions for drinks and cooking.' },
+    { id: 'mouse-pad-basic', name: 'Basic Computer Mouse Pad', category: 'computer-desk', price: 5000,
+      image: 'https://images.pexels.com/photos/7538509/pexels-photo-7538509.jpeg?auto=compress&w=800',
+      short: 'A simple everyday mouse pad for desk or home office use.',
+      long: 'A basic mouse pad with a smooth surface for everyday desk use — sized for a standard mouse, whether at home, office, or study.' },
+    { id: 'mouse-mat-large-desk', name: 'Large Desk Mouse Mat', category: 'computer-desk', price: 8500,
+      image: 'https://images.pexels.com/photos/27559487/pexels-photo-27559487.jpeg?auto=compress&w=800',
+      short: 'An extended desk mat with more room for mouse and keyboard.',
+      long: 'A large desk mouse mat that extends across more of the desk surface — extra room for the mouse alongside a keyboard, for a tidier everyday desk setup. Keyboard, mouse, and laptop shown for scale are not included.' }
   ];
 
   const productsById = {};
