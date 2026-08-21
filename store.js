@@ -113,10 +113,9 @@
       long: 'A sturdy, reusable canvas tote bag — handy for grocery runs, market trips, or everyday errands instead of single-use plastic bags.' },
 
     // ---- Batch 2 additions (see chat for verification notes) ---------,
-    { id: 'rechargeable-led-torch', name: 'Rechargeable LED Torch', category: 'kitchen-living', price: 19500,
-      image: 'https://images.pexels.com/photos/985117/pexels-photo-985117.jpeg?auto=compress&w=800',
-      short: 'A reliable rechargeable torch for power outages or outdoor use.',
-      long: 'A rechargeable LED torch for power outages, night walks, or general household use — a simple, practical safety item to keep charged and within reach.' },
+    // rechargeable-led-torch removed entirely — electronics/battery items
+    // have their own SON certification pathway, unverified for this
+    // supplier, so removed rather than left in any hidden/held state.
     { id: 'wooden-cutting-board', name: 'Wooden Cutting Board', category: 'kitchen-living', price: 11000,
       image: 'https://images.pexels.com/photos/6208155/pexels-photo-6208155.jpeg?auto=compress&w=800',
       short: 'A sturdy everyday board for food prep.',
@@ -233,6 +232,55 @@
       long: 'A large desk mouse mat that extends across more of the desk surface — extra room for the mouse alongside a keyboard, for a tidier everyday desk setup. Keyboard, mouse, and laptop shown for scale are not included.' }
   ];
 
+  // ============================================================================
+  // COMPLIANCE LAYER — internal/data-level only, per the conservative
+  // dropshipping screening policy. Nothing here changes what a product IS
+  // (name/price/image/description untouched); it only extends each product
+  // object with optional fields and gates what's shown to customers.
+  // No new customer-facing UI, no badges, no per-card warning text — the
+  // existing short marketplace disclaimer already covers this appropriately.
+  // ============================================================================
+
+  // Every product defaults to LOW_RISK_SCREENED unless explicitly flagged
+  // below — ordinary fitness gear, bags, stationery, and plain housewares
+  // (cutting boards, jars, spoons, lunch boxes) carry the same regulatory
+  // profile as identical items sold in any Nigerian supermarket, with no
+  // specific certification requirement in practice. These fields are additive
+  // only — no existing property was renamed or removed.
+  PRODUCTS.forEach(function (p) {
+    p.complianceStatus = 'LOW_RISK_SCREENED';
+    p.supplierDocumentation = 'not_required';
+    p.supplierVerified = false;
+    p.regulatoryReview = 'screened_low_risk';
+    p.imageVerified = true; // every image in this catalog was individually source-checked before being added (see chat history)
+    p.priceStatus = 'target_listing_price'; // NOT a claimed/verified live supplier quote — see Section 10 of the compliance brief
+  });
+
+  // Explicit overrides — anything the conservative screening rules call out
+  // specifically, rather than leaving it to the ordinary-household-good
+  // default above. Empty right now: the one item that previously needed
+  // this (rechargeable-led-torch, unverified electronics certification)
+  // was removed from the catalog entirely rather than just held. Left in
+  // place as ready-to-use infrastructure for anything flagged in future.
+  const COMPLIANCE_OVERRIDES = {};
+  Object.keys(COMPLIANCE_OVERRIDES).forEach(function (id) {
+    const p = productsById_forOverrides_lookup(id);
+    if (p) Object.assign(p, COMPLIANCE_OVERRIDES[id]);
+  });
+  function productsById_forOverrides_lookup(id) {
+    for (let i = 0; i < PRODUCTS.length; i++) { if (PRODUCTS[i].id === id) return PRODUCTS[i]; }
+    return null;
+  }
+
+  // The ONLY gate that matters for "customers should see a clean
+  // marketplace": every existing render path below is left completely
+  // untouched — this just decides which products those unchanged code
+  // paths are allowed to see, by filtering at the source array level
+  // (see shuffleProducts() and the initial shuffledProducts assignment).
+  function isPublishable(p) {
+    return !!p && p.complianceStatus === 'LOW_RISK_SCREENED';
+  }
+
   const productsById = {};
   PRODUCTS.forEach(function (p) { productsById[p.id] = p; });
 
@@ -323,12 +371,12 @@
       '</div></div>';
   }
 
-  let shuffledProducts = PRODUCTS.slice();
+  let shuffledProducts = PRODUCTS.filter(isPublishable);
   let lastShuffleAt = 0;
   const MARKETPLACE_RESHUFFLE_MS = 5 * 60 * 1000; // re-shuffle on return visits, not on every category click
 
   function shuffleProducts() {
-    const arr = PRODUCTS.slice();
+    const arr = PRODUCTS.filter(isPublishable);
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
@@ -415,7 +463,7 @@
 
   function openProduct(id) {
     const p = productsById[id];
-    if (!p) return;
+    if (!p || !isPublishable(p)) return; // held/removed products can't be opened even via a stale link or direct id
     detailProductId = id;
     detailQty = 1;
     renderProductOverlay();
