@@ -39,59 +39,59 @@
 
     const PRODUCTS = [
     // ---- Fitness & Wellness ------------------------------------------------
-    { id: 'exercise-mat', name: 'Foam Exercise / Yoga Mat', category: 'wellness', price: 22100,
+    { id: 'exercise-mat', name: 'Foam Exercise / Yoga Mat', category: 'wellness', price: 7900,
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Yoga%20mat.jpg?width=500',
       short: 'Cushioned mat for gentle exercise, stretching, or daily movement.',
       long: 'A comfortable foam exercise mat for light stretching, yoga, or gentle daily movement routines — non-slip surface, easy to clean, rolls up for storage.' },
     
-    { id: 'resistance-bands', name: 'Resistance Exercise Bands (Set)', category: 'wellness', price: 18200,
+    { id: 'resistance-bands', name: 'Resistance Exercise Bands (Set)', category: 'wellness', price: 7900,
       image: 'https://images.pexels.com/photos/6339598/pexels-photo-6339598.jpeg?auto=compress&w=800',
       short: 'Set of bands for gentle strength and mobility exercises.',
       long: 'A set of resistance bands in varying strengths for gentle strength-building and everyday mobility exercises — low-impact and adjustable to fitness level.' },
     
-    { id: 'skipping-rope', name: 'Skipping / Jump Rope', category: 'wellness', price: 7200,
+    { id: 'skipping-rope', name: 'Skipping / Jump Rope', category: 'wellness', price: 3100,
       image: 'https://images.pexels.com/photos/6339602/pexels-photo-6339602.jpeg?auto=compress&w=800',
       short: 'Adjustable rope for everyday cardio exercise.',
       long: 'A lightweight, adjustable-length skipping rope — a simple, portable way to fit in some cardio at home, in the yard, or on the go.' },
     
-    { id: 'gym-duffel-bag', name: 'Sports & Gym Duffel Bag', category: 'wellness', price: 27300,
+    { id: 'gym-duffel-bag', name: 'Sports & Gym Duffel Bag', category: 'wellness', price: 13000,
       image: 'https://images.pexels.com/photos/8555309/pexels-photo-8555309.jpeg?auto=compress&w=800',
       short: 'Roomy duffel bag for gym kit, gear, or travel.',
       long: 'A durable, roomy duffel bag with a comfortable shoulder strap — plenty of space for gym kit, workout gear, or a quick overnight trip.' },
 
-    { id: 'yoga-block', name: 'Yoga Block', category: 'wellness', price: 4800,
+    { id: 'yoga-block', name: 'Yoga Block', category: 'wellness', price: 5000,
       image: 'https://images.pexels.com/photos/6752163/pexels-photo-6752163.jpeg?auto=compress&w=800',
       short: 'A supportive block for stretching, balance, and yoga.',
       long: 'A lightweight foam yoga block for extra support and reach during stretching, balance work, or yoga practice — useful for beginners and experienced practitioners alike.' },
 
-    { id: 'ab-wheel', name: 'Ab Wheel / Core Roller', category: 'wellness', price: 8900,
+    { id: 'ab-wheel', name: 'Ab Wheel / Core Roller', category: 'wellness', price: 7900,
       image: 'https://images.pexels.com/photos/8032772/pexels-photo-8032772.jpeg?auto=compress&w=800',
       short: 'A simple wheel for core and ab strength exercises.',
       long: 'A simple rolling wheel for core and abdominal strength exercises at home — an easy, low-cost way to work the midsection as part of a regular fitness routine.' },
 
-    { id: 'stability-exercise-ball', name: 'Stability / Exercise Ball', category: 'wellness', price: 9500,
+    { id: 'stability-exercise-ball', name: 'Stability / Exercise Ball', category: 'wellness', price: 9300,
       image: 'https://images.pexels.com/photos/6454030/pexels-photo-6454030.jpeg?auto=compress&w=800',
       short: 'A large inflatable ball for balance, core, and stretching.',
       long: 'A large inflatable exercise ball for balance work, core exercises, and stretching — a simple, versatile addition to a home fitness routine.' },
 
     // ---- Personal & Travel Accessories -------------------------------------
-    { id: 'sleep-eye-mask', name: 'Sleep Eye Mask', category: 'personalcare', price: 6500,
+    { id: 'sleep-eye-mask', name: 'Sleep Eye Mask', category: 'personalcare', price: 5400,
       image: 'https://images.pexels.com/photos/6541082/pexels-photo-6541082.jpeg?auto=compress&w=800',
       short: 'Soft, light-blocking mask for better sleep.',
       long: 'A soft, contoured sleep mask that blocks out light — a simple everyday accessory for naps, travel, or a darker bedroom at night.' },
     
-    { id: 'cooling-sports-towel', name: 'Sports Cooling-Down Towel', category: 'personalcare', price: 4200,
+    { id: 'cooling-sports-towel', name: 'Sports Cooling-Down Towel', category: 'personalcare', price: 4600,
       image: 'https://images.pexels.com/photos/5038791/pexels-photo-5038791.jpeg?auto=compress&w=800',
       short: 'A towel for wiping down and cooling off after exercise.',
       long: 'A soft, absorbent towel for wiping down and cooling off after a workout, walk, or time outdoors — a simple everyday gym-bag essential.' },
 
-    { id: 'sleep-socks', name: 'Sleep Socks', category: 'personalcare', price: 4500,
+    { id: 'sleep-socks', name: 'Sleep Socks', category: 'personalcare', price: 4300,
       image: 'https://images.pexels.com/photos/35210015/pexels-photo-35210015.jpeg?auto=compress&w=800',
       short: 'Soft, warm socks for bedtime.',
       long: 'A pair of soft, cozy socks for keeping feet warm at bedtime — a simple everyday comfort item for cold nights.' },
 
     // ---- Stationery & Office -----------------------------------------------
-    { id: 'daily-notes-planner', name: 'Daily Notes Planner', category: 'stationery', price: 10000,
+    { id: 'daily-notes-planner', name: 'Daily Notes Planner', category: 'stationery', price: 6400,
       image: 'https://images.pexels.com/photos/8581059/pexels-photo-8581059.jpeg?auto=compress&w=800',
       short: 'A daily planner for notes, tasks, and priorities.',
       long: 'A simple daily notes planner for jotting down tasks, reminders, and priorities — an easy paper-based way to stay organized day to day.' }
