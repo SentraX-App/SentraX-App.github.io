@@ -83,10 +83,6 @@
       image: 'https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&w=800',
       short: 'Keeps drinks cold or hot for hours.',
       long: 'A double-walled insulated stainless steel bottle that keeps drinks cold or hot for hours — a durable everyday alternative to single-use bottles.' },
-    { id: 'sports-water-bottle', name: 'Everyday Sports Water Bottle', category: 'kitchen-living', price: 6500,
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Plastic%20Water%20Bottle.jpg?width=500',
-      short: 'Lightweight reusable bottle for gym, work, or school.',
-      long: 'A lightweight, reusable water bottle with a sports cap for everyday hydration at the gym, work, or school — simple and easy to carry.' },
     { id: 'reusable-bottle-600ml', name: '600ml Reusable Water Bottle', category: 'kitchen-living', price: 5400,
       image: 'https://commons.wikimedia.org/wiki/Special:FilePath/A%20blue%20water%20bottle.jpg?width=500',
       short: 'A compact everyday bottle, 600ml.',
@@ -152,10 +148,6 @@
       image: 'https://images.pexels.com/photos/9885402/pexels-photo-9885402.jpeg?auto=compress&w=800',
       short: 'A soft carry bag for packed lunches.',
       long: 'A soft, reusable lunch bag for carrying packed meals to school, work, or a day out — easier to fold flat and stow than a rigid box.' },
-    { id: 'travel-toiletry-bag', name: 'Travel Toiletry Bag', category: 'personalcare', price: 6000,
-      image: 'https://images.pexels.com/photos/9185875/pexels-photo-9185875.jpeg?auto=compress&w=800',
-      short: 'Keeps toiletries together and contained while travelling.',
-      long: 'A compact toiletry bag that keeps everything from a toothbrush to skincare together and contained inside a suitcase or overnight bag.' },
     { id: 'hanging-toiletry-pouch', name: 'Hanging Travel Toiletry Pouch', category: 'personalcare', price: 6500,
       image: 'https://images.pexels.com/photos/9185867/pexels-photo-9185867.jpeg?auto=compress&w=800',
       short: 'Hangs from a hook or door for easy access while travelling.',
@@ -199,7 +191,7 @@
 
     // ---- New batch: stationery & one kitchen item, all Pexels-verified --
     { id: 'daily-notes-planner', name: 'Daily Notes Planner', category: 'stationery', price: 10000,
-      image: 'https://images.pexels.com/photos/6446244/pexels-photo-6446244.jpeg?auto=compress&w=800',
+      image: 'https://images.pexels.com/photos/8581059/pexels-photo-8581059.jpeg?auto=compress&w=800',
       short: 'A daily planner for notes, tasks, and priorities.',
       long: 'A simple daily notes planner for jotting down tasks, reminders, and priorities — an easy paper-based way to stay organized day to day.' },
     { id: 'sticky-notes-pack', name: 'Sticky Notes Pack', category: 'stationery', price: 3500,
@@ -797,9 +789,6 @@
           ]
         },
         onLoad: function () {
-          // Popup actually rendered — the "stuck loading" case Paystack's own
-          // docs warn about (transaction never loads) no longer applies here,
-          // so cancel our own fallback timer.
           popupLoaded = true;
         },
         onSuccess: function (result) {
@@ -822,11 +811,6 @@
         }
       });
 
-      // Paystack's own guidance: if the transaction hasn't loaded within
-      // ~10 seconds, cancel it and fall back — rather than leaving the
-      // customer staring at a popup stuck on its own loading spinner with
-      // no way out, which is what v1's setup()/openIframe() had no
-      // mechanism to prevent.
       setTimeout(function () {
         if (!popupLoaded && !paystackSettled) {
           try { popup.cancelTransaction(transaction.id); } catch (e) { /* best effort */ }
@@ -838,11 +822,6 @@
 
     } catch (e) {
       resetButton();
-      // Report to Sentry (already loaded on the page, just never called) —
-      // this catch block was silently swallowing the real error before,
-      // so "couldn't be opened" on another device gave zero diagnostic
-      // info. Now the actual thrown error/stack is visible in the Sentry
-      // dashboard, and the on-screen message includes the real reason too.
       if (typeof Sentry !== 'undefined' && Sentry.captureException) {
         try { Sentry.captureException(e); } catch (_ignored) { /* best effort */ }
       }
@@ -850,14 +829,6 @@
     }
   }
 
-  // Shown when Paystack genuinely can't be used (SDK blocked/failed to load,
-  // popup didn't load in time, or threw an error). Previously this silently
-  // completed the order as "pending payment" with zero visible feedback —
-  // which, from the customer's side, looked exactly like tapping Pay and
-  // having nothing happen at all. Now the customer sees why, and explicitly
-  // chooses to continue without paying by card (order stays pending,
-  // confirmed manually) rather than that decision being made silently for
-  // them or being left stuck on an unresponsive popup.
   function offerManualFallback(order, errEl, reason) {
     pendingFallbackOrder = order;
     if (errEl) {
