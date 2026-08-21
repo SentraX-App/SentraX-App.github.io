@@ -31,7 +31,8 @@
   const CATEGORIES = [
     { key: 'wellness', name: 'Fitness & Wellness' },
     { key: 'personalcare', name: 'Personal & Travel Accessories' },
-    { key: 'kitchen-living', name: 'Kitchen & Everyday Living' }
+    { key: 'kitchen-living', name: 'Kitchen & Everyday Living' },
+    { key: 'stationery', name: 'Stationery & Office' }
   ];
 
   const CATEGORY_NAME = {};
@@ -179,10 +180,6 @@
       image: 'https://images.pexels.com/photos/8474057/pexels-photo-8474057.jpeg?auto=compress&w=800',
       short: 'A classic wooden spoon for everyday cooking.',
       long: 'A classic wooden cooking spoon — gentle on pots and pans, and a staple in most kitchens for stirring and serving.' },
-    { id: 'kitchen-fork-set', name: 'Kitchen Fork Set', category: 'kitchen-living', price: 4000,
-      image: 'https://images.pexels.com/photos/7335989/pexels-photo-7335989.jpeg?auto=compress&w=800',
-      short: 'Everyday forks for the kitchen table.',
-      long: 'A set of everyday forks for the kitchen table — simple, sturdy, and easy to keep clean.' },
     { id: 'dish-drying-rack', name: 'Dish Drying Rack', category: 'kitchen-living', price: 18900,
       image: 'https://images.pexels.com/photos/3869662/pexels-photo-3869662.jpeg?auto=compress&w=800',
       short: 'A rack for air-drying washed dishes by the sink.',
@@ -198,7 +195,33 @@
     { id: 'kitchen-sponge', name: 'Kitchen Sponge', category: 'kitchen-living', price: 3500,
       image: 'https://images.pexels.com/photos/4440527/pexels-photo-4440527.jpeg?auto=compress&w=800',
       short: 'An everyday sponge for washing dishes.',
-      long: 'A standard kitchen sponge for everyday dish washing and surface cleanup.' }
+      long: 'A standard kitchen sponge for everyday dish washing and surface cleanup.' },
+
+    // ---- New batch: stationery & one kitchen item, all Pexels-verified --
+    { id: 'daily-notes-planner', name: 'Daily Notes Planner', category: 'stationery', price: 10000,
+      image: 'https://images.pexels.com/photos/6446244/pexels-photo-6446244.jpeg?auto=compress&w=800',
+      short: 'A daily planner for notes, tasks, and priorities.',
+      long: 'A simple daily notes planner for jotting down tasks, reminders, and priorities — an easy paper-based way to stay organized day to day.' },
+    { id: 'sticky-notes-pack', name: 'Sticky Notes Pack', category: 'stationery', price: 3500,
+      image: 'https://images.pexels.com/photos/6991439/pexels-photo-6991439.jpeg?auto=compress&w=800',
+      short: 'A pack of sticky notes for quick reminders.',
+      long: 'A pack of sticky notes for quick reminders, labels, or to-do lists — stick them anywhere you need a note to catch your eye.' },
+    { id: 'memo-notepad', name: 'Memo Notepad', category: 'stationery', price: 4000,
+      image: 'https://images.pexels.com/photos/7794001/pexels-photo-7794001.jpeg?auto=compress&w=800',
+      short: 'A simple notepad for everyday notes.',
+      long: 'A simple, everyday notepad for jotting down notes, messages, or lists — a handy desk or bag essential.' },
+    { id: 'pencil-case', name: 'Pencil Case', category: 'stationery', price: 6000,
+      image: 'https://images.pexels.com/photos/5963052/pexels-photo-5963052.jpeg?auto=compress&w=800',
+      short: 'A case for keeping pens and pencils organized.',
+      long: 'A sturdy pencil case for keeping pens, pencils, and small stationery items organized in a bag or on a desk.' },
+    { id: 'pencil-pouch', name: 'Pencil Pouch', category: 'stationery', price: 6500,
+      image: 'https://images.pexels.com/photos/7396388/pexels-photo-7396388.jpeg?auto=compress&w=800',
+      short: 'A soft pouch for everyday stationery.',
+      long: 'A soft, zippered pouch for carrying pens, pencils, and everyday stationery — compact enough for a bag or backpack.' },
+    { id: 'ice-cube-tray', name: 'Ice Cube Tray', category: 'kitchen-living', price: 5000,
+      image: 'https://images.pexels.com/photos/8287262/pexels-photo-8287262.jpeg?auto=compress&w=800',
+      short: 'A flexible tray for freezing ice cubes or herbs.',
+      long: 'A flexible ice cube tray — freeze water, juice, or herbs in neat portions for drinks and cooking.' }
   ];
 
   const productsById = {};
