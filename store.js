@@ -31,7 +31,6 @@
   const CATEGORIES = [
     { key: 'wellness', name: 'Fitness & Wellness' },
     { key: 'personalcare', name: 'Personal & Travel Accessories' },
-    { key: 'kitchen-living', name: 'Kitchen & Everyday Living' },
     { key: 'stationery', name: 'Stationery & Office' }
   ];
 
@@ -82,42 +81,11 @@
       short: 'Soft, light-blocking mask for better sleep.',
       long: 'A soft, contoured sleep mask that blocks out light — a simple everyday accessory for naps, travel, or a darker bedroom at night.' },
     
-    { id: 'bamboo-toothbrush', name: 'Bamboo Toothbrush', category: 'personalcare', price: 3200,
-      image: 'https://images.pexels.com/photos/3654597/pexels-photo-3654597.jpeg?auto=compress&w=800',
-      short: 'An eco-friendly everyday toothbrush.',
-      long: 'A bamboo-handled toothbrush — a simple, everyday eco-friendly swap for a standard plastic toothbrush.' },
-
     { id: 'cooling-sports-towel', name: 'Sports Cooling-Down Towel', category: 'personalcare', price: 4200,
       image: 'https://images.pexels.com/photos/5038791/pexels-photo-5038791.jpeg?auto=compress&w=800',
       short: 'A towel for wiping down and cooling off after exercise.',
       long: 'A soft, absorbent towel for wiping down and cooling off after a workout, walk, or time outdoors — a simple everyday gym-bag essential.' },
     
-
-    // ---- Kitchen & Everyday Living -----------------------------------------
-    { id: 'insulated-water-bottle', name: 'Insulated Stainless Steel Water Bottle', category: 'kitchen-living', price: 19500,
-      image: 'https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&w=800',
-      short: 'Keeps drinks cold or hot for hours.',
-      long: 'A double-walled insulated stainless steel bottle that keeps drinks cold or hot for hours — a durable everyday alternative to single-use bottles.' },
-    
-    { id: 'reusable-bottle-600ml', name: '600ml Reusable Water Bottle', category: 'kitchen-living', price: 5400,
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/A%20blue%20water%20bottle.jpg?width=500',
-      short: 'A compact everyday bottle, 600ml.',
-      long: 'A compact 600ml reusable water bottle for everyday hydration — easy to carry in a bag or hold in one hand.' },
-    
-    { id: 'reusable-bottle-1000ml', name: '1000ml Reusable Water Bottle', category: 'kitchen-living', price: 7100,
-      image: 'https://images.pexels.com/photos/18381807/pexels-photo-18381807.jpeg?auto=compress&w=800',
-      short: 'A larger everyday bottle, 1000ml.',
-      long: 'A larger 1000ml reusable water bottle for those who want fewer refills through the day — same easy-carry design as our 600ml bottle, just bigger.' },
-    
-    { id: 'vacuum-flask-steel', name: 'Stainless-Steel Vacuum Flask', category: 'kitchen-living', price: 6400,
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/A%20stainless%20steel%20thermoflask.jpg?width=500',
-      short: 'A classic steel flask for hot or cold drinks.',
-      long: 'A classic stainless-steel vacuum flask — sturdy, easy to clean, and a household staple for keeping tea, coffee, or cold drinks at temperature for hours.' },
-    
-    { id: 'kids-lunch-box', name: 'Lunch Box (Kids & Adults)', category: 'kitchen-living', price: 9800,
-      image: 'https://images.pexels.com/photos/5852333/pexels-photo-5852333.jpeg?auto=compress&w=800',
-      short: 'A compact box for packed lunches, school or work.',
-      long: 'A compact, easy-to-carry lunch box for packed meals and snacks — good for school runs, the office, or a day out.' },
 
     // ---- Stationery & Office -----------------------------------------------
     { id: 'daily-notes-planner', name: 'Daily Notes Planner', category: 'stationery', price: 10000,
