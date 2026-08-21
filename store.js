@@ -73,6 +73,11 @@
       image: 'https://images.pexels.com/photos/6454030/pexels-photo-6454030.jpeg?auto=compress&w=800',
       short: 'A large inflatable ball for balance, core, and stretching.',
       long: 'A large inflatable exercise ball for balance work, core exercises, and stretching — a simple, versatile addition to a home fitness routine.' },
+
+    { id: 'sports-headband', name: 'Sports Headband', category: 'wellness', price: 3200,
+      image: 'https://images.pexels.com/photos/2423508/pexels-photo-2423508.jpeg?auto=compress&w=800',
+      short: 'A stretchy fabric headband to keep hair back during activity.',
+      long: 'A stretchy fabric headband that sits comfortably around the forehead — keeps hair out of the face during a workout, a walk, or everyday wear.' },
     
 
     // ---- Personal & Travel Accessories -------------------------------------
@@ -85,6 +90,11 @@
       image: 'https://images.pexels.com/photos/5038791/pexels-photo-5038791.jpeg?auto=compress&w=800',
       short: 'A towel for wiping down and cooling off after exercise.',
       long: 'A soft, absorbent towel for wiping down and cooling off after a workout, walk, or time outdoors — a simple everyday gym-bag essential.' },
+
+    { id: 'sleep-socks', name: 'Sleep Socks', category: 'personalcare', price: 4500,
+      image: 'https://images.pexels.com/photos/8790286/pexels-photo-8790286.jpeg?auto=compress&w=800',
+      short: 'Soft, warm socks for bedtime.',
+      long: 'A pair of soft, cozy socks for keeping feet warm at bedtime — a simple everyday comfort item for cold nights.' },
     
 
     // ---- Stationery & Office -----------------------------------------------
