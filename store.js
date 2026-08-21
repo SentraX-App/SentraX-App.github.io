@@ -85,6 +85,22 @@
       image: 'https://images.pexels.com/photos/12478893/pexels-photo-12478893.jpeg?auto=compress&w=800',
       short: 'Lightweight reusable bottle for gym, work, or school.',
       long: 'A lightweight, reusable water bottle for everyday hydration at the gym, work, or school — simple and easy to carry.' },
+    { id: 'reusable-bottle-600ml', name: '600ml Reusable Water Bottle', category: 'kitchen-living', price: 5400,
+      image: 'https://images.pexels.com/photos/8217497/pexels-photo-8217497.jpeg?auto=compress&w=800',
+      short: 'A compact everyday bottle, 600ml.',
+      long: 'A compact 600ml reusable water bottle for everyday hydration — easy to carry in a bag or hold in one hand.' },
+    { id: 'reusable-bottle-1000ml', name: '1000ml Reusable Water Bottle', category: 'kitchen-living', price: 7100,
+      image: 'https://images.pexels.com/photos/8217497/pexels-photo-8217497.jpeg?auto=compress&w=800',
+      short: 'A larger everyday bottle, 1000ml.',
+      long: 'A larger 1000ml reusable water bottle for those who want fewer refills through the day — same easy-carry design as our 600ml bottle, just bigger.' },
+    { id: 'vacuum-bottle', name: 'Vacuum Bottle', category: 'kitchen-living', price: 10000,
+      image: 'https://images.pexels.com/photos/10905120/pexels-photo-10905120.jpeg?auto=compress&w=800',
+      short: 'Keeps drinks hot or cold for hours.',
+      long: 'A vacuum-insulated bottle that keeps drinks hot or cold for hours — good for a flask of tea in the morning or cold water through a warm afternoon.' },
+    { id: 'vacuum-flask-steel', name: 'Stainless-Steel Vacuum Flask', category: 'kitchen-living', price: 6400,
+      image: 'https://images.pexels.com/photos/10905120/pexels-photo-10905120.jpeg?auto=compress&w=800',
+      short: 'A classic steel flask for hot or cold drinks.',
+      long: 'A classic stainless-steel vacuum flask — sturdy, easy to clean, and a household staple for keeping tea, coffee, or cold drinks at temperature for hours.' },
     { id: 'glass-storage-jars', name: 'Glass Food Storage Jars (Set)', category: 'kitchen-living', price: 16900,
       image: 'https://images.pexels.com/photos/8580763/pexels-photo-8580763.jpeg?auto=compress&w=800',
       short: 'Airtight glass jars for pantry storage.',
@@ -197,7 +213,6 @@
     return '<div class="mkt-card">' +
       coverHtml(p) +
       '<div class="mkt-body">' +
-      '<div class="mkt-cat-tag">' + CATEGORY_NAME[p.category] + '</div>' +
       '<h4 onclick="SentraXStore.open(\'' + p.id + '\')">' + esc(p.name) + '</h4>' +
       '<div class="mkt-price">' + formatPrice(p.price) + '</div>' +
       '<button class="mkt-add-btn" onclick="event.stopPropagation();SentraXStore.addToCart(\'' + p.id + '\',1)">+ Add to Cart</button>' +
@@ -253,11 +268,10 @@
       '<div class="mkt-header">' +
       '<div class="mkt-header-row">' +
       '<div><h3>Marketplace</h3><p>Everyday fitness, hydration, and household essentials, delivered to your door.</p></div>' +
-      '<button class="mkt-cart-btn" onclick="SentraXStore.openCart()">Cart<span id="mkt-cart-badge" class="mkt-cart-badge" style="display:none;">0</span></button>' +
+      '<button class="mkt-cart-btn" onclick="SentraXStore.openCart()" aria-label="Cart">🛒<span id="mkt-cart-badge" class="mkt-cart-badge" style="display:none;">0</span></button>' +
       '</div></div>' +
-      '<div class="mkt-disclaimer">Sentra-X Marketplace currently focuses on ordinary consumer fitness, lifestyle, household and organizational products. Products listed here are not represented as medicines, medical devices, diagnostic tools, or treatments. Sentra-X does not make claims that marketplace products diagnose, treat, cure, or prevent any disease or medical condition.</div>' +
-      chipsHtml + gridHtml +
-      '<p style="font-size:11px;color:#64748b;text-align:center;margin-top:6px;">Ordinary consumer goods only — not medicines, medical devices, or dietary products.</p>';
+      '<p class="mkt-disclaimer">Sentra-X Marketplace focuses on ordinary consumer fitness, lifestyle, household and organizational products — not medicines, medical devices, diagnostic tools, or treatments, and no product here is claimed to diagnose, treat, cure, or prevent any disease or condition.</p>' +
+      chipsHtml + gridHtml;
 
     updateCartBadge();
     if (window.SentraXAds) SentraXAds.init(root);
