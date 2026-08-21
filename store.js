@@ -74,12 +74,6 @@
       short: 'A large inflatable ball for balance, core, and stretching.',
       long: 'A large inflatable exercise ball for balance work, core exercises, and stretching — a simple, versatile addition to a home fitness routine.' },
 
-    { id: 'sports-headband', name: 'Sports Headband', category: 'wellness', price: 3200,
-      image: 'https://images.pexels.com/photos/2423508/pexels-photo-2423508.jpeg?auto=compress&w=800',
-      short: 'A stretchy fabric headband to keep hair back during activity.',
-      long: 'A stretchy fabric headband that sits comfortably around the forehead — keeps hair out of the face during a workout, a walk, or everyday wear.' },
-    
-
     // ---- Personal & Travel Accessories -------------------------------------
     { id: 'sleep-eye-mask', name: 'Sleep Eye Mask', category: 'personalcare', price: 6500,
       image: 'https://images.pexels.com/photos/6541082/pexels-photo-6541082.jpeg?auto=compress&w=800',
@@ -92,9 +86,24 @@
       long: 'A soft, absorbent towel for wiping down and cooling off after a workout, walk, or time outdoors — a simple everyday gym-bag essential.' },
 
     { id: 'sleep-socks', name: 'Sleep Socks', category: 'personalcare', price: 4500,
-      image: 'https://images.pexels.com/photos/8790286/pexels-photo-8790286.jpeg?auto=compress&w=800',
+      image: 'https://images.pexels.com/photos/35210015/pexels-photo-35210015.jpeg?auto=compress&w=800',
       short: 'Soft, warm socks for bedtime.',
       long: 'A pair of soft, cozy socks for keeping feet warm at bedtime — a simple everyday comfort item for cold nights.' },
+
+    { id: 'fabric-drawstring-pouch', name: 'Fabric Drawstring Pouch', category: 'personalcare', price: 2800,
+      image: 'https://images.pexels.com/photos/3850572/pexels-photo-3850572.jpeg?auto=compress&w=800',
+      short: 'Simple cotton pouch for small everyday items.',
+      long: 'A simple cotton drawstring pouch for keeping small everyday items together — jewelry, chargers, toiletries, or anything else you want organized in a bag.' },
+
+    { id: 'reusable-mesh-bags', name: 'Reusable Produce Mesh Bags (Set)', category: 'personalcare', price: 3600,
+      image: 'https://images.pexels.com/photos/3737676/pexels-photo-3737676.jpeg?auto=compress&w=800',
+      short: 'Washable mesh bags for fruit, veg, or general storage.',
+      long: 'A set of lightweight, washable mesh bags for carrying fruit, vegetables, or general shopping — a simple reusable swap for single-use plastic bags.' },
+
+    { id: 'cotton-bath-towel', name: 'Cotton Bath Towel', category: 'personalcare', price: 5900,
+      image: 'https://images.pexels.com/photos/12679/pexels-photo-12679.jpeg?auto=compress&w=800',
+      short: 'Soft, absorbent everyday bath towel.',
+      long: 'A soft, absorbent cotton bath towel for everyday use — thicker and more plush than a quick-dry gym towel, sized for home use after a bath or shower.' },
     
 
     // ---- Stationery & Office -----------------------------------------------
