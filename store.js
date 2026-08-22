@@ -147,6 +147,16 @@
       short: 'A small wooden box for keeping photos, cards, and small mementos.',
       long: 'A small lidded wooden box for keeping photos, get-well cards, and other small keepsakes safe and together — a quiet, thoughtful way to hold onto the small things during a long care journey, and a gift a family member might genuinely appreciate.' },
 
+    { id: 'leather-card-id-wallet', name: 'Leather Card & ID Wallet', category: 'caregiving', price: 5800,
+      image: 'https://images.pexels.com/photos/915917/pexels-photo-915917.jpeg?auto=compress&w=800',
+      short: 'Keeps ID, insurance, and appointment cards together.',
+      long: 'A compact leather wallet for keeping ID, insurance cards, and appointment cards together in one place — easy to grab on the way out the door for a clinic visit.' },
+
+    { id: 'soft-throw-cushion', name: 'Soft Throw Cushion', category: 'caregiving', price: 6800,
+      image: 'https://images.pexels.com/photos/8330673/pexels-photo-8330673.jpeg?auto=compress&w=800',
+      short: 'A soft cushion for extra comfort while resting.',
+      long: 'A soft, textured throw cushion for extra comfort while resting in bed or in a chair — a small thing that can make a long day of rest more bearable.' },
+
     { id: 'wooden-photo-frame', name: 'Wooden Photo Frame', category: 'homeorg', price: 4300,
       image: 'https://images.pexels.com/photos/187023/pexels-photo-187023.jpeg?auto=compress&w=800',
       short: 'A simple wooden frame for a favorite photo.',
@@ -156,6 +166,11 @@
       image: 'https://images.pexels.com/photos/18063446/pexels-photo-18063446.jpeg?auto=compress&w=800',
       short: 'A sturdy fabric basket for laundry or general storage.',
       long: 'A sturdy fabric laundry basket for sorting clothes or general household storage — an everyday organizing item for the bedroom or bathroom.' },
+
+    { id: 'brass-wall-hook', name: 'Brass Wall Hook', category: 'homeorg', price: 3600,
+      image: 'https://images.pexels.com/photos/8113042/pexels-photo-8113042.jpeg?auto=compress&w=800',
+      short: 'A simple brass hook for coats, bags, or towels.',
+      long: 'A simple wall-mounted brass hook for hanging a coat, bag, towel, or robe within easy reach — a small, sturdy addition to any room.' },
 
   ];
 
