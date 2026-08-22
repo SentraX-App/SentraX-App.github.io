@@ -90,11 +90,6 @@
       short: 'Soft, warm socks for bedtime.',
       long: 'A pair of soft, cozy socks for keeping feet warm at bedtime — a simple everyday comfort item for cold nights.' },
 
-    { id: 'cotton-bathrobe', name: 'Cotton Bathrobe', category: 'personalcare', price: 10000,
-      image: 'https://images.pexels.com/photos/10130814/pexels-photo-10130814.jpeg?auto=compress&w=800',
-      short: 'Soft, comfortable robe for everyday home wear.',
-      long: 'A soft, absorbent cotton bathrobe for everyday comfort at home — easy to wear during recovery time, rest, or simply relaxing around the house.' },
-
     // ---- Stationery & Office -----------------------------------------------
     { id: 'daily-notes-planner', name: 'Daily Notes Planner', category: 'stationery', price: 6400,
       image: 'https://images.pexels.com/photos/8581059/pexels-photo-8581059.jpeg?auto=compress&w=800',
@@ -151,11 +146,6 @@
       image: 'https://images.pexels.com/photos/915917/pexels-photo-915917.jpeg?auto=compress&w=800',
       short: 'Keeps ID, insurance, and appointment cards together.',
       long: 'A compact leather wallet for keeping ID, insurance cards, and appointment cards together in one place — easy to grab on the way out the door for a clinic visit.' },
-
-    { id: 'soft-throw-cushion', name: 'Soft Throw Cushion', category: 'caregiving', price: 6800,
-      image: 'https://images.pexels.com/photos/8330673/pexels-photo-8330673.jpeg?auto=compress&w=800',
-      short: 'A soft cushion for extra comfort while resting.',
-      long: 'A soft, textured throw cushion for extra comfort while resting in bed or in a chair — a small thing that can make a long day of rest more bearable.' },
 
     { id: 'wooden-photo-frame', name: 'Wooden Photo Frame', category: 'homeorg', price: 4300,
       image: 'https://images.pexels.com/photos/187023/pexels-photo-187023.jpeg?auto=compress&w=800',
