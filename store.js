@@ -167,11 +167,6 @@
       short: 'A sturdy fabric basket for laundry or general storage.',
       long: 'A sturdy fabric laundry basket for sorting clothes or general household storage — an everyday organizing item for the bedroom or bathroom.' },
 
-    { id: 'brass-wall-hook', name: 'Brass Wall Hook', category: 'homeorg', price: 3600,
-      image: 'https://images.pexels.com/photos/8113042/pexels-photo-8113042.jpeg?auto=compress&w=800',
-      short: 'A simple brass hook for coats, bags, or towels.',
-      long: 'A simple wall-mounted brass hook for hanging a coat, bag, towel, or robe within easy reach — a small, sturdy addition to any room.' },
-
   ];
 
   // ============================================================================
