@@ -90,6 +90,11 @@
       short: 'Soft, warm socks for bedtime.',
       long: 'A pair of soft, cozy socks for keeping feet warm at bedtime — a simple everyday comfort item for cold nights.' },
 
+    { id: 'cotton-bathrobe', name: 'Cotton Bathrobe', category: 'personalcare', price: 10000,
+      image: 'https://images.pexels.com/photos/10130814/pexels-photo-10130814.jpeg?auto=compress&w=800',
+      short: 'Soft, comfortable robe for everyday home wear.',
+      long: 'A soft, absorbent cotton bathrobe for everyday comfort at home — easy to wear during recovery time, rest, or simply relaxing around the house.' },
+
     // ---- Stationery & Office -----------------------------------------------
     { id: 'daily-notes-planner', name: 'Daily Notes Planner', category: 'stationery', price: 6400,
       image: 'https://images.pexels.com/photos/8581059/pexels-photo-8581059.jpeg?auto=compress&w=800',
@@ -121,6 +126,26 @@
       image: 'https://images.pexels.com/photos/1214212/pexels-photo-1214212.jpeg?auto=compress&w=800',
       short: 'A sturdy canvas tote sized for what a caregiver actually carries to an appointment.',
       long: 'A sturdy plain canvas tote bag — enough room for a folder, a water bottle, and a few essentials on the way to a clinic visit, distinct from a gym bag by size and shape.' },
+
+    { id: 'appointment-contacts-notebook', name: 'Emergency Contacts & Appointment Notebook', category: 'caregiving', price: 6500,
+      image: 'https://images.pexels.com/photos/205414/pexels-photo-205414.jpeg?auto=compress&w=800',
+      short: 'A plain notebook for writing down doctor visits, contacts, and reminders.',
+      long: 'A simple, plain notebook for keeping track of appointments, doctor and pharmacy contact numbers, and daily reminders by hand — useful for a caregiver managing several dates and names at once.' },
+
+    { id: 'records-folder-set', name: 'Document & Records Folder Set', category: 'caregiving', price: 7900,
+      image: 'https://images.pexels.com/photos/357514/pexels-photo-357514.jpeg?auto=compress&w=800',
+      short: 'A set of plain folders for keeping paperwork organized.',
+      long: 'A set of plain folders for keeping hospital letters, receipts, and other paperwork organized and easy to find when they\'re needed — a simple everyday filing habit for a caregiver managing a lot of documents.' },
+
+    { id: 'wooden-photo-frame', name: 'Wooden Photo Frame', category: 'homeorg', price: 4300,
+      image: 'https://images.pexels.com/photos/187023/pexels-photo-187023.jpeg?auto=compress&w=800',
+      short: 'A simple wooden frame for a favorite photo.',
+      long: 'A plain wooden photo frame for displaying a favorite picture on a shelf or bedside table — a small, thoughtful gift for a family member.' },
+
+    { id: 'fabric-laundry-basket', name: 'Fabric Laundry Basket', category: 'homeorg', price: 6500,
+      image: 'https://images.pexels.com/photos/18063446/pexels-photo-18063446.jpeg?auto=compress&w=800',
+      short: 'A sturdy fabric basket for laundry or general storage.',
+      long: 'A sturdy fabric laundry basket for sorting clothes or general household storage — an everyday organizing item for the bedroom or bathroom.' },
 
   ];
 
