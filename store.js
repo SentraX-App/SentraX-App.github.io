@@ -101,6 +101,11 @@
       short: 'A daily planner for notes, tasks, and priorities.',
       long: 'A simple daily notes planner for jotting down tasks, reminders, and priorities — an easy paper-based way to stay organized day to day.' },
 
+    { id: 'monthly-planning-calendar', name: 'Monthly Planning Calendar', category: 'stationery', price: 6000,
+      image: 'https://images.pexels.com/photos/5417678/pexels-photo-5417678.jpeg?auto=compress&w=800',
+      short: 'A month-at-a-glance calendar for tracking appointments and routines.',
+      long: 'A monthly planning calendar for a clear month-at-a-glance view — useful for keeping track of several upcoming appointments or visits at once, alongside the Daily Notes Planner for day-to-day detail.' },
+
     // ---- Caregiving Essentials ----------------------------------------
     // New category — items chosen specifically for someone managing a
     // chronic condition or the family member caring for them, not
@@ -136,6 +141,11 @@
       image: 'https://images.pexels.com/photos/357514/pexels-photo-357514.jpeg?auto=compress&w=800',
       short: 'A set of plain folders for keeping paperwork organized.',
       long: 'A set of plain folders for keeping hospital letters, receipts, and other paperwork organized and easy to find when they\'re needed — a simple everyday filing habit for a caregiver managing a lot of documents.' },
+
+    { id: 'wooden-keepsake-box', name: 'Wooden Keepsake Box', category: 'caregiving', price: 12400,
+      image: 'https://images.pexels.com/photos/1812527/pexels-photo-1812527.jpeg?auto=compress&w=800',
+      short: 'A small wooden box for keeping photos, cards, and small mementos.',
+      long: 'A small lidded wooden box for keeping photos, get-well cards, and other small keepsakes safe and together — a quiet, thoughtful way to hold onto the small things during a long care journey, and a gift a family member might genuinely appreciate.' },
 
     { id: 'wooden-photo-frame', name: 'Wooden Photo Frame', category: 'homeorg', price: 4300,
       image: 'https://images.pexels.com/photos/187023/pexels-photo-187023.jpeg?auto=compress&w=800',
