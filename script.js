@@ -255,7 +255,12 @@ function checkBP() {
 
 function alertCaregiverNow(sys, dia, level) {
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
-  const cgPhone = normalizeNigerianPhone(localStorage.getItem('cgPhone'));
+  // WhatsApp-only button — a wa.me link can only target one chat, so this
+  // goes to the primary caregiver. For an alert that reaches every saved
+  // caregiver automatically by SMS + email too, use the SOS button instead.
+  const caregivers = loadCaregivers();
+  const primary = caregivers.find(function (c) { return c.isPrimary; }) || caregivers[0];
+  const cgPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
   const msg = '\u26A0\uFE0F Sentra-X Alert: ' + name + "'s blood pressure just read " + sys + '/' + dia + ' (' + level + '). Please check on them.';
   const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
   window.open(url, '_blank');
@@ -1079,7 +1084,11 @@ function shareToFamily() {
   const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
   const streak = localStorage.getItem('streak') || '0';
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
-  const cgPhone = normalizeNigerianPhone(localStorage.getItem('cgPhone'));
+  // WhatsApp-only — goes to the primary caregiver, same reason as
+  // alertCaregiverNow (a wa.me link can only target one chat).
+  const caregivers = loadCaregivers();
+  const primary = caregivers.find(function (c) { return c.isPrimary; }) || caregivers[0];
+  const cgPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
   const latest = vitals[0];
   let msg = 'Hi! This is ' + name + "'s Sentra-X health update. Current streak: " + streak + ' days. ';
   msg += latest ? ('Latest reading: ' + latest.sys + '/' + latest.dia + ' (' + latest.level + ').') : 'No readings logged yet.';
@@ -1150,65 +1159,76 @@ warmUpLocation();
 if ('Notification' in window && Notification.permission === 'granted') ensurePushSubscription();
 
 function triggerSOS() {
-  const confirmed = confirm('This will automatically send an SOS alert with your location to your saved caregiver by SMS and email, and also open WhatsApp. Continue?');
+  const confirmed = confirm('This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your primary caregiver. Continue?');
   if (!confirmed) return;
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
-  const cgPhone = normalizeNigerianPhone(localStorage.getItem('cgPhone'));
-  const cgEmail = localStorage.getItem('cgEmail') || '';
+  const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
+  const primary = caregivers.find(function (c) { return c.isPrimary; }) || caregivers[0];
+  const primaryPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
 
   function sendAlert(locationText) {
     const msg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.' + locationText;
 
-    // 1. SMS + email — both sent by the Cloudflare Worker, not the browser.
-    // Two reasons this lives server-side instead of split across two fetch
-    // calls here: the Termii key never touches the browser, and — more
-    // important for a genuine emergency — a mobile browser tab can get
-    // backgrounded or the screen locked the instant someone taps SOS and
-    // puts the phone down; once the worker has the request, both sends
-    // complete independently of whatever happens to the tab afterward.
-    // Silently skipped entirely if no worker URL is configured; skipped
-    // per-channel server-side if a caregiver phone/email isn't on file.
-    if (SOS_SMS_WORKER_URL && (cgPhone || cgEmail)) {
-      fetch(SOS_SMS_WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cgPhone, email: cgEmail, name: name, message: msg })
-      }).then(function (res) {
-        // A response coming back at all doesn't mean the alert actually went
-        // out — the worker can return 200 while one or both channels failed
-        // server-side (bad API key, provider rejected the address, etc.).
-        // Inspect the body so a silent per-channel failure is at least
-        // visible in Sentry, instead of looking identical to full success.
-        return res.text().then(function (bodyText) {
-          let body = null;
-          try { body = JSON.parse(bodyText); } catch (_e) { /* non-JSON response body */ }
-          const emailFailed = cgEmail && body && body.email && body.email.ok === false;
-          const smsFailed = cgPhone && body && body.sms && body.sms.ok === false;
-          if (!res.ok || emailFailed || smsFailed) {
-            console.error('Sentra-X SOS: worker reported a failure', res.status, bodyText);
-            if (typeof Sentry !== 'undefined' && Sentry.captureMessage) {
-              try {
-                Sentry.captureMessage('SOS worker reported a send failure', {
-                  level: 'error',
-                  extra: { status: res.status, body: bodyText, hadPhone: !!cgPhone, hadEmail: !!cgEmail }
-                });
-              } catch (_ignored) { /* best effort */ }
+    // 1. SMS + email — sent to EVERY saved caregiver, not just the primary.
+    // Each caregiver gets their own fetch to the worker (the worker's
+    // contract is one phone/email pair per call), fired in parallel so one
+    // caregiver's request never delays another's. Both sent by the
+    // Cloudflare Worker, not the browser. Two reasons this lives
+    // server-side instead of split across fetch calls here: the Termii key
+    // never touches the browser, and — more important for a genuine
+    // emergency — a mobile browser tab can get backgrounded or the screen
+    // locked the instant someone taps SOS and puts the phone down; once
+    // the worker has the request, the send completes independently of
+    // whatever happens to the tab afterward.
+    if (SOS_SMS_WORKER_URL) {
+      caregivers.forEach(function (cg) {
+        const phone = normalizeNigerianPhone(cg.phone);
+        const email = cg.email || '';
+        if (!phone && !email) return;
+        fetch(SOS_SMS_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: phone, email: email, name: name, message: msg })
+        }).then(function (res) {
+          // A response coming back at all doesn't mean the alert actually went
+          // out — the worker can return 200 while one or both channels failed
+          // server-side (bad API key, provider rejected the address, etc.).
+          // Inspect the body so a silent per-channel failure is at least
+          // visible in Sentry, instead of looking identical to full success.
+          return res.text().then(function (bodyText) {
+            let body = null;
+            try { body = JSON.parse(bodyText); } catch (_e) { /* non-JSON response body */ }
+            const emailFailed = email && body && body.email && body.email.ok === false;
+            const smsFailed = phone && body && body.sms && body.sms.ok === false;
+            if (!res.ok || emailFailed || smsFailed) {
+              console.error('Sentra-X SOS: worker reported a failure for caregiver', cg.id, res.status, bodyText);
+              if (typeof Sentry !== 'undefined' && Sentry.captureMessage) {
+                try {
+                  Sentry.captureMessage('SOS worker reported a send failure', {
+                    level: 'error',
+                    extra: { status: res.status, body: bodyText, caregiverId: cg.id, hadPhone: !!phone, hadEmail: !!email }
+                  });
+                } catch (_ignored) { /* best effort */ }
+              }
             }
+          });
+        }).catch(function (err) {
+          // Worker unreachable entirely (offline, DNS, CORS) — WhatsApp below
+          // is still independent, but this should be visible too, not silent.
+          console.error('Sentra-X SOS: worker request failed for caregiver', cg.id, err && err.message);
+          if (typeof Sentry !== 'undefined' && Sentry.captureException) {
+            try { Sentry.captureException(err); } catch (_ignored) { /* best effort */ }
           }
         });
-      }).catch(function (err) {
-        // Worker unreachable entirely (offline, DNS, CORS) — WhatsApp below
-        // is still independent, but this should be visible too, not silent.
-        console.error('Sentra-X SOS: worker request failed', err && err.message);
-        if (typeof Sentry !== 'undefined' && Sentry.captureException) {
-          try { Sentry.captureException(err); } catch (_ignored) { /* best effort */ }
-        }
       });
     }
 
-    // 2. WhatsApp — kept as an additional channel, same as before. Requires
-    // a manual tap to actually send once it opens, unlike the channel above.
-    const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
+    // 2. WhatsApp — primary caregiver only. A wa.me link can only target one
+    // chat, and opening several via window.open() in a loop gets blocked by
+    // mobile popup blockers after the first — so this deliberately isn't
+    // looped over every caregiver; it would look like it worked and quietly
+    // fail. SMS + email above are what actually reach everyone.
+    const url = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
     window.open(url, '_blank');
   }
 
@@ -2349,4 +2369,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-        }
+}
