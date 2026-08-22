@@ -162,11 +162,6 @@
       short: 'A simple wooden frame for a favorite photo.',
       long: 'A plain wooden photo frame for displaying a favorite picture on a shelf or bedside table — a small, thoughtful gift for a family member.' },
 
-    { id: 'fabric-laundry-basket', name: 'Fabric Laundry Basket', category: 'homeorg', price: 6500,
-      image: 'https://images.pexels.com/photos/18063446/pexels-photo-18063446.jpeg?auto=compress&w=800',
-      short: 'A sturdy fabric basket for laundry or general storage.',
-      long: 'A sturdy fabric laundry basket for sorting clothes or general household storage — an everyday organizing item for the bedroom or bathroom.' },
-
   ];
 
   // ============================================================================
