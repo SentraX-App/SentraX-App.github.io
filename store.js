@@ -95,21 +95,10 @@
       short: 'A daily planner for notes, tasks, and priorities.',
       long: 'A simple daily notes planner for jotting down tasks, reminders, and priorities — an easy paper-based way to stay organized day to day.' },
 
-    { id: 'caregivers-notebook', name: "Caregiver's Notebook (Symptom & Visit Log)", category: 'stationery', price: 7200,
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Notebook.jpg?width=500',
-      short: 'A blank notebook for jotting down notes before a doctor visit.',
-      long: 'A simple blank hardcover notebook for a caregiver to jot down day-to-day observations, questions, or notes ahead of a doctor\'s visit — a plain organizational tool, not a diagnostic record.' },
-
-    // ---- Home Organization --------------------------------------------------
-    { id: 'wooden-photo-frame', name: 'Wooden Photo Frame', category: 'homeorg', price: 4000,
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Handmade%20wood%20picture%20frame%20red%20rustic%205x7%20rustic%20wood%20photo%20frame%205x7%20unique%20handmade%20wood%20picture%20frame%20red%20wood%205x7.jpg?width=500',
-      short: 'A simple wooden frame for a favorite family photo.',
-      long: 'A simple handmade wooden picture frame — a nice way to display a favorite family or caregiver photo on a bedside table, desk, or shelf.' },
-
-    { id: 'canvas-tote-bag', name: 'Canvas Tote Bag', category: 'personalcare', price: 10500,
-      image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Tote%20bag%20blacu%20tas%20blacu.jpg?width=500',
-      short: 'A sturdy plain canvas tote for daily errands.',
-      long: 'A sturdy, plain canvas tote bag — useful for a caregiver\'s daily errand run, a hospital-visit bag, or general everyday carrying.' }
+    // ---- (caregivers-notebook, wooden-photo-frame, canvas-tote-bag removed
+    // — canvas-tote-bag's image depicted a real Siemens Healthineers logo,
+    // a trademark issue independent of the photo's own Commons license;
+    // all 3 removed together per instruction) ---------------------------
 
   ];
 
