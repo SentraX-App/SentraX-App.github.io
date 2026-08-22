@@ -30,7 +30,8 @@
     { key: 'wellness', name: 'Fitness & Wellness' },
     { key: 'personalcare', name: 'Personal & Travel Accessories' },
     { key: 'stationery', name: 'Stationery & Office' },
-    { key: 'homeorg', name: 'Home Organization' }
+    { key: 'homeorg', name: 'Home Organization' },
+    { key: 'caregiving', name: 'Caregiving Essentials' }
   ];
 
   const CATEGORY_NAME = {};
@@ -95,10 +96,31 @@
       short: 'A daily planner for notes, tasks, and priorities.',
       long: 'A simple daily notes planner for jotting down tasks, reminders, and priorities — an easy paper-based way to stay organized day to day.' },
 
-    // ---- (caregivers-notebook, wooden-photo-frame, canvas-tote-bag removed
-    // — canvas-tote-bag's image depicted a real Siemens Healthineers logo,
-    // a trademark issue independent of the photo's own Commons license;
-    // all 3 removed together per instruction) ---------------------------
+    // ---- Caregiving Essentials ----------------------------------------
+    // New category — items chosen specifically for someone managing a
+    // chronic condition or the family member caring for them, not
+    // generic wellness/fitness merch. Same material constraints as
+    // everything else: paper/fabric only, no electronics, no food-contact,
+    // no medical claims anywhere in the naming or description.
+    { id: 'caregiver-companion-journal', name: "Caregiver's Companion Journal", category: 'caregiving', price: 5800,
+      image: 'https://images.pexels.com/photos/5191390/pexels-photo-5191390.jpeg?auto=compress&w=800',
+      short: 'A blank daily journal for logging notes, moods, and questions for the next visit.',
+      long: 'A simple paper journal for a caregiver to jot down what happened each day, how someone seemed, and questions to bring up at the next appointment — a quiet way to keep track without relying on memory alone.' },
+
+    { id: 'weekly-care-schedule-chart', name: 'Weekly Care Schedule Chart', category: 'caregiving', price: 5300,
+      image: 'https://images.pexels.com/photos/760720/pexels-photo-760720.jpeg?auto=compress&w=800',
+      short: 'A blank, fill-in-yourself weekly chart for the household to track routines together.',
+      long: 'A blank weekly chart to fill in by hand — a shared visual for the household to track daily routines and appointments together. A paper planning tool, not a medical device or dosage guide.' },
+
+    { id: 'soft-fleece-lap-blanket', name: 'Soft Fleece Lap Blanket', category: 'caregiving', price: 9700,
+      image: 'https://images.pexels.com/photos/5629134/pexels-photo-5629134.jpeg?auto=compress&w=800',
+      short: 'A warm, soft blanket for resting or long hours at a bedside.',
+      long: 'A soft, warm fleece blanket sized for a lap or a sofa — comfort for someone who rests often, or for a caregiver spending long hours nearby.' },
+
+    { id: 'clinic-visit-tote-bag', name: 'Clinic-Visit Companion Tote Bag', category: 'caregiving', price: 4800,
+      image: 'https://images.pexels.com/photos/1214212/pexels-photo-1214212.jpeg?auto=compress&w=800',
+      short: 'A sturdy canvas tote sized for what a caregiver actually carries to an appointment.',
+      long: 'A sturdy plain canvas tote bag — enough room for a folder, a water bottle, and a few essentials on the way to a clinic visit, distinct from a gym bag by size and shape.' },
 
   ];
 
