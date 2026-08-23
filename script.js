@@ -1159,7 +1159,7 @@ warmUpLocation();
 if ('Notification' in window && Notification.permission === 'granted') ensurePushSubscription();
 
 function triggerSOS() {
-  const confirmed = confirm('This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your Primary Caregiver. Continue?');
+  const confirmed = confirm('This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your primary caregiver. Continue?');
   if (!confirmed) return;
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
@@ -2369,4 +2369,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-    }
+  }
