@@ -921,13 +921,13 @@ function renderCaregiverNote() {
         '<div class="cg-info">' +
           '<div class="cg-name-row">' +
             '<span class="cg-name">' + String(c.name).replace(/</g, '&lt;') + '</span>' +
-            (c.isPrimary ? '<span class="cg-primary-badge">WhatsApp Contact</span>' : '') +
+            (c.isPrimary ? '<span class="cg-primary-badge">Primary Caregiver</span>' : '') +
           '</div>' +
           '<div class="cg-row"><span>📱</span><span>' + (c.phone || '—') + '</span></div>' +
           '<div class="cg-row"><span>✉️</span><span>' + (c.email || 'No email on file') + '</span></div>' +
           '<div class="cg-actions">' +
             '<button onclick="editCaregiverEntry(\'' + c.id + '\')">Edit</button>' +
-            (c.isPrimary ? '' : '<button onclick="makePrimaryCaregiver(\'' + c.id + '\')">Set as WhatsApp Contact</button>') +
+            (c.isPrimary ? '' : '<button onclick="makePrimaryCaregiver(\'' + c.id + '\')">Make Primary Caregiver</button>') +
             '<button class="cg-danger" onclick="removeCaregiverEntry(\'' + c.id + '\')">Remove</button>' +
           '</div>' +
         '</div>' +
@@ -1159,7 +1159,7 @@ warmUpLocation();
 if ('Notification' in window && Notification.permission === 'granted') ensurePushSubscription();
 
 function triggerSOS() {
-  const confirmed = confirm('This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your WhatsApp Contact. Continue?');
+  const confirmed = confirm('This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your Primary Caregiver. Continue?');
   if (!confirmed) return;
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
@@ -2369,4 +2369,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-  }
+    }
