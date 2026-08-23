@@ -41,10 +41,10 @@
   <h2>1. Information We Collect</h2>
   <p>To provide our services, we collect:</p>
   <ul>
-    <li><b>Personal Information:</b> Name, phone number, email address, age, gender</li>
+    <li><b>Personal Information:</b> Name, phone number, email address, age, gender, and an optional profile photo for your medical passport card</li>
     <li><b>Health Data:</b> Blood pressure, heart rate, weight, vital signs, clinical notes, diagnosis, prescriptions, medication adherence logs, medical passport details (blood group, genotype, allergies, conditions, diagnostic/lab results)</li>
     <li><b>Account Data:</b> Patient role, caregiver links, doctor assignments, appointment history</li>
-    <li><b>AI Assistant Data:</b> Messages you send to the in-app Health Assistant, and photos of medical documents you choose to scan for your medical passport</li>
+    <li><b>AI Assistant Data:</b> Messages you send to the in-app Health Assistant</li>
     <li><b>Voice Input:</b> If you use the microphone to talk to the app, your speech is converted to text by your device/browser's own speech recognition — Sentra-X does not record or store audio</li>
     <li><b>Marketplace Data:</b> If you order a product, your delivery address, phone number, and order details, shared only as needed to fulfil that order</li>
     <li><b>Payment Data:</b> Card and payment details are collected and processed directly by our payment processor (Paystack) — Sentra-X never receives or stores your full card details</li>
@@ -75,8 +75,8 @@
   </ul>
   <table>
     <tr><th>Provider</th><th>What they process</th><th>Purpose</th></tr>
-    <tr><td>Google Firebase</td><td>Account login, health records, caregiver/doctor links</td><td>Authentication and database storage</td></tr>
-    <tr><td>Cloudflare</td><td>App hosting; messages sent to the Health Assistant; photos of medical documents you scan</td><td>Hosting the app; generating AI assistant replies and passport summaries</td></tr>
+    <tr><td>Google Firebase</td><td>Account login, health records, caregiver/doctor links, medical passport profile photo</td><td>Authentication and database storage</td></tr>
+    <tr><td>Cloudflare</td><td>App hosting; messages sent to the Health Assistant</td><td>Hosting the app; generating AI assistant replies</td></tr>
     <tr><td>Termii</td><td>Caregiver phone number, emergency alert message</td><td>Sending SMS emergency alerts to your caregivers</td></tr>
     <tr><td>EmailJS</td><td>Caregiver email address, emergency alert message</td><td>Sending email emergency alerts to your caregivers</td></tr>
     <tr><td>Paystack</td><td>Payment card details, transaction amount</td><td>Processing marketplace payments — Sentra-X does not see or store your card details</td></tr>
