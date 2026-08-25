@@ -32,7 +32,7 @@
   // just a Workers AI binding, no Firestore/secrets needed). Leave blank
   // and the Scan button is simply hidden — manual entry still works fully
   // either way.
-  const SCAN_WORKER_URL = '';
+  const SCAN_WORKER_URL = 'https://sentrax-passport-scan.alecedoh1994.workers.dev/';
 
   const MAX_IMAGE_DIMENSION = 1600; // downscale before upload — faster, cheaper, plenty for OCR
   const MAX_STORED_DOCUMENTS = 5;
