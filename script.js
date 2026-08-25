@@ -1534,6 +1534,7 @@ function renderPassport() {
   const note = document.getElementById('pp-saved-note');
   if (note) note.textContent = '';
   renderPassportCard();
+  if (window.SentraXPassportScan) SentraXPassportScan.renderGallery();
 }
 
 // Compact summary card shown above the entry form. Tapping the name/blood
@@ -2369,4 +2370,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-  }
+    }
