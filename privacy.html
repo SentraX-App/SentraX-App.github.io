@@ -45,6 +45,7 @@
     <li><b>Health Data:</b> Blood pressure, heart rate, weight, vital signs, clinical notes, diagnosis, prescriptions, medication adherence logs, medical passport details (blood group, genotype, allergies, conditions, diagnostic/lab results)</li>
     <li><b>Account Data:</b> Patient role, caregiver links, doctor assignments, appointment history</li>
     <li><b>AI Assistant Data:</b> Messages you send to the in-app Health Assistant</li>
+    <li><b>Document Scanner Data:</b> If you use the passport document scanner, a photo of the document you scan (e.g. a lab report, prescription, discharge note, or vaccination card) is sent to our AI processing service to extract passport details for you to review before anything is saved. If you choose to keep the document photo afterward, it is stored only on your own device — it is never uploaded to or stored in our database</li>
     <li><b>Voice Input:</b> If you use the microphone to talk to the app, your speech is converted to text by your device/browser's own speech recognition — Sentra-X does not record or store audio</li>
     <li><b>Marketplace Data:</b> If you order a product, your delivery address, phone number, and order details, shared only as needed to fulfil that order</li>
     <li><b>Payment Data:</b> Card and payment details are collected and processed directly by our payment processor (Paystack) — Sentra-X never receives or stores your full card details</li>
@@ -76,7 +77,7 @@
   <table>
     <tr><th>Provider</th><th>What they process</th><th>Purpose</th></tr>
     <tr><td>Google Firebase</td><td>Account login, health records, caregiver/doctor links, medical passport profile photo</td><td>Authentication and database storage</td></tr>
-    <tr><td>Cloudflare</td><td>App hosting; messages sent to the Health Assistant</td><td>Hosting the app; generating AI assistant replies</td></tr>
+    <tr><td>Cloudflare</td><td>App hosting; messages sent to the Health Assistant; photos of medical documents you choose to scan</td><td>Hosting the app; generating AI assistant replies; extracting passport details from scanned documents</td></tr>
     <tr><td>Termii</td><td>Caregiver phone number, emergency alert message</td><td>Sending SMS emergency alerts to your caregivers</td></tr>
     <tr><td>EmailJS</td><td>Caregiver email address, emergency alert message</td><td>Sending email emergency alerts to your caregivers</td></tr>
     <tr><td>Paystack</td><td>Payment card details, transaction amount</td><td>Processing marketplace payments — Sentra-X does not see or store your card details</td></tr>
