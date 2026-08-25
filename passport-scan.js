@@ -114,10 +114,18 @@
     const overlay = document.getElementById('pp-scan-overlay');
     if (!overlay) return;
     overlay.innerHTML = sheetShell('Scan a Document',
-      '<p style="font-size:13px;color:#94a3b8;margin:0 0 14px;">Take a photo or choose an existing one of a lab report, prescription, discharge note, or vaccination card. You\'ll review everything it finds before anything is saved.</p>' +
+      '<p style="font-size:13px;color:#94a3b8;margin:0 0 16px;line-height:1.5;">Take a photo or choose an existing one of a lab report, prescription, discharge note, or vaccination card. You\'ll review everything it finds before anything is saved.</p>' +
+      // Two separate inputs, not one — a single <input type="file"> leaves
+      // the camera-vs-gallery choice up to the OS, and that choice is
+      // inconsistent across Android versions/WebViews (some show a picker
+      // with both options, some silently default straight to the gallery
+      // with no way to reach the camera at all). Splitting it into two
+      // explicit buttons guarantees both paths always work, on any device.
+      '<input type="file" id="pp-scan-camera-input" accept="image/*" capture="environment" style="display:none;" onchange="SentraXPassportScan.handleFile(this)">' +
       '<input type="file" id="pp-scan-file-input" accept="image/*" style="display:none;" onchange="SentraXPassportScan.handleFile(this)">' +
-      '<label for="pp-scan-file-input" class="rwd-redeem-btn" style="display:block;text-align:center;cursor:pointer;">📷 Choose or Take a Photo</label>' +
-      '<div id="pp-scan-error" style="color:#fca5a5;font-size:13px;margin-top:10px;min-height:16px;"></div>');
+      '<label for="pp-scan-camera-input" class="rwd-redeem-btn pp-scan-pick-btn">📷 Take a Photo</label>' +
+      '<label for="pp-scan-file-input" class="secondary pp-scan-pick-btn" style="margin-top:10px;">🖼️ Choose from Gallery</label>' +
+      '<div id="pp-scan-error" style="color:#fca5a5;font-size:13px;margin-top:12px;min-height:16px;"></div>');
   }
 
   function handleFile(input) {
@@ -292,6 +300,18 @@
   }
 
   function deleteDocument(id) {
+    // Matches the same confirm() pattern already used by deletePassport()
+    // and deleteAiThread() elsewhere in the app — this was the one delete
+    // action in the whole codebase missing that guard, which is exactly
+    // what made it easy to tap by accident.
+    //
+    // window.confirm — not a bare confirm(...) call — is required here:
+    // this file already defines its own local function confirm() (the
+    // Step 3 review-handoff handler below), and inside this module's
+    // scope that LOCAL function shadows the native dialog completely. A
+    // bare confirm(...) call here would silently invoke the wrong
+    // function instead of showing a dialog at all.
+    if (!window.confirm('Delete this document photo? This cannot be undone.')) return;
     const passport = JSON.parse(localStorage.getItem('passport') || '{}');
     passport.scannedDocuments = (passport.scannedDocuments || []).filter(function (d) { return d.id !== id; });
     localStorage.setItem('passport', JSON.stringify(passport));
