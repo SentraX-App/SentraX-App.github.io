@@ -1442,6 +1442,25 @@ function savePassport() {
   setTimeout(function() { document.getElementById('pp-saved-note').textContent = ''; }, 2500);
 }
 
+// Wipes the entire passport record — all fields, the profile photo, and
+// any kept document scans — both locally and in Firestore. Destructive
+// and confirm-gated; there's no undo once this runs.
+function deletePassport() {
+  if (!confirm('Delete your entire Medical Passport? This removes all saved details, your passport photo, and any kept document scans. This cannot be undone.')) return;
+  localStorage.removeItem('passport');
+  localStorage.removeItem('passportPhoto');
+  syncToFirestore({ passport: null });
+  resetPassportForm();
+  renderPassportCard();
+  renderPassportPhotoPicker();
+  if (window.SentraXPassportScan) window.SentraXPassportScan.renderGallery();
+  const note = document.getElementById('pp-saved-note');
+  if (note) {
+    note.textContent = 'Passport deleted.';
+    setTimeout(function () { note.textContent = ''; }, 2500);
+  }
+}
+
 // Rebuilds the Sex/Blood Group/Genotype dropdowns (which also resets them
 // to their first/default option) and blanks every text field, without
 // touching what's already saved in localStorage.
@@ -2370,4 +2389,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-    }
+}
