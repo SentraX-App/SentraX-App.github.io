@@ -629,6 +629,8 @@ nav button.active .icon { filter: none; }
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
 }
 .rwd-earn-card h4, .rwd-history-card h4 { margin: 0 0 10px; font-size: 12.5px; letter-spacing: 0.4px; text-transform: uppercase; color: #93a0b8; }
+.pp-section-label { margin: 20px 0 10px; font-size: 12.5px; letter-spacing: 0.4px; text-transform: uppercase; color: #93a0b8; font-weight: 700; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px; }
+.pp-section-label-first { margin-top: 4px; border-top: none; padding-top: 0; }
 .rwd-earn-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13.5px; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .rwd-earn-row:last-child { border-bottom: none; }
 .rwd-earn-row b { color: #fde68a; font-size: 13px; }
