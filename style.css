@@ -549,6 +549,24 @@ nav button.active .icon { filter: none; }
 .mkt-sheet-header h3 { margin: 0; font-size: 16px; color: #f1f5f9; font-weight: 800; }
 .mkt-sheet-close { width: 32px; height: 32px; padding: 0; margin: 0; border-radius: 50%; background: rgba(255,255,255,0.08); color: #cbd5e1; font-size: 14px; box-shadow: none; }
 .mkt-sheet-body { margin-top: 2px; }
+/* passport-scan.js uses <label> elements (not <button>) so tapping the
+   visible control opens the right hidden file input — but a <label> gets
+   none of the base `button {}` sizing (padding, width, border-radius,
+   font-size) automatically the way a real <button> would, since that
+   rule only targets the button element. Without this, the label just
+   hugs its own text tightly against the colored background — this class
+   restores the same proportions every other button in the app already
+   has, so it reads as a real, properly-sized button instead of squeezed
+   text with a highlight color behind it. */
+.pp-scan-pick-btn {
+  display: block; width: 100%; box-sizing: border-box;
+  padding: 15px; border-radius: 12px; font-size: 15px; font-weight: 700;
+  text-align: center; cursor: pointer; margin-top: 8px;
+}
+/* button.secondary (see above) is scoped to the <button> element and
+   would silently not match these <label> elements — this variant gives
+   the "Choose from Gallery" label the same look directly. */
+.pp-scan-pick-btn.secondary { background: rgba(255,255,255,0.10); color: #e5e7eb; }
 .mkt-cart-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .mkt-cart-emoji { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
 .mkt-cart-img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
