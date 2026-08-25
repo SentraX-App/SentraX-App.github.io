@@ -246,15 +246,57 @@
       docs.unshift({ id: 'doc-' + Date.now(), dataUrl: dataUrl, addedAt: Date.now() });
       passport.scannedDocuments = docs.slice(0, MAX_STORED_DOCUMENTS);
       localStorage.setItem('passport', JSON.stringify(passport));
-      if (typeof syncToFirestore === 'function') {
-        try { syncToFirestore({ passport: passport }); } catch (e) { /* offline is fine, saved locally */ }
-      }
+      // Deliberately NOT synced to Firestore: up to 5 full-size document
+      // photos easily exceeds Firestore's 1MiB-per-document limit when
+      // combined with the rest of the passport record, which would fail
+      // silently. Kept-photos stay on this device only — the extracted
+      // TEXT details (name, blood group, etc.) already sync normally via
+      // savePassport(), just not the raw images themselves.
+      renderScannedDocsGallery();
     }
     close();
   }
 
   function discardDocument() {
     close();
+  }
+
+  // ---- Stored documents gallery — shown on the Medical Passport screen --
+  function renderScannedDocsGallery() {
+    const box = document.getElementById('pp-scanned-docs-box');
+    if (!box) return;
+    const passport = JSON.parse(localStorage.getItem('passport') || '{}');
+    const docs = Array.isArray(passport.scannedDocuments) ? passport.scannedDocuments : [];
+    if (!docs.length) { box.innerHTML = ''; return; }
+    box.innerHTML =
+      '<p style="font-size:12px;color:#93c5fd;font-weight:600;margin:0 0 8px;">Kept Document Photos (this device only)</p>' +
+      '<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;">' +
+      docs.map(function (d) {
+        return '<div style="flex:0 0 auto;position:relative;">' +
+          '<img src="' + d.dataUrl + '" alt="" onclick="SentraXPassportScan.viewDocument(\'' + d.id + '\')" style="width:72px;height:72px;object-fit:cover;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.14);">' +
+          '</div>';
+      }).join('') +
+      '</div>';
+  }
+
+  function viewDocument(id) {
+    const passport = JSON.parse(localStorage.getItem('passport') || '{}');
+    const docs = Array.isArray(passport.scannedDocuments) ? passport.scannedDocuments : [];
+    const doc = docs.find(function (d) { return d.id === id; });
+    if (!doc) return;
+    const overlay = ensureOverlay();
+    overlay.innerHTML = sheetShell('Document Photo',
+      '<img src="' + doc.dataUrl + '" alt="" style="width:100%;border-radius:12px;margin-bottom:14px;">' +
+      '<button class="secondary" onclick="SentraXPassportScan.deleteDocument(\'' + id + '\')" style="color:#fca5a5;">🗑️ Delete This Photo</button>');
+    overlay.style.display = 'block';
+  }
+
+  function deleteDocument(id) {
+    const passport = JSON.parse(localStorage.getItem('passport') || '{}');
+    passport.scannedDocuments = (passport.scannedDocuments || []).filter(function (d) { return d.id !== id; });
+    localStorage.setItem('passport', JSON.stringify(passport));
+    close();
+    renderScannedDocsGallery();
   }
 
   if (typeof window !== 'undefined') {
@@ -266,6 +308,9 @@
       confirm: confirm,
       keepDocument: keepDocument,
       discardDocument: discardDocument,
+      viewDocument: viewDocument,
+      deleteDocument: deleteDocument,
+      renderGallery: renderScannedDocsGallery,
       isConfigured: function () { return !!SCAN_WORKER_URL; }
     };
   }
@@ -273,6 +318,7 @@
   function initButtonVisibility() {
     const btn = document.getElementById('pp-scan-btn');
     if (btn && !SCAN_WORKER_URL) btn.style.display = 'none';
+    renderScannedDocsGallery();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initButtonVisibility);
