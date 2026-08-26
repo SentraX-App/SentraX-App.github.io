@@ -285,6 +285,21 @@
   let completedSegments = []; // fully-finished phrases from earlier in this recognition session
   let currentRunText = ''; // the in-progress phrase's latest, most-complete revision
 
+  // Word-overlap similarity (0-1). Used to catch "this is basically the
+  // same phrase being said again" even when wording/typos differ too
+  // much for the exact-prefix check above to recognize it as a revision
+  // of the same utterance rather than a brand-new one.
+  function wordOverlapRatio(a, b) {
+    const wordsA = a.split(' ').filter(Boolean);
+    const wordsB = b.split(' ').filter(Boolean);
+    if (wordsA.length === 0 || wordsB.length === 0) return 0;
+    const setA = new Set(wordsA);
+    const setB = new Set(wordsB);
+    let shared = 0;
+    setA.forEach(function (w) { if (setB.has(w)) shared++; });
+    return shared / Math.max(setA.size, setB.size);
+  }
+
   function ingestFinalResult(text) {
     if (!text) return;
     // Compared after stripping punctuation and casing, not just casing —
@@ -306,11 +321,22 @@
       // Extends (or repeats, or is a rare same-or-shorter revision of)
       // the current run — keep whichever is longer/more complete.
       if (text.length >= currentRunText.length) currentRunText = text;
-    } else {
-      // Doesn't relate to the current run at all — a new phrase started.
-      completedSegments.push(currentRunText);
-      currentRunText = text;
+      return;
     }
+    // Doesn't extend the current run — but before treating it as a
+    // genuinely new phrase, check whether it's really just a retry of
+    // the LAST completed segment (e.g. someone repeating themselves with
+    // slightly different wording each time). A high word-overlap match
+    // there means "replace," not "stack on top of."
+    const lastSegment = completedSegments[completedSegments.length - 1];
+    if (lastSegment && wordOverlapRatio(norm, normalize(lastSegment)) >= 0.6) {
+      completedSegments[completedSegments.length - 1] = (text.length >= lastSegment.length) ? text : lastSegment;
+      currentRunText = '';
+      return;
+    }
+    // Genuinely unrelated to anything captured so far — a new phrase.
+    completedSegments.push(currentRunText);
+    currentRunText = text;
   }
 
   function currentFinalTranscript() {
