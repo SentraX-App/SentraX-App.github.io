@@ -164,6 +164,19 @@ const consentEl = document.getElementById('auth-consent');
           } else {
             console.warn('Sentra-X: refreshAllUI() not found — check that script.js loaded before auth.js.');
           }
+          // Re-sync the push subscription now that auth is actually
+          // confirmed. The old call for this lived at the top level of
+          // script.js, which runs the instant that file is parsed —
+          // before auth.js has even attached this listener, let alone
+          // before Firebase has restored the session. That meant
+          // firebase.auth().currentUser was guaranteed null every time,
+          // so syncToFirestore() inside ensurePushSubscription() silently
+          // no-opped on every single run — pushSubscription never once
+          // reached Firestore. Calling it here, after auth is confirmed,
+          // is what actually lets it save.
+          if (typeof window.ensurePushSubscription === 'function') {
+            window.ensurePushSubscription();
+          }
         });
       }
     } else {
