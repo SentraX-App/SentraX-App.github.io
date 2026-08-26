@@ -1156,7 +1156,9 @@ function warmUpLocation() {
   );
 }
 warmUpLocation();
-if ('Notification' in window && Notification.permission === 'granted') ensurePushSubscription();
+// Push subscription sync now happens from auth.js's loadPatientFlow(),
+// after auth state is actually confirmed — see the comment there for why
+// this used to live here and never worked.
 
 function triggerSOS() {
   const confirmed = confirm('This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your primary caregiver. Continue?');
@@ -2389,4 +2391,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-}
+    }
