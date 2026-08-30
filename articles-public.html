@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Health Library &amp; Latest Health News — Sentra-X</title>
+<meta name="description" content="Free health articles and the latest health news, including topics on hypertension, diabetes, medication management, and caregiving — no sign-in required.">
+<link rel="canonical" href="https://sentra-x.app/articles-public.html">
+<link rel="icon" href="icon-192-1.png">
+<link rel="stylesheet" href="style.css">
+<!-- AdSense loader — same publisher ID as the main app (see ads.js). -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5333717271762861" crossorigin="anonymous"></script>
+<style>
+  /* Small page-specific tweaks only — everything else comes from style.css */
+  .pub-intro { max-width: 480px; margin: 0 auto; padding: 16px 16px 4px; text-align: center; }
+  .pub-intro p { color: #93c5fd; font-size: 13px; margin: 4px 0 0; }
+  .pub-wrap { max-width: 480px; margin: 0 auto; padding: 0 16px 40px; }
+  .pub-cta {
+    max-width: 480px; margin: 24px auto 0; padding: 16px; text-align: center;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .pub-cta a {
+    display: inline-block; margin-top: 8px; padding: 10px 22px; border-radius: 999px;
+    background: #3b82f6; color: #fff; text-decoration: none; font-weight: 600; font-size: 14px;
+  }
+  .pub-cta p { color: #94a3b8; font-size: 13px; margin: 0; }
+</style>
+</head>
+<body>
+
+  <header>
+    <img src="logo-header.png" alt="Sentra-X">
+  </header>
+
+  <div class="pub-intro">
+    <p>Free health articles and the latest health news — no account needed.</p>
+  </div>
+
+  <div class="pub-wrap">
+    <div id="articles-root">
+      <p style="font-size:12px;color:#64748b;text-align:center;">Loading…</p>
+    </div>
+  </div>
+
+  <div class="pub-cta">
+    <p>Want to track your own vitals, medications, and get caregiver alerts?</p>
+    <a href="index.html">Open the Sentra-X app</a>
+  </div>
+
+  <!-- No Firebase / auth scripts on this page on purpose — this page has
+       no login, no user data, nothing to authenticate. It only renders the
+       same public health content the in-app Health Library uses. -->
+  <script src="ads.js"></script>
+  <script src="articles.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.SentraXArticles) window.SentraXArticles.render();
+    });
+  </script>
+</body>
+</html>
