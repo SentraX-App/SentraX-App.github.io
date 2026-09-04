@@ -42,7 +42,7 @@
   // Must match script.js's renderAiWelcome() intro string EXACTLY — this
   // is how a genuine intro is told apart from an old one-message
   // conversation being replayed, which looks identical by node-count alone.
-  const INTRO_TEXT = "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 112.";
+  const INTRO_TEXT = "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 0800 220 0223.";
 
   // Must match script.js's AI_WELCOME_BACK_VARIANTS list exactly — these
   // are the "welcome back" lines shown (not saved to history) whenever
