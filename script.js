@@ -1844,7 +1844,7 @@ function renderMaternalScreen() {
       '<div class="alert-banner">' +
         signs.map(function (s) { return '\u2022 ' + escapeHtml(s); }).join('<br>') +
       '</div>' +
-      '<button class="sos" onclick="triggerSOS()">\ud83c\udd98 Emergency SOS</button>' +
+      '<button class="sos" onclick="triggerSOS()">\ud83c\udd98 Emergency SOS Alert</button>' +
     '</div>';
 }
 
