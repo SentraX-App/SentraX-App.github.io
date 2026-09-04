@@ -51,7 +51,7 @@ function showScreen(name) {
   document.querySelectorAll('#more-sheet button').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
-  if (name === 'firstaid' || name === 'passport' || name === 'ai' || name === 'articles' || name === 'marketplace' || name === 'rewards') {
+  if (name === 'firstaid' || name === 'maternal' || name === 'passport' || name === 'ai' || name === 'articles' || name === 'marketplace' || name === 'rewards') {
     document.getElementById('nav-more').classList.add('active');
   }
   closeMoreMenu();
@@ -59,6 +59,7 @@ function showScreen(name) {
   if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); renderMedHistory(); }
   if (name === 'family') { renderCaregiverNote(); renderLinkedCaregivers(); }
   if (name === 'passport') renderPassport();
+  if (name === 'maternal') renderMaternalScreen();
   // Only re-render (and, for an existing thread, inject a fresh spoken
   // "welcome back" line) on a genuine arrival into the AI screen. Without
   // this guard, showScreen('ai') firing again while already there — e.g. a
@@ -172,9 +173,24 @@ window.hideCaregiverMode = hideCaregiverMode;
 function completeOnboarding() {
   const name = document.getElementById('ob-name').value.trim();
   const condition = document.getElementById('ob-condition').value;
+  const obSexEl = document.getElementById('ob-sex');
+  const sexVal = obSexEl ? obSexEl.value : '';
   if (!name) { alert('Please enter your first name.'); return; }
   localStorage.setItem('userName', name);
   localStorage.setItem('userCondition', condition);
+
+  // Saved onto the existing passport record (not a new field) so it's the
+  // same "sex" the Passport screen already shows/edits — just captured
+  // earlier, at signup, instead of only if/when the user visits Passport.
+  // Merges onto whatever passport data may already exist rather than
+  // overwriting it; never runs at all if left on the default option.
+  if (sexVal && typeof SEXES !== 'undefined' && sexVal !== SEXES[0]) {
+    const existingPassport = JSON.parse(localStorage.getItem('passport') || '{}');
+    existingPassport.sex = sexVal;
+    localStorage.setItem('passport', JSON.stringify(existingPassport));
+    syncToFirestore({ passport: existingPassport });
+  }
+
   document.getElementById('onboarding-overlay').style.display = 'none';
   renderGreeting();
   syncToFirestore({ userName: name, userCondition: condition });
@@ -1097,8 +1113,25 @@ function shareToFamily() {
 }
 
 function callEmergency() {
+  window.location.href = 'tel:' + BAYELSA_EMERGENCY_PHONE;
+}
+function callNationalEmergency() {
   window.location.href = 'tel:112';
 }
+
+// --- Bayelsa State Emergency Line (Ministry of Health partnership) -----
+// Confirmed number: 0800 220 0223 — this is now the primary number used
+// throughout the app (Emergency card, first-aid instructions, AI assistant).
+// 112 (Nigeria's nationwide line) is kept only as a small secondary link on
+// the main Emergency card — not removed, since it works regardless of
+// network/state and costs nothing to keep as a backup.
+const BAYELSA_EMERGENCY_PHONE = '08002200223';
+const BAYELSA_EMERGENCY_EMAIL = ''; // fill in once Ministry confirms a monitored inbox
+// Whether this line can actually RECEIVE SMS/email (many hotlines are
+// voice-only) has not been confirmed — SOS will not auto-notify it until
+// this is flipped to true, so SOS doesn't silently "notify" a channel
+// nobody is watching.
+const SOS_SEND_TO_STATE_LINE = false;
 
 function toggleFirstAid(id) {
   const body = document.getElementById('fa-body-' + id);
@@ -1169,7 +1202,11 @@ function triggerSOS() {
   const primaryPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
 
   function sendAlert(locationText) {
-    const msg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.' + locationText;
+    // Caregiver message now explicitly asks them to also call emergency
+    // services themselves — the SMS/email/WhatsApp alert is not a substitute
+    // for a real emergency call, just the fastest way to reach them.
+    const msg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.' + locationText +
+      ' Please also call the emergency line (0800 220 0223) right away.';
 
     // 1. SMS + email — sent to EVERY saved caregiver, not just the primary.
     // Each caregiver gets their own fetch to the worker (the worker's
@@ -1223,6 +1260,26 @@ function triggerSOS() {
           }
         });
       });
+
+      // 1b. State emergency line (Bayelsa Ministry of Health partnership) —
+      // sent the exact same way as a caregiver, as one extra fixed recipient,
+      // gated behind SOS_SEND_TO_STATE_LINE until the Ministry confirms this
+      // line can actually receive SMS/email alerts (see comment near
+      // BAYELSA_EMERGENCY_PHONE above). Kept as a separate block from the
+      // caregiver loop above so it can never affect caregiver delivery even
+      // if this call fails.
+      if (SOS_SEND_TO_STATE_LINE && (BAYELSA_EMERGENCY_PHONE || BAYELSA_EMERGENCY_EMAIL)) {
+        fetch(SOS_SMS_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: BAYELSA_EMERGENCY_PHONE, email: BAYELSA_EMERGENCY_EMAIL, name: name, message: msg })
+        }).catch(function (err) {
+          console.error('Sentra-X SOS: state emergency line notify failed', err && err.message);
+          if (typeof Sentry !== 'undefined' && Sentry.captureException) {
+            try { Sentry.captureException(err); } catch (_ignored) { /* best effort */ }
+          }
+        });
+      }
     }
 
     // 2. WhatsApp — primary caregiver only. A wa.me link can only target one
@@ -1380,6 +1437,15 @@ function populatePassportSelects() {
   gtSelect.innerHTML = GENOTYPES.map(function(g) { return '<option value="' + g + '">' + g + '</option>'; }).join('');
   if (sexSelect) sexSelect.innerHTML = SEXES.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
 }
+
+// Populates the onboarding sex dropdown once, at load — separate from
+// populatePassportSelects() (which only runs once the Passport screen is
+// actually opened) since onboarding can show before that ever happens.
+function populateOnboardingSex() {
+  const el = document.getElementById('ob-sex');
+  if (el) el.innerHTML = SEXES.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+}
+populateOnboardingSex();
 
 // True when the form was opened via editPassportCard() (pre-filled with
 // everything already saved) rather than left in its normal blank state.
@@ -1670,6 +1736,120 @@ function buildPassportSummary() {
   return lines.join('\n');
 }
 
+// ---------------------------------------------------------------------
+// Maternal & Child Health — new, separate module. Reads passport.sex to
+// decide whether to show anything at all (nothing shown until sex is
+// known and equals "Female"), and is opt-in even then. Uses its own
+// localStorage key/Firestore field so it can never collide with or
+// overwrite vitals, meds, caregiver, or passport data.
+// ---------------------------------------------------------------------
+function loadMaternalData() {
+  return JSON.parse(localStorage.getItem('maternalData') || '{}');
+}
+function saveMaternalData(data) {
+  localStorage.setItem('maternalData', JSON.stringify(data));
+  syncToFirestore({ maternalData: data });
+}
+
+const ANTENATAL_DANGER_SIGNS = [
+  'Heavy vaginal bleeding',
+  'Severe headache with blurred vision',
+  'Severe abdominal pain',
+  'High fever',
+  'Baby\u2019s movements stopped or slowed noticeably',
+  'Fluid leaking or waters broken before due date',
+  'Convulsions or fits'
+];
+const POSTNATAL_DANGER_SIGNS = [
+  'Heavy vaginal bleeding (soaking more than one pad an hour)',
+  'High fever or foul-smelling discharge',
+  'Severe headache with blurred vision, or convulsions',
+  'Baby is not feeding, unusually cold, or very lethargic',
+  'Baby has a fever, fast/difficult breathing, or yellowing skin/eyes',
+  'Severe abdominal pain or a swollen, painful leg'
+];
+
+// Decides whether the "Maternal & Child Health" item appears in the More
+// menu at all — only when passport.sex is "Female". No dashboard card: it
+// lives in More alongside First Aid/Passport/etc. so the homepage stays
+// identical for everyone, and it never presumes an eligible user is
+// currently pregnant or postnatal — it's just an available feature, opened
+// only if she chooses to.
+function renderMaternalCard() {
+  const passport = JSON.parse(localStorage.getItem('passport') || '{}');
+  const eligible = passport.sex === 'Female';
+  const navBtn = document.getElementById('nav-maternal');
+  if (navBtn) navBtn.style.display = eligible ? 'flex' : 'none';
+}
+
+function renderMaternalScreen() {
+  const data = loadMaternalData();
+  const optinBox = document.getElementById('maternal-optin-box');
+  const trackBox = document.getElementById('maternal-tracking-box');
+  if (!optinBox || !trackBox) return;
+
+  if (!data.enabled) {
+    optinBox.innerHTML =
+      '<p style="color:#94a3b8;font-size:13px;">If you\u2019re currently pregnant or recently gave birth, turn this on for reminders and danger-sign guidance. Skip it if it doesn\u2019t apply to you right now — nothing else in the app changes either way.</p>' +
+      '<label style="font-size:12px;color:#93c5fd;">Stage</label>' +
+      '<select id="mat-stage">' +
+        '<option value="antenatal">Currently pregnant (antenatal)</option>' +
+        '<option value="postnatal">Recently gave birth (postnatal)</option>' +
+      '</select>' +
+      '<label style="font-size:12px;color:#93c5fd;" id="mat-date-label">Due date</label>' +
+      '<input type="date" id="mat-date">' +
+      '<button onclick="saveMaternalSetup()">Turn On Tracking</button>';
+  } else {
+    optinBox.innerHTML =
+      '<label style="font-size:12px;color:#93c5fd;">Stage</label>' +
+      '<select id="mat-stage">' +
+        '<option value="antenatal"' + (data.stage !== 'postnatal' ? ' selected' : '') + '>Currently pregnant (antenatal)</option>' +
+        '<option value="postnatal"' + (data.stage === 'postnatal' ? ' selected' : '') + '>Recently gave birth (postnatal)</option>' +
+      '</select>' +
+      '<label style="font-size:12px;color:#93c5fd;" id="mat-date-label">' + (data.stage === 'postnatal' ? 'Delivery date' : 'Due date') + '</label>' +
+      '<input type="date" id="mat-date" value="' + (data.dueDate || '') + '">' +
+      '<button onclick="saveMaternalSetup()">Update</button>' +
+      '<button class="secondary" onclick="disableMaternalTracking()" style="margin-top:8px;color:#fca5a5;">Turn Off Tracking</button>';
+  }
+
+  const stageSelect = document.getElementById('mat-stage');
+  if (stageSelect) {
+    stageSelect.onchange = function () {
+      document.getElementById('mat-date-label').textContent = stageSelect.value === 'postnatal' ? 'Delivery date' : 'Due date';
+    };
+  }
+
+  if (!data.enabled) { trackBox.innerHTML = ''; return; }
+
+  const signs = data.stage === 'postnatal' ? POSTNATAL_DANGER_SIGNS : ANTENATAL_DANGER_SIGNS;
+  trackBox.innerHTML =
+    '<div class="card">' +
+      '<h3>\u26a0\ufe0f Danger Signs \u2014 Seek Care Immediately</h3>' +
+      '<p style="color:#94a3b8;font-size:12px;margin-top:0;">General guidance only \u2014 not a substitute for a doctor or midwife.</p>' +
+      '<div class="alert-banner">' +
+        signs.map(function (s) { return '\u2022 ' + escapeHtml(s); }).join('<br>') +
+      '</div>' +
+      '<button class="sos" onclick="triggerSOS()">\ud83c\udd98 Emergency SOS \u2014 Alert Caregiver</button>' +
+    '</div>';
+}
+
+function saveMaternalSetup() {
+  const stage = document.getElementById('mat-stage').value;
+  const dateVal = document.getElementById('mat-date').value;
+  const data = { enabled: true, stage: stage, dueDate: dateVal };
+  saveMaternalData(data);
+  renderMaternalScreen();
+  renderMaternalCard();
+}
+
+function disableMaternalTracking() {
+  const data = loadMaternalData();
+  data.enabled = false;
+  saveMaternalData(data);
+  renderMaternalScreen();
+  renderMaternalCard();
+}
+
 function generatePassportQR() {
   const box = document.getElementById('qr-box');
   box.innerHTML = '';
@@ -1700,6 +1880,7 @@ function refreshAllUI() {
   renderWater();
   renderQuickStats();
   renderHealthRadar();
+  renderMaternalCard();
   document.getElementById('streak-count').textContent = localStorage.getItem('streak') || '0';
 }
 
@@ -1885,7 +2066,7 @@ function openAiThread(id) {
   closeAiHistoryList();
 }
 
-const AI_WELCOME_FULL = "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 112.";
+const AI_WELCOME_FULL = "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 0800 220 0223.";
 const AI_WELCOME_BACK_VARIANTS = [
   "Welcome back — what's up?",
   "Good to see you again. What's on your mind?",
