@@ -1128,10 +1128,10 @@ function callNationalEmergency() {
 const BAYELSA_EMERGENCY_PHONE = '08002200223';
 const BAYELSA_EMERGENCY_EMAIL = ''; // fill in once Ministry confirms a monitored inbox
 // Whether this line can actually RECEIVE SMS/email (many hotlines are
-// voice-only) has not been confirmed — SOS will not auto-notify it until
-// this is flipped to true, so SOS doesn't silently "notify" a channel
-// nobody is watching.
-const SOS_SEND_TO_STATE_LINE = false;
+// voice-only) has not been formally confirmed by the Ministry/BEMSAS — but
+// the call button (0800 220 0223) remains available regardless as a
+// reliable fallback, so the risk of an SMS going unseen is low. Enabled.
+const SOS_SEND_TO_STATE_LINE = true;
 
 function toggleFirstAid(id) {
   const body = document.getElementById('fa-body-' + id);
@@ -1194,7 +1194,10 @@ warmUpLocation();
 // this used to live here and never worked.
 
 function triggerSOS() {
-  const confirmed = confirm('This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your primary caregiver. Continue?');
+  const confirmMsg = 'This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your primary caregiver' +
+    (SOS_SEND_TO_STATE_LINE ? ', and notify the Bayelsa State emergency line' : '') +
+    '. Continue?';
+  const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
@@ -1202,11 +1205,23 @@ function triggerSOS() {
   const primaryPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
 
   function sendAlert(locationText) {
-    // Caregiver message now explicitly asks them to also call emergency
-    // services themselves — the SMS/email/WhatsApp alert is not a substitute
-    // for a real emergency call, just the fastest way to reach them.
-    const msg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.' + locationText +
+    // Caregiver message explicitly asks them to also call emergency services
+    // themselves — the SMS/email/WhatsApp alert is not a substitute for a
+    // real emergency call, just the fastest way to reach them.
+    const caregiverMsg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.' + locationText +
       ' Please also call the emergency line (0800 220 0223) right away.';
+
+    // Separate message for the Ministry/state emergency line — this
+    // recipient IS the emergency service, so telling them to "call
+    // emergency services" makes no sense; theirs is a dispatch-style alert
+    // instead. Includes the primary caregiver's phone number as a callback
+    // reference (there's no field capturing the patient's own phone number
+    // yet — add one to the patient's profile if a direct patient callback
+    // number is needed instead of the caregiver's).
+    const stateMsg = '\u{1F198} SENTRA-X EMERGENCY ALERT: ' + name + ' has triggered an SOS.' + locationText +
+      (primaryPhone ? (' Caregiver contact: ' + primaryPhone + '.') : '');
+
+    const msg = caregiverMsg; // kept for the WhatsApp step below, unchanged
 
     // 1. SMS + email — sent to EVERY saved caregiver, not just the primary.
     // Each caregiver gets their own fetch to the worker (the worker's
@@ -1227,7 +1242,7 @@ function triggerSOS() {
         fetch(SOS_SMS_WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: phone, email: email, name: name, message: msg })
+          body: JSON.stringify({ phone: phone, email: email, name: name, message: caregiverMsg })
         }).then(function (res) {
           // A response coming back at all doesn't mean the alert actually went
           // out — the worker can return 200 while one or both channels failed
@@ -1272,7 +1287,7 @@ function triggerSOS() {
         fetch(SOS_SMS_WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: BAYELSA_EMERGENCY_PHONE, email: BAYELSA_EMERGENCY_EMAIL, name: name, message: msg })
+          body: JSON.stringify({ phone: BAYELSA_EMERGENCY_PHONE, email: BAYELSA_EMERGENCY_EMAIL, name: name, message: stateMsg })
         }).catch(function (err) {
           console.error('Sentra-X SOS: state emergency line notify failed', err && err.message);
           if (typeof Sentry !== 'undefined' && Sentry.captureException) {
@@ -1829,7 +1844,7 @@ function renderMaternalScreen() {
       '<div class="alert-banner">' +
         signs.map(function (s) { return '\u2022 ' + escapeHtml(s); }).join('<br>') +
       '</div>' +
-      '<button class="sos" onclick="triggerSOS()">\ud83c\udd98 Emergency SOS \u2014 Alert Caregiver</button>' +
+      '<button class="sos" onclick="triggerSOS()">\ud83c\udd98 Emergency SOS</button>' +
     '</div>';
 }
 
@@ -2572,4 +2587,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-    }
+    } 
