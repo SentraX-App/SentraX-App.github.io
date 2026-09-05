@@ -1185,19 +1185,29 @@ const MAX_EXACT_ACCURACY_M = 100;
 // ---------------------------------------------------------------------
 function warmUpLocation() {
   if (!('geolocation' in navigator)) return;
-  navigator.geolocation.getCurrentPosition(
-    function (pos) {
-      // A low-accuracy fix isn't worth caching at all — better to have SOS
-      // try a fresh live fix later than reuse a stale, imprecise one.
-      if (pos.coords.accuracy > MAX_EXACT_ACCURACY_M) return;
-      localStorage.setItem('lastKnownLat', pos.coords.latitude);
-      localStorage.setItem('lastKnownLng', pos.coords.longitude);
-      localStorage.setItem('lastKnownAccuracy', pos.coords.accuracy);
-      localStorage.setItem('lastKnownLocationAt', Date.now());
-    },
-    function () { /* denied/unavailable — nothing cached, SOS will fall through to "please call them" */ },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-  );
+  // A single lightweight getCurrentPosition call, repeated on a gentle
+  // interval — not watchPosition (continuous GPS tracking), which drains
+  // battery noticeably faster and isn't worth that cost just to shave a
+  // couple of minutes off how fresh a cached location is. This keeps the
+  // cache reasonably current (a few minutes old at worst) for WhatsApp's
+  // instant-open path below, at a fraction of the battery/data cost.
+  function checkLocation() {
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        // A low-accuracy fix isn't worth caching at all — better to have
+        // SOS try a fresh live fix later than reuse a stale, imprecise one.
+        if (pos.coords.accuracy > MAX_EXACT_ACCURACY_M) return;
+        localStorage.setItem('lastKnownLat', pos.coords.latitude);
+        localStorage.setItem('lastKnownLng', pos.coords.longitude);
+        localStorage.setItem('lastKnownAccuracy', pos.coords.accuracy);
+        localStorage.setItem('lastKnownLocationAt', Date.now());
+      },
+      function () { /* denied/unavailable — nothing cached, SOS will fall through to "please call them" */ },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }
+  checkLocation();
+  setInterval(checkLocation, 3 * 60 * 1000); // every 3 minutes — light touch, not continuous tracking
 }
 warmUpLocation();
 // Push subscription sync now happens from auth.js's loadPatientFlow(),
@@ -1214,59 +1224,6 @@ function triggerSOS() {
   const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
   const primary = caregivers.find(function (c) { return c.isPrimary; }) || caregivers[0];
   const primaryPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
-
-  // WhatsApp auto-launching the app (instead of landing on WhatsApp's web
-  // fallback page with a manual "Open app" button) depends on Android
-  // treating the navigation as a direct, same-tick result of the tap that
-  // triggered it — a URL opened via window.open() synchronously in this
-  // handler qualifies; a URL assigned later via .location.href does not,
-  // even inside a tab that was itself opened in a trusted way. That's the
-  // real reason a pre-opened-then-redirected tab reliably reaches
-  // WhatsApp's page but never auto-launches the app: the redirect always
-  // happens after the async wait for a live GPS fix, by which point it's no
-  // longer "fresh" enough for Android's intent handling, regardless of how
-  // the tab itself was opened.
-  //
-  // Fix: if a recent cached location already exists (warmUpLocation() keeps
-  // one on hand, refreshed periodically), use THAT immediately and open the
-  // real wa.me URL directly, synchronously, right here — same conditions
-  // that made this reliably auto-launch before. SMS/email below still wait
-  // for and use the freshest live GPS fix regardless, since accuracy matters
-  // more than speed for those and they have no popup-trust issue to begin
-  // with.
-  const cachedLat = localStorage.getItem('lastKnownLat');
-  const cachedLng = localStorage.getItem('lastKnownLng');
-  const cachedAt = parseInt(localStorage.getItem('lastKnownLocationAt') || '0', 10);
-  const cacheIsFresh = cachedLat && cachedLng && (Date.now() - cachedAt) < 30 * 60 * 1000; // 30 min
-  let waWindowRef = null;
-  let waAlreadyOpened = false;
-
-  if (cacheIsFresh) {
-    const link = 'https://maps.google.com/?q=' + cachedLat + ',' + cachedLng;
-    const waMsg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now. Last known location: ' + link +
-      ' Please also call the emergency line (0800 220 0223) right away.';
-    const waUrl = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(waMsg)) : ('https://wa.me/?text=' + encodeURIComponent(waMsg));
-    window.open(waUrl, '_blank');
-    waAlreadyOpened = true;
-  } else {
-    // No fresh cache yet (e.g. very first-ever use, before warmUpLocation()
-    // has completed once) — fall back to a pre-opened tab with a loading
-    // message, redirected once live location resolves. This rare case can't
-    // guarantee an automatic app-launch, same limitation as before, but
-    // it's uncommon and still better than nothing.
-    waWindowRef = window.open('', '_blank');
-    if (waWindowRef) {
-      try {
-        waWindowRef.document.write(
-          '<!DOCTYPE html><html><head><title>Sentra-X</title>' +
-          '<meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
-          '<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#e2e8f0;font-family:sans-serif;font-size:16px;">' +
-          '<p>Opening WhatsApp\u2026</p>' +
-          '</body></html>'
-        );
-      } catch (e) { /* best effort — if this fails, tab just stays blank, no worse than before this fix */ }
-    }
-  }
 
   // Guards against sendAlert firing twice — the safety-net timeout below
   // and the normal geolocation callback could otherwise both fire and send
@@ -1295,8 +1252,6 @@ function triggerSOS() {
     // number is needed instead of the caregiver's).
     const stateMsg = '\u{1F198} SENTRA-X EMERGENCY ALERT: ' + name + ' has triggered an SOS.' + locationText +
       (primaryPhone ? (' Caregiver contact: ' + primaryPhone + '.') : '');
-
-    const msg = caregiverMsg; // kept for the WhatsApp step below, unchanged
 
     // 1. SMS + email — sent to EVERY saved caregiver, not just the primary.
     // Each caregiver gets their own fetch to the worker (the worker's
@@ -1393,24 +1348,37 @@ function triggerSOS() {
       }
     }
 
-    // 2. WhatsApp — primary caregiver only. A wa.me link can only target one
-    // chat, and opening several via window.open() in a loop gets blocked by
-    // mobile popup blockers after the first — so this deliberately isn't
-    // looped over every caregiver; it would look like it worked and quietly
-    // fail. SMS + email above are what actually reach everyone.
-    // Skipped entirely if the fast path above already opened WhatsApp
-    // directly using cached location — this only runs for the rare
-    // no-cache fallback case (the pre-opened, redirect-later tab).
-    if (!waAlreadyOpened) {
-      const url = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
-      if (waWindowRef && !waWindowRef.closed) {
-        waWindowRef.location.href = url;
-      } else {
-        // The pre-open itself got blocked (rare) — try opening fresh anyway.
-        // This can still be blocked since the trusted-gesture window has
-        // likely closed by now, but it's the best remaining option.
-        window.open(url, '_blank');
-      }
+    // 2. WhatsApp — primary caregiver only. Uses the whatsapp:// direct
+    // scheme, not a wa.me web link — a fundamentally different mechanism.
+    // wa.me is a real HTTPS URL, which Android runs through its "App Links"
+    // verification before deciding whether to auto-open the app or just
+    // treat it as a normal website (that verification step is very likely
+    // what's been showing WhatsApp's own fallback page on a first attempt).
+    // whatsapp:// isn't a website at all — it's a request straight to
+    // whichever app has registered that scheme, skipping that verification
+    // step entirely. Falls back to the wa.me web link only if nothing
+    // handled it within a second and a half (e.g. WhatsApp genuinely isn't
+    // installed on this phone) — checked via document.visibilityState,
+    // since a successful hand-off to the WhatsApp app switches focus away
+    // from the browser, which reliably fires that event; nothing else here
+    // waits on it or depends on timing the way the earlier attempts did.
+    if (!primaryPhone) {
+      // No saved phone number to message directly — same web link as
+      // before, since whatsapp://send has no meaningful phone-less form.
+      window.open('https://wa.me/?text=' + encodeURIComponent(caregiverMsg), '_blank');
+    } else {
+      const waSchemeUrl = 'whatsapp://send?phone=' + primaryPhone + '&text=' + encodeURIComponent(caregiverMsg);
+      const fallbackUrl = 'https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(caregiverMsg);
+      const schemeAttemptWindow = window.open(waSchemeUrl, '_blank');
+      setTimeout(function () {
+        if (document.visibilityState !== 'hidden') {
+          if (schemeAttemptWindow && !schemeAttemptWindow.closed) {
+            schemeAttemptWindow.location.href = fallbackUrl;
+          } else {
+            window.open(fallbackUrl, '_blank');
+          }
+        }
+      }, 1500);
     }
   }
 
@@ -2367,7 +2335,6 @@ function saveAiThreads() {
   if (aiThreads.length > AI_MAX_THREADS) aiThreads = aiThreads.slice(0, AI_MAX_THREADS);
   try { localStorage.setItem('ai-chat-threads', JSON.stringify(aiThreads)); } catch (e) { /* storage full/unavailable — chat still works this session */ }
 }
-
 function getCurrentAiThread() {
   let thread = aiThreads.find(function (t) { return t.id === currentAiThreadId; });
   if (!thread) {
@@ -2969,4 +2936,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-}
+    }
