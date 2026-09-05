@@ -1362,6 +1362,14 @@ function triggerSOS() {
     // since a successful hand-off to the WhatsApp app switches focus away
     // from the browser, which reliably fires that event; nothing else here
     // waits on it or depends on timing the way the earlier attempts did.
+    //
+    // Navigated directly on THIS page (window.location.href), not opened in
+    // a new blank tab. Opening an app-scheme link from a fresh blank tab
+    // looks to Chrome like an unsolicited popup asking to leave the page,
+    // so it shows a confirmation icon/prompt first. The identical link,
+    // navigated directly from the page the person is already looking at,
+    // is treated as a first-party action and launches straight through
+    // without that extra tap.
     if (!primaryPhone) {
       // No saved phone number to message directly — same web link as
       // before, since whatsapp://send has no meaningful phone-less form.
@@ -1369,14 +1377,13 @@ function triggerSOS() {
     } else {
       const waSchemeUrl = 'whatsapp://send?phone=' + primaryPhone + '&text=' + encodeURIComponent(caregiverMsg);
       const fallbackUrl = 'https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(caregiverMsg);
-      const schemeAttemptWindow = window.open(waSchemeUrl, '_blank');
+      window.location.href = waSchemeUrl;
       setTimeout(function () {
+        // Still here and still visible after 1.5s means nothing handled the
+        // scheme (no app registered for it) — fall back to the web link,
+        // opened in a new tab so the Sentra-X page itself isn't lost.
         if (document.visibilityState !== 'hidden') {
-          if (schemeAttemptWindow && !schemeAttemptWindow.closed) {
-            schemeAttemptWindow.location.href = fallbackUrl;
-          } else {
-            window.open(fallbackUrl, '_blank');
-          }
+          window.open(fallbackUrl, '_blank');
         }
       }, 1500);
     }
@@ -2335,6 +2342,7 @@ function saveAiThreads() {
   if (aiThreads.length > AI_MAX_THREADS) aiThreads = aiThreads.slice(0, AI_MAX_THREADS);
   try { localStorage.setItem('ai-chat-threads', JSON.stringify(aiThreads)); } catch (e) { /* storage full/unavailable — chat still works this session */ }
 }
+
 function getCurrentAiThread() {
   let thread = aiThreads.find(function (t) { return t.id === currentAiThreadId; });
   if (!thread) {
@@ -2482,8 +2490,7 @@ function buildAiHealthContext() {
     const medLogs = JSON.parse(localStorage.getItem('medLogs') || '{}');
     const adherence = getWeeklyAdherencePct(meds, medLogs);
     if (adherence !== null) parts.push('7-day medication adherence: ' + adherence + '%');
-  }
-
+        }
   const streak = localStorage.getItem('streak');
   if (streak) parts.push('Current daily check-in streak: ' + streak + ' day(s)');
 
@@ -2912,8 +2919,7 @@ function analyzeHeartRatePattern(bpm, peakTimes) {
   // when the rhythm check is properly tuned later.
 
   return { abnormal: reasons.length > 0, reasons: reasons };
-}
-
+        }
 function focusBpFields() {
   const sysField = document.getElementById('systolic');
   if (sysField) {
@@ -2936,4 +2942,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-    }
+}
