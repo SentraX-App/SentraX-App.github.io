@@ -1120,17 +1120,18 @@ function callNationalEmergency() {
 }
 
 // --- Bayelsa State Emergency Line (Ministry of Health partnership) -----
-// Confirmed number: 0800 220 0223 — this is now the primary number used
-// throughout the app (Emergency card, first-aid instructions, AI assistant).
-// 112 (Nigeria's nationwide line) is kept only as a small secondary link on
-// the main Emergency card — not removed, since it works regardless of
-// network/state and costs nothing to keep as a backup.
+// Confirmed number: 0800 220 0223 — used for calls, and confirmed by the
+// Ministry as able to receive SMS despite being a toll-free/freephone
+// number (some toll-free lines are provisioned with SMS routing even
+// though most aren't — take this as confirmed by the number's owner, not
+// assumed). 112 (Nigeria's nationwide line) is kept only as a small
+// secondary link on the main Emergency card — not removed, since it works
+// regardless of network/state and costs nothing to keep as a backup.
 const BAYELSA_EMERGENCY_PHONE = '08002200223';
 const BAYELSA_EMERGENCY_EMAIL = ''; // fill in once Ministry confirms a monitored inbox
-// Whether this line can actually RECEIVE SMS/email (many hotlines are
-// voice-only) has not been formally confirmed by the Ministry/BEMSAS — but
-// the call button (0800 220 0223) remains available regardless as a
-// reliable fallback, so the risk of an SMS going unseen is low. Enabled.
+// Ministry-confirmed as SMS-capable — enabled. If real-world delivery
+// doesn't match this confirmation once tested live, flip back to false
+// and treat the earlier toll-free caution as the working assumption again.
 const SOS_SEND_TO_STATE_LINE = true;
 
 function toggleFirstAid(id) {
@@ -1149,6 +1150,16 @@ function toggleFirstAid(id) {
 // blank and the worker call is skipped automatically (WhatsApp still works
 // either way).
 const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/';
+// Shared secret sent with every SOS worker request, checked against
+// env.SOS_SHARED_SECRET on the Worker side (see setup notes given
+// alongside this change). This is NOT airtight — a pure client-side app
+// ships this value in the JS source, so anyone willing to read minified
+// code can still find it. What it stops is casual/opportunistic abuse:
+// someone spotting the Worker URL in their browser's Network tab, or an
+// automated scanner hitting exposed Worker URLs, without needing to dig
+// through app source at all. Real protection against a targeted attacker
+// would need a server-side component this app doesn't have.
+const SOS_WORKER_SHARED_SECRET = '9b2130862489d515ded40ad792739e4df2db09a4db6383c8';
 
 // A genuine GPS fix is typically accurate to within tens of meters outdoors.
 // Anything much looser than that is usually the browser falling back to
@@ -1241,7 +1252,7 @@ function triggerSOS() {
         if (!phone && !email) return;
         fetch(SOS_SMS_WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Sentra-Secret': SOS_WORKER_SHARED_SECRET },
           body: JSON.stringify({ phone: phone, email: email, name: name, message: caregiverMsg })
         }).then(function (res) {
           // A response coming back at all doesn't mean the alert actually went
@@ -1277,17 +1288,38 @@ function triggerSOS() {
       });
 
       // 1b. State emergency line (Bayelsa Ministry of Health partnership) —
-      // sent the exact same way as a caregiver, as one extra fixed recipient,
-      // gated behind SOS_SEND_TO_STATE_LINE until the Ministry confirms this
-      // line can actually receive SMS/email alerts (see comment near
-      // BAYELSA_EMERGENCY_PHONE above). Kept as a separate block from the
+      // sent the exact same way as a caregiver, as one extra fixed recipient.
+      // SOS_SEND_TO_STATE_LINE (see comment near BAYELSA_EMERGENCY_PHONE
+      // above) is the on/off switch — currently on, since the Ministry has
+      // confirmed this line accepts SMS. Kept as a separate block from the
       // caregiver loop above so it can never affect caregiver delivery even
       // if this call fails.
       if (SOS_SEND_TO_STATE_LINE && (BAYELSA_EMERGENCY_PHONE || BAYELSA_EMERGENCY_EMAIL)) {
         fetch(SOS_SMS_WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: BAYELSA_EMERGENCY_PHONE, email: BAYELSA_EMERGENCY_EMAIL, name: name, message: stateMsg })
+          headers: { 'Content-Type': 'application/json', 'X-Sentra-Secret': SOS_WORKER_SHARED_SECRET },
+          body: JSON.stringify({ phone: normalizeNigerianPhone(BAYELSA_EMERGENCY_PHONE), email: BAYELSA_EMERGENCY_EMAIL, name: name, message: stateMsg })
+        }).then(function (res) {
+          // Same response-body check as the caregiver loop above — a 200
+          // here doesn't guarantee delivery, and a rejected SMS to the
+          // state line should be visible, not silently swallowed.
+          return res.text().then(function (bodyText) {
+            let body = null;
+            try { body = JSON.parse(bodyText); } catch (_e) { /* non-JSON response body */ }
+            const emailFailed = BAYELSA_EMERGENCY_EMAIL && body && body.email && body.email.ok === false;
+            const smsFailed = BAYELSA_EMERGENCY_PHONE && body && body.sms && body.sms.ok === false;
+            if (!res.ok || emailFailed || smsFailed) {
+              console.error('Sentra-X SOS: state emergency line reported a failure', res.status, bodyText);
+              if (typeof Sentry !== 'undefined' && Sentry.captureMessage) {
+                try {
+                  Sentry.captureMessage('SOS state-line notify reported a send failure', {
+                    level: 'error',
+                    extra: { status: res.status, body: bodyText }
+                  });
+                } catch (_ignored) { /* best effort */ }
+              }
+            }
+          });
         }).catch(function (err) {
           console.error('Sentra-X SOS: state emergency line notify failed', err && err.message);
           if (typeof Sentry !== 'undefined' && Sentry.captureException) {
@@ -2849,4 +2881,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-} 
+      }
