@@ -731,3 +731,21 @@ nav button.active .icon { filter: none; }
 .cg-card > button.cg-danger { width: auto; flex-shrink: 0; padding: 10px 14px; margin-top: 0; }
 .cg-add-btn { margin-top: 12px; }
 
+
+/* Maternal & Child Health — accented with Sentra-X's own brand gold
+   (#C9A25E) against the app's existing navy/blue palette, scoped entirely
+   to #maternal-screen so nothing elsewhere in the app changes. Same
+   .card/.quick-btn/.alert-banner shapes as every other screen — just a
+   gold touch instead of the default blue, matching the logo's navy+gold
+   identity rather than introducing an unrelated color. */
+#maternal-screen .card h3 { color: #d9b876; }
+#maternal-screen .mat-timeline-card {
+  background: linear-gradient(135deg, rgba(201,162,94,0.14), rgba(21,46,77,0.25));
+  border-color: rgba(201,162,94,0.35);
+}
+#maternal-screen .mat-timeline-card h3 { color: #e8cd9a; }
+#maternal-screen .mat-timeline-card p:first-of-type { color: #f5ecd9; font-weight: 600; }
+#maternal-screen select, #maternal-screen input[type="date"] {
+  border-color: rgba(201,162,94,0.3);
+}
+#maternal-screen .quick-btn.selected { background: linear-gradient(135deg, #C9A25E, #a9813f); color: #0f172a; }
