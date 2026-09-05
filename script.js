@@ -1211,6 +1211,21 @@ function triggerSOS() {
   const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
   const waWindowRef = window.open('', '_blank');
+  // A truly blank tab looks broken during an actual emergency — writing a
+  // simple loading message (matching the app's own dark theme) instead of
+  // leaving it stark white, so it's obvious something is happening while
+  // it waits for location before redirecting to WhatsApp.
+  if (waWindowRef) {
+    try {
+      waWindowRef.document.write(
+        '<!DOCTYPE html><html><head><title>Sentra-X</title>' +
+        '<meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+        '<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#e2e8f0;font-family:sans-serif;font-size:16px;">' +
+        '<p>Opening WhatsApp\u2026</p>' +
+        '</body></html>'
+      );
+    } catch (e) { /* best effort — if this fails, tab just stays blank, no worse than before this fix */ }
+  }
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   let alertAlreadySent = false;
   const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
