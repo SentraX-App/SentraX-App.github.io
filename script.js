@@ -1210,6 +1210,7 @@ function triggerSOS() {
     '. Continue?';
   const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
+  const waWindowRef = window.open('', '_blank');
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
   const primary = caregivers.find(function (c) { return c.isPrimary; }) || caregivers[0];
@@ -1335,7 +1336,11 @@ function triggerSOS() {
     // looped over every caregiver; it would look like it worked and quietly
     // fail. SMS + email above are what actually reach everyone.
     const url = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
-    window.open(url, '_blank');
+    if (waWindowRef && !waWindowRef.closed) {
+      waWindowRef.location.href = url;
+    } else {
+      window.open(url, '_blank');
+    }
   }
 
   function useCachedLocationOrGiveUp() {
