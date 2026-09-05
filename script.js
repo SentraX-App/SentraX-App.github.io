@@ -1348,45 +1348,12 @@ function triggerSOS() {
       }
     }
 
-    // 2. WhatsApp — primary caregiver only. Uses the whatsapp:// direct
-    // scheme, not a wa.me web link — a fundamentally different mechanism.
-    // wa.me is a real HTTPS URL, which Android runs through its "App Links"
-    // verification before deciding whether to auto-open the app or just
-    // treat it as a normal website (that verification step is very likely
-    // what's been showing WhatsApp's own fallback page on a first attempt).
-    // whatsapp:// isn't a website at all — it's a request straight to
-    // whichever app has registered that scheme, skipping that verification
-    // step entirely. Falls back to the wa.me web link only if nothing
-    // handled it within a second and a half (e.g. WhatsApp genuinely isn't
-    // installed on this phone) — checked via document.visibilityState,
-    // since a successful hand-off to the WhatsApp app switches focus away
-    // from the browser, which reliably fires that event; nothing else here
-    // waits on it or depends on timing the way the earlier attempts did.
-    //
-    // Navigated directly on THIS page (window.location.href), not opened in
-    // a new blank tab. Opening an app-scheme link from a fresh blank tab
-    // looks to Chrome like an unsolicited popup asking to leave the page,
-    // so it shows a confirmation icon/prompt first. The identical link,
-    // navigated directly from the page the person is already looking at,
-    // is treated as a first-party action and launches straight through
-    // without that extra tap.
-    if (!primaryPhone) {
-      // No saved phone number to message directly — same web link as
-      // before, since whatsapp://send has no meaningful phone-less form.
-      window.open('https://wa.me/?text=' + encodeURIComponent(caregiverMsg), '_blank');
-    } else {
-      const waSchemeUrl = 'whatsapp://send?phone=' + primaryPhone + '&text=' + encodeURIComponent(caregiverMsg);
-      const fallbackUrl = 'https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(caregiverMsg);
-      window.location.href = waSchemeUrl;
-      setTimeout(function () {
-        // Still here and still visible after 1.5s means nothing handled the
-        // scheme (no app registered for it) — fall back to the web link,
-        // opened in a new tab so the Sentra-X page itself isn't lost.
-        if (document.visibilityState !== 'hidden') {
-          window.open(fallbackUrl, '_blank');
-        }
-      }, 1500);
-    }
+    // 2. WhatsApp — primary caregiver only. Plain wa.me web link, opened
+    // directly — the original, simplest approach. Sometimes shows
+    // WhatsApp's own fallback page on a first attempt, but reliably
+    // auto-opens the app itself on a retry.
+    const url = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(caregiverMsg)) : ('https://wa.me/?text=' + encodeURIComponent(caregiverMsg));
+    window.open(url, '_blank');
   }
 
   function useCachedLocationOrGiveUp() {
@@ -2331,7 +2298,6 @@ let aiSendInFlight = false; // guards against overlapping sends (double-tap Send
 
   if (aiThreads.length > 0) currentAiThreadId = aiThreads[0].id;
 })();
-
 function aiThreadTitleFrom(messages) {
   const firstUser = messages.find(function (m) { return m.role === 'user'; });
   if (!firstUser) return 'New conversation';
@@ -2490,7 +2456,8 @@ function buildAiHealthContext() {
     const medLogs = JSON.parse(localStorage.getItem('medLogs') || '{}');
     const adherence = getWeeklyAdherencePct(meds, medLogs);
     if (adherence !== null) parts.push('7-day medication adherence: ' + adherence + '%');
-        }
+  }
+
   const streak = localStorage.getItem('streak');
   if (streak) parts.push('Current daily check-in streak: ' + streak + ' day(s)');
 
@@ -2919,7 +2886,8 @@ function analyzeHeartRatePattern(bpm, peakTimes) {
   // when the rhythm check is properly tuned later.
 
   return { abnormal: reasons.length > 0, reasons: reasons };
-        }
+}
+
 function focusBpFields() {
   const sysField = document.getElementById('systolic');
   if (sysField) {
@@ -2942,4 +2910,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-}
+      } 
