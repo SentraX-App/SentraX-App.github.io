@@ -1212,11 +1212,15 @@ function triggerSOS() {
   if (!confirmed) return;
   const waWindowRef = window.open('', '_blank');
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
+  let alertAlreadySent = false;
   const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
   const primary = caregivers.find(function (c) { return c.isPrimary; }) || caregivers[0];
   const primaryPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
 
   function sendAlert(locationText) {
+    if (alertAlreadySent) return;
+    alertAlreadySent = true;
+
     // Caregiver message explicitly asks them to also call emergency services
     // themselves — the SMS/email/WhatsApp alert is not a substitute for a
     // real emergency call, just the fastest way to reach them.
@@ -1365,6 +1369,10 @@ function triggerSOS() {
   }
 
   if ('geolocation' in navigator) {
+    setTimeout(function () {
+      if (!alertAlreadySent) useCachedLocationOrGiveUp();
+    }, 9500);
+
     navigator.geolocation.getCurrentPosition(
       function(pos) {
         // A fresh but low-accuracy fix (WiFi/cell-tower based) is no more
