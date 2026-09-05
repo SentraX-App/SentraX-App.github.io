@@ -1516,6 +1516,23 @@ function savePassport() {
 
   localStorage.setItem('passport', JSON.stringify(passport));
   syncToFirestore({ passport: passport });
+
+  // If Sex is now anything other than Female, auto-pause (never delete)
+  // any active maternal tracking. This keeps internal state honest — no
+  // more "enabled: true with a due date" silently sitting behind a menu
+  // that's no longer shown — without risking real tracked data the way
+  // deleting it here would. A genuine user essentially never changes her
+  // own Sex field repeatedly, so this only ever fires in the edge case it's
+  // meant for; switching back to Female later leaves the data intact,
+  // simply paused, exactly as if she'd tapped "Turn Off Tracking" herself.
+  if (passport.sex !== 'Female') {
+    const maternal = loadMaternalData();
+    if (maternal.enabled) {
+      maternal.enabled = false;
+      saveMaternalData(maternal);
+    }
+  }
+
   // Clear the form back to blank once saved, whether this was a quick add
   // or a full edit — the saved details live on the passport card above,
   // not sitting exposed in the input fields.
@@ -1889,17 +1906,21 @@ function renderMaternalScreen() {
   if (!optinBox || !trackBox) return;
 
   if (!data.enabled) {
+    // Prefills from any previously saved stage/date — whether tracking was
+    // turned off manually or auto-paused by a Sex change — so resuming
+    // shows exactly what was there before, never a blank slate that makes
+    // it look like the data was lost when it wasn't.
     optinBox.innerHTML =
       '<p style="color:#94a3b8;font-size:13px;">If you\u2019re currently pregnant or recently gave birth, turn this on for reminders and danger-sign guidance. Skip it if it doesn\u2019t apply to you right now — nothing else in the app changes either way.</p>' +
       '<label style="font-size:12px;color:#93c5fd;">Stage</label>' +
       '<select id="mat-stage">' +
-        '<option value="antenatal">Currently pregnant (antenatal)</option>' +
-        '<option value="postnatal">Recently gave birth (postnatal)</option>' +
+        '<option value="antenatal"' + (data.stage !== 'postnatal' ? ' selected' : '') + '>Currently pregnant (antenatal)</option>' +
+        '<option value="postnatal"' + (data.stage === 'postnatal' ? ' selected' : '') + '>Recently gave birth (postnatal)</option>' +
       '</select>' +
-      '<label style="font-size:12px;color:#93c5fd;" id="mat-date-label">Due date</label>' +
-      '<input type="date" id="mat-date" oninput="clearMaternalEstimateFlag()">' +
+      '<label style="font-size:12px;color:#93c5fd;" id="mat-date-label">' + (data.stage === 'postnatal' ? 'Delivery date' : 'Due date') + '</label>' +
+      '<input type="date" id="mat-date" value="' + (data.dueDate || '') + '" data-estimated="' + (data.estimated ? 'true' : 'false') + '" oninput="clearMaternalEstimateFlag()">' +
       '<p id="mat-estimate-toggle" style="margin:4px 0 0;"><a href="#" onclick="toggleMaternalEstimate();return false;" style="color:#94a3b8;font-size:12.5px;text-decoration:underline;">Not sure of the exact date? Estimate instead</a></p>' +
-      '<div id="mat-estimate-box" style="display:none;margin-top:8px;">' + buildMaternalEstimateBoxHTML('antenatal') + '</div>' +
+      '<div id="mat-estimate-box" style="display:none;margin-top:8px;">' + buildMaternalEstimateBoxHTML(data.stage || 'antenatal') + '</div>' +
       '<button onclick="saveMaternalSetup()">Turn On Tracking</button>';
   } else {
     optinBox.innerHTML =
@@ -2828,4 +2849,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-    }
+} 
