@@ -1210,29 +1210,73 @@ function triggerSOS() {
     '. Continue?';
   const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
-  const waWindowRef = window.open('', '_blank');
-  // A truly blank tab looks broken during an actual emergency — writing a
-  // simple loading message (matching the app's own dark theme) instead of
-  // leaving it stark white, so it's obvious something is happening while
-  // it waits for location before redirecting to WhatsApp.
-  if (waWindowRef) {
-    try {
-      waWindowRef.document.write(
-        '<!DOCTYPE html><html><head><title>Sentra-X</title>' +
-        '<meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
-        '<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#e2e8f0;font-family:sans-serif;font-size:16px;">' +
-        '<p>Opening WhatsApp\u2026</p>' +
-        '</body></html>'
-      );
-    } catch (e) { /* best effort — if this fails, tab just stays blank, no worse than before this fix */ }
-  }
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
-  let alertAlreadySent = false;
   const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
   const primary = caregivers.find(function (c) { return c.isPrimary; }) || caregivers[0];
   const primaryPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
 
+  // WhatsApp auto-launching the app (instead of landing on WhatsApp's web
+  // fallback page with a manual "Open app" button) depends on Android
+  // treating the navigation as a direct, same-tick result of the tap that
+  // triggered it — a URL opened via window.open() synchronously in this
+  // handler qualifies; a URL assigned later via .location.href does not,
+  // even inside a tab that was itself opened in a trusted way. That's the
+  // real reason a pre-opened-then-redirected tab reliably reaches
+  // WhatsApp's page but never auto-launches the app: the redirect always
+  // happens after the async wait for a live GPS fix, by which point it's no
+  // longer "fresh" enough for Android's intent handling, regardless of how
+  // the tab itself was opened.
+  //
+  // Fix: if a recent cached location already exists (warmUpLocation() keeps
+  // one on hand, refreshed periodically), use THAT immediately and open the
+  // real wa.me URL directly, synchronously, right here — same conditions
+  // that made this reliably auto-launch before. SMS/email below still wait
+  // for and use the freshest live GPS fix regardless, since accuracy matters
+  // more than speed for those and they have no popup-trust issue to begin
+  // with.
+  const cachedLat = localStorage.getItem('lastKnownLat');
+  const cachedLng = localStorage.getItem('lastKnownLng');
+  const cachedAt = parseInt(localStorage.getItem('lastKnownLocationAt') || '0', 10);
+  const cacheIsFresh = cachedLat && cachedLng && (Date.now() - cachedAt) < 30 * 60 * 1000; // 30 min
+  let waWindowRef = null;
+  let waAlreadyOpened = false;
+
+  if (cacheIsFresh) {
+    const link = 'https://maps.google.com/?q=' + cachedLat + ',' + cachedLng;
+    const waMsg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now. Last known location: ' + link +
+      ' Please also call the emergency line (0800 220 0223) right away.';
+    const waUrl = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(waMsg)) : ('https://wa.me/?text=' + encodeURIComponent(waMsg));
+    window.open(waUrl, '_blank');
+    waAlreadyOpened = true;
+  } else {
+    // No fresh cache yet (e.g. very first-ever use, before warmUpLocation()
+    // has completed once) — fall back to a pre-opened tab with a loading
+    // message, redirected once live location resolves. This rare case can't
+    // guarantee an automatic app-launch, same limitation as before, but
+    // it's uncommon and still better than nothing.
+    waWindowRef = window.open('', '_blank');
+    if (waWindowRef) {
+      try {
+        waWindowRef.document.write(
+          '<!DOCTYPE html><html><head><title>Sentra-X</title>' +
+          '<meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+          '<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#e2e8f0;font-family:sans-serif;font-size:16px;">' +
+          '<p>Opening WhatsApp\u2026</p>' +
+          '</body></html>'
+        );
+      } catch (e) { /* best effort — if this fails, tab just stays blank, no worse than before this fix */ }
+    }
+  }
+
+  // Guards against sendAlert firing twice — the safety-net timeout below
+  // and the normal geolocation callback could otherwise both fire and send
+  // a duplicate SOS if the browser is just slow rather than truly hung.
+  let alertAlreadySent = false;
+
   function sendAlert(locationText) {
+    // Guards against this running twice (e.g. the geolocation callback and
+    // the hard safety-net timeout below both firing) — a real emergency
+    // alert should never be silently duplicated to caregivers.
     if (alertAlreadySent) return;
     alertAlreadySent = true;
 
@@ -1354,11 +1398,19 @@ function triggerSOS() {
     // mobile popup blockers after the first — so this deliberately isn't
     // looped over every caregiver; it would look like it worked and quietly
     // fail. SMS + email above are what actually reach everyone.
-    const url = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
-    if (waWindowRef && !waWindowRef.closed) {
-      waWindowRef.location.href = url;
-    } else {
-      window.open(url, '_blank');
+    // Skipped entirely if the fast path above already opened WhatsApp
+    // directly using cached location — this only runs for the rare
+    // no-cache fallback case (the pre-opened, redirect-later tab).
+    if (!waAlreadyOpened) {
+      const url = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
+      if (waWindowRef && !waWindowRef.closed) {
+        waWindowRef.location.href = url;
+      } else {
+        // The pre-open itself got blocked (rare) — try opening fresh anyway.
+        // This can still be blocked since the trusted-gesture window has
+        // likely closed by now, but it's the best remaining option.
+        window.open(url, '_blank');
+      }
     }
   }
 
@@ -1384,6 +1436,14 @@ function triggerSOS() {
   }
 
   if ('geolocation' in navigator) {
+    // Hard safety net, independent of the browser's own geolocation timeout
+    // option below. That timeout is supposed to guarantee one of the two
+    // callbacks fires within 8s, but some Android WebView/PWA wrappers have
+    // known bugs where geolocation silently hangs with neither callback
+    // ever firing. For SOS specifically, a total silent failure — nothing
+    // sent, no SMS/email/WhatsApp at all — is worse than sending late or
+    // without exact coordinates, so this forces the alert through
+    // regardless of what the browser does.
     setTimeout(function () {
       if (!alertAlreadySent) useCachedLocationOrGiveUp();
     }, 9500);
@@ -2909,4 +2969,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-      }
+}
