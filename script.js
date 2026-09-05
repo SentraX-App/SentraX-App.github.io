@@ -1784,6 +1784,68 @@ const POSTNATAL_DANGER_SIGNS = [
   'Severe abdominal pain or a swollen, painful leg'
 ];
 
+// WHO-recommended contact schedules — used only to compute and display
+// dates from the due/delivery date already collected above. Antenatal: the
+// 8-contact model (weeks of gestation). Postnatal: day 1, day 3, day 7, and
+// the 6-week visit (in days since delivery).
+const ANTENATAL_CHECKUP_WEEKS = [12, 20, 26, 30, 34, 36, 38, 40];
+const POSTNATAL_CHECKUP_DAYS = [
+  { day: 1, label: 'Day 1 check' },
+  { day: 3, label: 'Day 3 check' },
+  { day: 7, label: 'Day 7 check' },
+  { day: 42, label: '6-week check' }
+];
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+function formatShortDate(d) {
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Computes a simple, purely date-math timeline from the due/delivery date —
+// no new data collected, just makes the date already stored actually useful
+// (current week/days-since, and the next WHO-recommended checkup). Returns
+// null if no date has been saved yet, so callers can show a friendly prompt
+// instead of a broken calculation.
+function computeMaternalTimeline(data) {
+  if (!data.dueDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (data.stage === 'postnatal') {
+    const deliveryDate = new Date(data.dueDate);
+    const daysSince = Math.floor((today - deliveryDate) / 86400000);
+    if (daysSince < 0) {
+      return {
+        progressLabel: 'Delivery date is in the future \u2014 update if needed',
+        nextCheckupLabel: 'Checkup schedule will show once the delivery date has passed',
+        nextCheckupDate: null
+      };
+    }
+    const next = POSTNATAL_CHECKUP_DAYS.find(function (c) { return c.day >= daysSince; });
+    return {
+      progressLabel: daysSince + ' day' + (daysSince === 1 ? '' : 's') + ' since delivery',
+      nextCheckupLabel: next ? next.label : 'All standard postnatal checks complete',
+      nextCheckupDate: next ? formatShortDate(addDays(deliveryDate, next.day)) : null
+    };
+  }
+
+  // Antenatal: due date represents ~40 weeks gestation.
+  const dueDate = new Date(data.dueDate);
+  const daysToDue = Math.floor((dueDate - today) / 86400000);
+  const currentWeek = Math.min(42, Math.max(0, 40 - Math.floor(daysToDue / 7)));
+  const nextWeek = ANTENATAL_CHECKUP_WEEKS.find(function (w) { return w >= currentWeek; });
+  const nextDate = nextWeek ? addDays(dueDate, -(40 - nextWeek) * 7) : null;
+  return {
+    progressLabel: daysToDue >= 0 ? ('Week ' + currentWeek + ' of pregnancy \u2014 ' + daysToDue + ' day' + (daysToDue === 1 ? '' : 's') + ' to due date') : 'Due date has passed \u2014 update if needed',
+    nextCheckupLabel: nextWeek ? ('Week ' + nextWeek + ' antenatal checkup') : 'All standard antenatal checkups complete',
+    nextCheckupDate: nextDate ? formatShortDate(nextDate) : null
+  };
+}
+
 // Decides whether the "Maternal & Child Health" item appears in the More
 // menu at all — only when passport.sex is "Female". No dashboard card: it
 // lives in More alongside First Aid/Passport/etc. so the homepage stays
@@ -1795,6 +1857,29 @@ function renderMaternalCard() {
   const eligible = passport.sex === 'Female';
   const navBtn = document.getElementById('nav-maternal');
   if (navBtn) navBtn.style.display = eligible ? 'flex' : 'none';
+}
+
+// Builds the inner content of the estimate box for whichever stage is
+// currently selected — antenatal estimates "months pregnant", postnatal
+// estimates "weeks since delivery" (a home birth or informal record-keeping
+// can leave the exact day just as uncertain as a due date can be). One
+// shared function so the initial render and the stage-change handler below
+// can never drift out of sync with each other.
+function buildMaternalEstimateBoxHTML(stage) {
+  if (stage === 'postnatal') {
+    const weekOptions = [0,1,2,3,4,5,6].map(function (w) {
+      return '<option value="' + w + '">' + (w === 0 ? 'Today / just gave birth' : w + ' week' + (w === 1 ? '' : 's') + ' ago') + '</option>';
+    }).join('');
+    return '<label style="font-size:12px;color:#93c5fd;">How many weeks since delivery, approximately?</label>' +
+      '<select id="mat-est-value">' + weekOptions + '</select>' +
+      '<button type="button" class="ghost" onclick="applyMaternalEstimate()">Use This Estimate</button>';
+  }
+  const monthOptions = [1,2,3,4,5,6,7,8,9].map(function (m) {
+    return '<option value="' + m + '">' + m + ' month' + (m === 1 ? '' : 's') + '</option>';
+  }).join('');
+  return '<label style="font-size:12px;color:#93c5fd;">How many months pregnant, approximately?</label>' +
+    '<select id="mat-est-value">' + monthOptions + '</select>' +
+    '<button type="button" class="ghost" onclick="applyMaternalEstimate()">Use This Estimate</button>';
 }
 
 function renderMaternalScreen() {
@@ -1812,7 +1897,9 @@ function renderMaternalScreen() {
         '<option value="postnatal">Recently gave birth (postnatal)</option>' +
       '</select>' +
       '<label style="font-size:12px;color:#93c5fd;" id="mat-date-label">Due date</label>' +
-      '<input type="date" id="mat-date">' +
+      '<input type="date" id="mat-date" oninput="clearMaternalEstimateFlag()">' +
+      '<p id="mat-estimate-toggle" style="margin:4px 0 0;"><a href="#" onclick="toggleMaternalEstimate();return false;" style="color:#94a3b8;font-size:12.5px;text-decoration:underline;">Not sure of the exact date? Estimate instead</a></p>' +
+      '<div id="mat-estimate-box" style="display:none;margin-top:8px;">' + buildMaternalEstimateBoxHTML('antenatal') + '</div>' +
       '<button onclick="saveMaternalSetup()">Turn On Tracking</button>';
   } else {
     optinBox.innerHTML =
@@ -1822,7 +1909,10 @@ function renderMaternalScreen() {
         '<option value="postnatal"' + (data.stage === 'postnatal' ? ' selected' : '') + '>Recently gave birth (postnatal)</option>' +
       '</select>' +
       '<label style="font-size:12px;color:#93c5fd;" id="mat-date-label">' + (data.stage === 'postnatal' ? 'Delivery date' : 'Due date') + '</label>' +
-      '<input type="date" id="mat-date" value="' + (data.dueDate || '') + '">' +
+      '<input type="date" id="mat-date" value="' + (data.dueDate || '') + '" data-estimated="' + (data.estimated ? 'true' : 'false') + '" oninput="clearMaternalEstimateFlag()">' +
+      '<p id="mat-estimate-toggle" style="margin:4px 0 0;"><a href="#" onclick="toggleMaternalEstimate();return false;" style="color:#94a3b8;font-size:12.5px;text-decoration:underline;">Not sure of the exact date? Estimate instead</a></p>' +
+      '<div id="mat-estimate-box" style="display:none;margin-top:8px;">' + buildMaternalEstimateBoxHTML(data.stage) + '</div>' +
+      (data.estimated ? '<p style="color:#94a3b8;font-size:12px;margin:6px 0 0;">Current date is an estimate.</p>' : '') +
       '<button onclick="saveMaternalSetup()">Update</button>' +
       '<button class="secondary" onclick="disableMaternalTracking()" style="margin-top:8px;color:#fca5a5;">Turn Off Tracking</button>';
   }
@@ -1831,13 +1921,45 @@ function renderMaternalScreen() {
   if (stageSelect) {
     stageSelect.onchange = function () {
       document.getElementById('mat-date-label').textContent = stageSelect.value === 'postnatal' ? 'Delivery date' : 'Due date';
+      // Both stages now offer an estimate shortcut — regenerate the box's
+      // contents (months-pregnant vs weeks-since-delivery) to match
+      // whichever stage is now selected, and collapse it closed so it
+      // doesn't show stale options from the previous stage.
+      const box = document.getElementById('mat-estimate-box');
+      if (box) {
+        box.innerHTML = buildMaternalEstimateBoxHTML(stageSelect.value);
+        box.style.display = 'none';
+      }
     };
   }
 
   if (!data.enabled) { trackBox.innerHTML = ''; return; }
 
   const signs = data.stage === 'postnatal' ? POSTNATAL_DANGER_SIGNS : ANTENATAL_DANGER_SIGNS;
+  const timeline = computeMaternalTimeline(data);
+  const timelineCard = timeline
+    ? '<div class="card mat-timeline-card">' +
+        '<h3>' + (data.stage === 'postnatal' ? 'Recovery Timeline' : 'Pregnancy Timeline') + '</h3>' +
+        (data.estimated ? '<p style="color:#e8cd9a;font-size:11.5px;margin:0 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">Estimated</p>' : '') +
+        '<p style="color:#e2e8f0;font-size:14px;margin:0 0 8px;">' + escapeHtml(timeline.progressLabel) + '</p>' +
+        '<p style="color:#94a3b8;font-size:13px;margin:0;">Next: ' + escapeHtml(timeline.nextCheckupLabel) +
+          (timeline.nextCheckupDate ? ' \u2014 ' + escapeHtml(timeline.nextCheckupDate) : '') +
+        '</p>' +
+      '</div>'
+    : '<div class="card">' +
+        '<p style="color:#94a3b8;font-size:13px;margin:0;">Add a ' + (data.stage === 'postnatal' ? 'delivery' : 'due') + ' date above to see your ' + (data.stage === 'postnatal' ? 'recovery timeline and checkup schedule' : 'pregnancy week and checkup schedule') + '.</p>' +
+      '</div>';
   trackBox.innerHTML =
+    timelineCard +
+    '<div class="card">' +
+      '<h3>Today\u2019s Check-in</h3>' +
+      '<p style="color:#94a3b8;font-size:12px;margin-top:0;">Any of the danger signs below, today?</p>' +
+      '<div class="quick-row" id="mat-checkin-row">' +
+        '<button class="quick-btn" onclick="setMaternalCheckin(\'no\')" data-val="no">\ud83d\ude42 No</button>' +
+        '<button class="quick-btn" onclick="setMaternalCheckin(\'yes\')" data-val="yes">\u26a0\ufe0f Yes</button>' +
+      '</div>' +
+      '<div id="mat-checkin-warning"></div>' +
+    '</div>' +
     '<div class="card">' +
       '<h3>\u26a0\ufe0f Danger Signs \u2014 Seek Care Immediately</h3>' +
       '<p style="color:#94a3b8;font-size:12px;margin-top:0;">General guidance only \u2014 not a substitute for a doctor or midwife.</p>' +
@@ -1845,13 +1967,132 @@ function renderMaternalScreen() {
         signs.map(function (s) { return '\u2022 ' + escapeHtml(s); }).join('<br>') +
       '</div>' +
       '<button class="sos" onclick="triggerSOS()">\ud83c\udd98 Emergency SOS Alert</button>' +
+    '</div>' +
+    '<div class="card">' +
+      '<h3>Recent Check-ins</h3>' +
+      '<div id="mat-checkin-history"></div>' +
     '</div>';
+
+  renderMaternalCheckin();
+}
+
+// Separate storage key from quick_sleep/quick_activity/quick_mood — a
+// simple date-keyed log, same shape as those, but scoped only to maternal
+// danger-sign check-ins so it can never collide with or affect them.
+function loadMaternalLog() {
+  return JSON.parse(localStorage.getItem('maternalLog') || '{}');
+}
+
+// A log entry is either the old plain string ('yes'/'no', from before this
+// fix) or the current { value, stage } shape. These two helpers read either
+// format so nothing written before this change breaks or needs migrating.
+function maternalCheckinValue(entry) {
+  return (entry && typeof entry === 'object') ? entry.value : entry;
+}
+function maternalCheckinStage(entry) {
+  return (entry && typeof entry === 'object') ? entry.stage : null;
+}
+
+function setMaternalCheckin(value) {
+  const today = todayStr();
+  const log = loadMaternalLog();
+  const currentStage = loadMaternalData().stage || 'antenatal';
+  // Tagging with the stage active right now, so a woman who later switches
+  // from antenatal to postnatal (i.e. gives birth) keeps an accurate record
+  // of which period each past entry actually belonged to, instead of every
+  // entry silently being read as whatever stage is selected today.
+  log[today] = { value: value, stage: currentStage };
+  localStorage.setItem('maternalLog', JSON.stringify(log));
+  syncToFirestore({ maternalLog: log });
+  renderMaternalCheckin();
+}
+
+function renderMaternalCheckin() {
+  const today = todayStr();
+  const log = loadMaternalLog();
+  const todayVal = maternalCheckinValue(log[today]);
+
+  const row = document.getElementById('mat-checkin-row');
+  if (row) {
+    Array.prototype.forEach.call(row.children, function (btn) {
+      btn.classList.toggle('selected', btn.getAttribute('data-val') === todayVal);
+    });
+  }
+
+  // A "Yes" answer surfaces a clear prompt to use SOS/call — it does NOT
+  // auto-trigger SOS itself. Triggering an emergency alert should always be
+  // a deliberate, separate tap, never a side effect of answering a check-in
+  // question (a single mistaken tap here should never fire a real alert).
+  const warningBox = document.getElementById('mat-checkin-warning');
+  if (warningBox) {
+    warningBox.innerHTML = todayVal === 'yes'
+      ? '<div class="alert-banner" style="margin-top:12px;margin-bottom:0;">This may need urgent care \u2014 please use Emergency SOS or call 0800 220 0223 now.</div>'
+      : '';
+  }
+
+  const historyBox = document.getElementById('mat-checkin-history');
+  if (historyBox) {
+    const entries = Object.keys(log).sort().reverse().slice(0, 7);
+    if (entries.length === 0) {
+      historyBox.innerHTML = '<div class="empty">No check-ins logged yet</div>';
+    } else {
+      historyBox.innerHTML = entries.map(function (d) {
+        const val = maternalCheckinValue(log[d]);
+        const stage = maternalCheckinStage(log[d]);
+        const label = val === 'yes' ? '\u26a0\ufe0f Danger sign reported' : '\ud83d\ude42 No danger signs';
+        const color = val === 'yes' ? '#fca5a5' : '#94a3b8';
+        return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-size:13px;">' +
+          '<span style="color:#cbd5e1;">' + escapeHtml(d) + (stage ? ' <span style="color:#64748b;font-size:11px;">(' + escapeHtml(stage) + ')</span>' : '') + '</span>' +
+          '<span style="color:' + color + ';">' + label + '</span>' +
+        '</div>';
+      }).join('');
+    }
+  }
+}
+
+function toggleMaternalEstimate() {
+  const box = document.getElementById('mat-estimate-box');
+  if (box) box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
+}
+
+// Backs an estimated date out from a rough answer, for those without an
+// exact date recorded — a common gap without early ultrasound access
+// (antenatal) or with an informal/unattended delivery (postnatal). Marked
+// as an estimate throughout the UI so it's never shown with false
+// precision.
+function applyMaternalEstimate() {
+  const stage = document.getElementById('mat-stage').value;
+  const value = parseInt(document.getElementById('mat-est-value').value, 10);
+  const dateInput = document.getElementById('mat-date');
+  let estimatedDate;
+  if (stage === 'postnatal') {
+    // Weeks since delivery -> delivery date is that many weeks in the past.
+    estimatedDate = addDays(new Date(), -(value * 7));
+  } else {
+    // Months pregnant -> average 40-week (280-day) pregnancy, 9 months along
+    // being full term, so days remaining scale off the months entered.
+    const daysRemaining = Math.round((9 - value) * (280 / 9));
+    estimatedDate = addDays(new Date(), daysRemaining);
+  }
+  dateInput.value = estimatedDate.toISOString().split('T')[0];
+  dateInput.dataset.estimated = 'true';
+  document.getElementById('mat-estimate-box').style.display = 'none';
+}
+
+// A manual edit to the date field means the woman now has (or is entering)
+// a specific date — no longer an estimate, so the flag clears itself
+// automatically rather than needing a separate "undo estimate" action.
+function clearMaternalEstimateFlag() {
+  const dateInput = document.getElementById('mat-date');
+  if (dateInput) dateInput.dataset.estimated = 'false';
 }
 
 function saveMaternalSetup() {
   const stage = document.getElementById('mat-stage').value;
-  const dateVal = document.getElementById('mat-date').value;
-  const data = { enabled: true, stage: stage, dueDate: dateVal };
+  const dateInput = document.getElementById('mat-date');
+  const dateVal = dateInput.value;
+  const estimated = dateInput.dataset.estimated === 'true';
+  const data = { enabled: true, stage: stage, dueDate: dateVal, estimated: estimated };
   saveMaternalData(data);
   renderMaternalScreen();
   renderMaternalCard();
@@ -2587,4 +2828,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-    } 
+    }
