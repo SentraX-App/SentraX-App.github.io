@@ -52,6 +52,17 @@
     if (authMode === 'signup') { window.signUp(); } else { window.logIn(); }
   };
 
+  // Shared across every sign-in path below (password, biometric, PIN) —
+  // all four ultimately need a real network call to Firebase to finish,
+  // even PIN unlock's local decryption step. Checking upfront gives a
+  // clear, specific reason instead of Firebase's generic network-error
+  // message, which doesn't tell someone offline what's actually wrong.
+  function requireOnlineOrExplain(errorEl) {
+    if (navigator.onLine) return true;
+    if (errorEl) errorEl.textContent = "You're offline — connect to the internet to log in.";
+    return false;
+  }
+
   window.signUp = function() {
     const emailEl = document.getElementById('auth-email');
     const passwordEl = document.getElementById('auth-password');
@@ -61,19 +72,395 @@
     const email = emailEl.value.trim();
     const password = passwordEl.value;
     errorEl.textContent = '';
+    if (!requireOnlineOrExplain(errorEl)) return;
 
     if (!email || !password) { errorEl.textContent = 'Please enter both email and password.'; return; }
-const consentEl = document.getElementById('auth-consent');
+    const consentEl = document.getElementById('auth-consent');
     if (consentEl && !consentEl.checked) { errorEl.textContent = 'Please agree to the Privacy Policy to create an account.'; return; }
+    // Captured synchronously, before the async call — signInWithEmailAndPassword's
+    // promise and Firebase's onAuthStateChanged listener don't have a
+    // guaranteed order relative to each other, so waiting for the promise
+    // to resolve to set this risks onAuthStateChanged (and the quick-unlock
+    // prompt it can trigger) firing first and finding nothing here yet.
+    window.__lastAuthEmail = email;
+    window.__lastAuthPassword = password;
     firebase.auth().createUserWithEmailAndPassword(email, password)
-      .then(function() { console.log('Sentra-X: sign up successful.'); })
+      .then(function() {
+        console.log('Sentra-X: sign up successful.');
+      })
       .catch(function(err) {
         console.error('Sentra-X sign up error:', err.code, err.message);
         errorEl.textContent = err.message;
+        window.__lastAuthEmail = null;
+        window.__lastAuthPassword = null;
       });
   };
 
   firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
+
+  // ======================================================================
+  // Quick Unlock — fingerprint/face (WebAuthn) and PIN, as two independent
+  // shortcuts on top of ordinary email/password login. Neither ever
+  // replaces it; persistence stays NONE (a shared family device still
+  // requires re-authenticating each time), this just makes that required
+  // re-authentication faster on a device someone actually owns.
+  // ======================================================================
+
+  // REPLACE THIS after deploying the WebAuthn worker (src/worker.js in this
+  // same repo) — same origin, no separate URL to manage once deployed.
+  const WEBAUTHN_WORKER_URL = '/api/webauthn';
+
+  function base64urlToBuffer(base64url) {
+    const padded = base64url.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (base64url.length % 4)) % 4);
+    const binary = atob(padded);
+    const buffer = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) buffer[i] = binary.charCodeAt(i);
+    return buffer.buffer;
+  }
+  function bufferToBase64url(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  // --- Fingerprint / Face Unlock (WebAuthn) ------------------------------
+  function biometricSupported() {
+    // More than just "does the API exist" — confirms the phone actually
+    // has a usable platform authenticator right now. On Android that
+    // includes fingerprint, face unlock, AND a PIN/pattern/password screen
+    // lock — WebAuthn doesn't require biometric hardware specifically, any
+    // secure screen lock the phone already has qualifies. Only a phone
+    // with NO screen lock at all fails this — for that person, the in-app
+    // PIN below is the option that still works.
+    if (typeof window.PublicKeyCredential === 'undefined') return Promise.resolve(false);
+    if (typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function') return Promise.resolve(false);
+    return window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(function() { return false; });
+  }
+
+  function doEnableBiometricLogin(user) {
+    const errorEl = document.getElementById('quick-unlock-enroll-error');
+    let capturedStateToken = null;
+    fetch(WEBAUTHN_WORKER_URL + '/register-options', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: user.uid, email: user.email })
+    })
+      .then(function(res) { return res.json(); })
+      .then(function(options) {
+        capturedStateToken = options.stateToken;
+        options.challenge = base64urlToBuffer(options.challenge);
+        options.user.id = base64urlToBuffer(options.user.id);
+        if (options.excludeCredentials) {
+          options.excludeCredentials.forEach(function(c) { c.id = base64urlToBuffer(c.id); });
+        }
+        return navigator.credentials.create({ publicKey: options });
+      })
+      .then(function(credential) {
+        const payload = {
+          uid: user.uid,
+          stateToken: capturedStateToken,
+          id: credential.id,
+          rawId: bufferToBase64url(credential.rawId),
+          type: credential.type,
+          response: {
+            attestationObject: bufferToBase64url(credential.response.attestationObject),
+            clientDataJSON: bufferToBase64url(credential.response.clientDataJSON)
+          }
+        };
+        return fetch(WEBAUTHN_WORKER_URL + '/register-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(result) {
+        if (!result.verified) throw new Error(result.error || 'Verification failed.');
+        localStorage.setItem('biometricEnrolledOnThisDevice', 'true');
+        window.dismissQuickUnlockEnroll();
+      })
+      .catch(function(err) {
+        console.error('Sentra-X biometric enrollment error:', err && err.message);
+        if (errorEl) errorEl.textContent = "Couldn't set up fingerprint unlock. You can still log in with your password as usual.";
+      });
+  }
+
+  window.enableBiometricLogin = function() {
+    const user = firebase.auth().currentUser;
+    if (!user) return;
+    doEnableBiometricLogin(user);
+  };
+
+  window.tryBiometricLogin = function() {
+    const errorEl = document.getElementById('auth-error');
+    if (errorEl) errorEl.textContent = '';
+    if (!requireOnlineOrExplain(errorEl)) return;
+    if (typeof window.PublicKeyCredential === 'undefined') { if (errorEl) errorEl.textContent = "Fingerprint/face unlock isn't supported on this device or browser."; return; }
+
+    let capturedStateToken = null;
+    fetch(WEBAUTHN_WORKER_URL + '/login-options', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })
+      .then(function(res) { return res.json(); })
+      .then(function(options) {
+        capturedStateToken = options.stateToken;
+        options.challenge = base64urlToBuffer(options.challenge);
+        return navigator.credentials.get({ publicKey: options });
+      })
+      .then(function(credential) {
+        const payload = {
+          stateToken: capturedStateToken,
+          id: credential.id,
+          rawId: bufferToBase64url(credential.rawId),
+          type: credential.type,
+          response: {
+            authenticatorData: bufferToBase64url(credential.response.authenticatorData),
+            clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
+            signature: bufferToBase64url(credential.response.signature),
+            userHandle: credential.response.userHandle ? bufferToBase64url(credential.response.userHandle) : null
+          }
+        };
+        return fetch(WEBAUTHN_WORKER_URL + '/login-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(result) {
+        if (!result.token) throw new Error(result.error || 'Verification failed.');
+        return firebase.auth().signInWithCustomToken(result.token);
+      })
+      .catch(function(err) {
+        console.error('Sentra-X biometric login error:', err && err.message);
+        if (errorEl) errorEl.textContent = "Fingerprint login didn't work — please log in with your email and password instead.";
+      });
+  };
+
+  // --- PIN Unlock ---------------------------------------------------------
+  // Genuinely different security shape from fingerprint, and it's
+  // important to be honest about that rather than dress it up as
+  // equivalent: a 4-digit PIN has far fewer possible combinations than a
+  // biometric match, so this is a convenience layer appropriate for a
+  // personal device, not a strong security boundary. What it IS built
+  // properly: the PIN is never stored anywhere, on this device or any
+  // server. Instead it derives an encryption key (PBKDF2, 250,000
+  // iterations, random salt) used to encrypt the account's email/password
+  // into a local-only "vault". A wrong PIN doesn't get compared against
+  // anything — it just derives the wrong key, and AES-GCM's built-in
+  // integrity check makes decryption fail outright. Everything here stays
+  // on-device; the Worker/backend is never involved in PIN unlock at all.
+  async function deriveKeyFromPin(pin, saltBytes) {
+    const pinKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: saltBytes, iterations: 250000, hash: 'SHA-256' },
+      pinKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  async function setupPinUnlock(pin, email, password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKeyFromPin(pin, salt);
+    const plaintext = new TextEncoder().encode(JSON.stringify({ email: email, password: password }));
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext);
+    localStorage.setItem('pinVaultV1', JSON.stringify({
+      salt: bufferToBase64url(salt.buffer),
+      iv: bufferToBase64url(iv.buffer),
+      data: bufferToBase64url(ciphertext)
+    }));
+    localStorage.setItem('pinEnrolledOnThisDevice', 'true');
+  }
+
+  async function unlockWithPin(pin) {
+    const vaultRaw = localStorage.getItem('pinVaultV1');
+    if (!vaultRaw) throw new Error('No PIN set up on this device.');
+    const vault = JSON.parse(vaultRaw);
+    const salt = new Uint8Array(base64urlToBuffer(vault.salt));
+    const iv = new Uint8Array(base64urlToBuffer(vault.iv));
+    const key = await deriveKeyFromPin(pin, salt);
+    const ciphertext = base64urlToBuffer(vault.data);
+    // Throws here — via AES-GCM's authentication tag — if the PIN (and so
+    // the derived key) is wrong. That failure IS the "wrong PIN" check;
+    // there's no separate comparison to bypass.
+    const plaintextBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ciphertext);
+    const creds = JSON.parse(new TextDecoder().decode(plaintextBuf));
+    return firebase.auth().signInWithEmailAndPassword(creds.email, creds.password);
+  }
+
+  // PIN entry-screen state machine — shared between first-time setup
+  // (two steps: enter, then confirm) and everyday unlock (one step).
+  let pinScreenMode = null; // 'setup-enter' | 'setup-confirm' | 'unlock'
+  let pinBuffer = '';
+  let pinFirstEntry = '';
+  let pinFailedAttempts = 0;
+
+  function updatePinDots() {
+    for (let i = 0; i < 4; i++) {
+      const dot = document.getElementById('pin-dot-' + i);
+      if (dot) dot.classList.toggle('filled', i < pinBuffer.length);
+    }
+  }
+  function shakePinDots() {
+    for (let i = 0; i < 4; i++) {
+      const dot = document.getElementById('pin-dot-' + i);
+      if (dot) {
+        dot.classList.add('error-shake');
+        setTimeout(function() { dot.classList.remove('error-shake'); }, 400);
+      }
+    }
+  }
+
+  window.openPinSetup = function() {
+    pinScreenMode = 'setup-enter';
+    pinBuffer = '';
+    pinFirstEntry = '';
+    document.getElementById('pin-screen-title').textContent = 'Create a PIN';
+    document.getElementById('pin-screen-subtitle').textContent = 'Choose a 4-digit PIN for this device';
+    document.getElementById('pin-screen-error').textContent = '';
+    document.getElementById('pin-screen-cancel').textContent = 'Cancel';
+    updatePinDots();
+    document.getElementById('pin-screen-overlay').style.display = 'flex';
+  };
+
+  window.openPinUnlock = function() {
+    if (!requireOnlineOrExplain(document.getElementById('auth-error'))) return;
+    pinScreenMode = 'unlock';
+    pinBuffer = '';
+    document.getElementById('pin-screen-title').textContent = 'Enter Your PIN';
+    document.getElementById('pin-screen-subtitle').textContent = 'Quick unlock for this device';
+    document.getElementById('pin-screen-error').textContent = '';
+    document.getElementById('pin-screen-cancel').textContent = 'Use email & password instead';
+    updatePinDots();
+    document.getElementById('pin-screen-overlay').style.display = 'flex';
+  };
+
+  window.cancelPinScreen = function() {
+    document.getElementById('pin-screen-overlay').style.display = 'none';
+    pinScreenMode = null;
+    pinBuffer = '';
+    pinFirstEntry = '';
+  };
+
+  window.pinKeyBackspace = function() {
+    pinBuffer = pinBuffer.slice(0, -1);
+    updatePinDots();
+  };
+
+  window.pinKeyPress = function(digit) {
+    if (pinBuffer.length >= 4) return;
+    pinBuffer += digit;
+    updatePinDots();
+    if (pinBuffer.length === 4) handlePinComplete();
+  };
+
+  function handlePinComplete() {
+    const errorEl = document.getElementById('pin-screen-error');
+    if (pinScreenMode === 'setup-enter') {
+      pinFirstEntry = pinBuffer;
+      pinBuffer = '';
+      pinScreenMode = 'setup-confirm';
+      document.getElementById('pin-screen-title').textContent = 'Confirm Your PIN';
+      document.getElementById('pin-screen-subtitle').textContent = 'Enter it once more';
+      setTimeout(updatePinDots, 120);
+      return;
+    }
+    if (pinScreenMode === 'setup-confirm') {
+      if (pinBuffer !== pinFirstEntry) {
+        if (errorEl) errorEl.textContent = "PINs didn't match — try again.";
+        shakePinDots();
+        pinScreenMode = 'setup-enter';
+        pinBuffer = '';
+        pinFirstEntry = '';
+        document.getElementById('pin-screen-title').textContent = 'Create a PIN';
+        document.getElementById('pin-screen-subtitle').textContent = 'Choose a 4-digit PIN for this device';
+        setTimeout(updatePinDots, 400);
+        return;
+      }
+      const finalPin = pinBuffer;
+      setupPinUnlock(finalPin, window.__lastAuthEmail, window.__lastAuthPassword)
+        .then(function() {
+          window.cancelPinScreen();
+          window.dismissQuickUnlockEnroll();
+        })
+        .catch(function(err) {
+          console.error('Sentra-X PIN setup error:', err && err.message);
+          if (errorEl) errorEl.textContent = "Couldn't set up your PIN — please try again.";
+          pinBuffer = '';
+          updatePinDots();
+        });
+      return;
+    }
+    if (pinScreenMode === 'unlock') {
+      if (pinFailedAttempts >= 5) {
+        if (errorEl) errorEl.textContent = 'Too many attempts — please use email & password.';
+        pinBuffer = '';
+        updatePinDots();
+        return;
+      }
+      const attemptedPin = pinBuffer;
+      unlockWithPin(attemptedPin)
+        .then(function() {
+          window.cancelPinScreen();
+          pinFailedAttempts = 0;
+        })
+        .catch(function(err) {
+          console.error('Sentra-X PIN unlock failed:', err && err.message);
+          pinFailedAttempts++;
+          if (errorEl) {
+            errorEl.textContent = pinFailedAttempts >= 5
+              ? 'Too many attempts — please use email & password.'
+              : 'Incorrect PIN — try again.';
+          }
+          shakePinDots();
+          pinBuffer = '';
+          setTimeout(updatePinDots, 400);
+        });
+    }
+  }
+
+  // --- Unified enrollment prompt ------------------------------------------
+  window.dismissQuickUnlockEnroll = function() {
+    localStorage.setItem('quickUnlockEnrollDismissed', 'true');
+    const el = document.getElementById('quick-unlock-enroll-overlay');
+    if (el) el.style.display = 'none';
+    // Credentials only ever needed transiently, to offer/complete PIN
+    // setup right after a real login — cleared the moment that's done or
+    // declined, regardless of which option (or neither) was chosen.
+    window.__lastAuthEmail = null;
+    window.__lastAuthPassword = null;
+  };
+
+  function maybeOfferQuickUnlockEnroll() {
+    const alreadyHasOne = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true' || localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
+    if (alreadyHasOne || localStorage.getItem('quickUnlockEnrollDismissed') === 'true') return;
+    if (!window.__lastAuthEmail || !window.__lastAuthPassword) return; // e.g. a session restored without a fresh password entry
+    biometricSupported().then(function(supported) {
+      const bioOption = document.getElementById('quick-unlock-biometric-option');
+      if (bioOption) bioOption.style.display = supported ? 'block' : 'none';
+      const overlay = document.getElementById('quick-unlock-enroll-overlay');
+      if (overlay) overlay.style.display = 'flex';
+    });
+  }
+
+  // Show whichever quick-unlock button(s) this device has already set up,
+  // on the login screen, before anyone has logged in yet.
+  function updateAuthScreenQuickUnlockButtons() {
+    const bioBtn = document.getElementById('auth-biometric-btn');
+    if (bioBtn) bioBtn.style.display = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true' ? 'block' : 'none';
+    const pinBtn = document.getElementById('auth-pin-btn');
+    if (pinBtn) pinBtn.style.display = localStorage.getItem('pinEnrolledOnThisDevice') === 'true' ? 'block' : 'none';
+  }
+  document.addEventListener('DOMContentLoaded', updateAuthScreenQuickUnlockButtons);
+  // ======================================================================
+  // end Quick Unlock
+  // ======================================================================
 
   window.logIn = function() {
     const emailEl = document.getElementById('auth-email');
@@ -84,14 +471,23 @@ const consentEl = document.getElementById('auth-consent');
     const email = emailEl.value.trim();
     const password = passwordEl.value;
     errorEl.textContent = '';
+    if (!requireOnlineOrExplain(errorEl)) return;
 
     if (!email || !password) { errorEl.textContent = 'Please enter both email and password.'; return; }
 
+    // Captured synchronously, before the async call — see identical note
+    // in signUp() above for why this can't wait for the promise to resolve.
+    window.__lastAuthEmail = email;
+    window.__lastAuthPassword = password;
     firebase.auth().signInWithEmailAndPassword(email, password)
-      .then(function() { console.log('Sentra-X: log in successful.'); })
+      .then(function() {
+        console.log('Sentra-X: log in successful.');
+      })
       .catch(function(err) {
         console.error('Sentra-X log in error:', err.code, err.message);
         errorEl.textContent = err.message;
+        window.__lastAuthEmail = null;
+        window.__lastAuthPassword = null;
       });
   };
 
@@ -179,6 +575,7 @@ const consentEl = document.getElementById('auth-consent');
           if (typeof window.ensurePushSubscription === 'function') {
             window.ensurePushSubscription();
           }
+          maybeOfferQuickUnlockEnroll();
         });
       }
     } else {
