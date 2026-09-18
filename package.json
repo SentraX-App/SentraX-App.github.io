@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@block65/webcrypto-web-push": "^1.0.0"
+    "@block65/webcrypto-web-push": "^1.0.0",
+    "@simplewebauthn/server": "^10.0.0"
   }
 }
