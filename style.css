@@ -749,3 +749,58 @@ nav button.active .icon { filter: none; }
   border-color: rgba(201,162,94,0.3);
 }
 #maternal-screen .quick-btn.selected { background: linear-gradient(135deg, #C9A25E, #a9813f); color: #0f172a; }
+
+/* Quick-unlock enrollment prompt — same full-screen overlay pattern as
+   #auth-overlay, scoped to its own ID so nothing shared is touched. */
+#quick-unlock-enroll-overlay {
+  position: fixed; inset: 0;
+  background: radial-gradient(circle at 30% 20%, #1e40af 0%, #0b1220 70%);
+  color: white; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 24px;
+}
+#quick-unlock-enroll-overlay .box { max-width: 380px; width: 100%; text-align: center; }
+#quick-unlock-enroll-overlay h2 { margin-bottom: 4px; font-size: 24px; }
+#quick-unlock-enroll-overlay p { color: #93c5fd; font-size: 14px; margin-top: 0; margin-bottom: 18px; }
+#quick-unlock-enroll-overlay .error { color: #fca5a5; font-size: 13px; margin-top: 6px; min-height: 16px; }
+#quick-unlock-enroll-overlay .switch { background: none; color: #93c5fd; font-weight: 500; box-shadow: none; margin-top: 10px; padding: 8px; }
+
+/* PIN entry/setup screen — same overlay pattern again, plus the keypad and
+   progress-dot components specific to this screen. Brand gold (#C9A25E)
+   used for active/filled states, matching the Maternal & Child Health
+   accent already established elsewhere in the app. */
+#pin-screen-overlay {
+  position: fixed; inset: 0;
+  background: radial-gradient(circle at 30% 20%, #1e40af 0%, #0b1220 70%);
+  color: white; z-index: 1001; display: none; align-items: center; justify-content: center; padding: 24px;
+}
+#pin-screen-overlay .box { max-width: 340px; width: 100%; }
+#pin-screen-overlay h2 { margin-bottom: 4px; font-size: 22px; }
+#pin-screen-overlay .error { color: #fca5a5; font-size: 13px; min-height: 16px; margin-bottom: 4px; }
+#pin-screen-overlay .switch { background: none; color: #93c5fd; font-weight: 500; box-shadow: none; margin-top: 16px; padding: 8px; }
+
+.pin-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(201,162,94,0.5);
+  background: transparent;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.pin-dot.filled { background: #C9A25E; transform: scale(1.1); }
+.pin-dot.error-shake { animation: pinShake 0.4s ease; }
+@keyframes pinShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+#pin-keypad {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+  max-width: 260px; margin: 0 auto;
+}
+.pin-key {
+  width: 100%; aspect-ratio: 1; border-radius: 50%;
+  background: rgba(255,255,255,0.08); color: white;
+  border: none; font-size: 22px; font-weight: 600;
+  margin-top: 0; box-shadow: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.pin-key:active { background: rgba(201,162,94,0.35); transform: scale(0.94); }
+.pin-key-back { font-size: 18px; color: #fca5a5; }
