@@ -23,9 +23,7 @@
 </script>
 <script src="https://js.sentry-cdn.com/610f527fbbea6d7402d8bc9cec492ad5.min.js" crossorigin="anonymous"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Sentra-X — Blood Pressure, Medication & Caregiver Alerts</title>
-<meta name="description" content="Sentra-X helps you track blood pressure and medication, alerts caregivers automatically, and sends emergency SOS with your location and medical passport.">
-<link rel="canonical" href="https://sentra-x.app/">
+<title>Sentra-X</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
 <link rel="stylesheet" href="style.css">
@@ -36,6 +34,28 @@
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5333717271762861" crossorigin="anonymous"></script>
 </head>
 <body>
+<!-- App-wide offline warning — shown whenever the device has no network,
+     regardless of which screen is open. Specifically calls out Emergency
+     SOS, since that's the one thing caching the app shell can never fix:
+     SOS requires a live network call to actually send SMS/email/WhatsApp,
+     so a patient in a dead zone needs to know that clearly, not discover
+     it only when they actually need help. -->
+<div id="offline-banner" style="display:none;background:#7f1d1d;color:#fecaca;padding:10px 16px;font-size:12.5px;text-align:center;font-weight:600;">
+  ⚠️ No internet connection — Emergency SOS may not reach help. Move toward a signal if possible.
+</div>
+<script>
+  // Self-contained, no dependency on the rest of the app's scripts having
+  // loaded yet — this needs to work the instant a cached page opens offline.
+  (function () {
+    function updateOfflineBanner() {
+      var banner = document.getElementById('offline-banner');
+      if (banner) banner.style.display = navigator.onLine ? 'none' : 'block';
+    }
+    window.addEventListener('online', updateOfflineBanner);
+    window.addEventListener('offline', updateOfflineBanner);
+    updateOfflineBanner();
+  })();
+</script>
 <div id="caregiver-overlay" style="display:none;">
   <div class="cgv-wrap">
     <div class="cgv-brand">
@@ -78,8 +98,63 @@
       </label>
       <div class="error" id="auth-error"></div>
       <button id="auth-submit-btn" onclick="submitAuth()">Log In</button>
+      <!-- Quick-unlock shortcuts — each only shown on a device that has
+           already set it up (see enableBiometricLogin() / setupPinUnlock()
+           in auth.js). Both invisible by default; neither ever replaces the
+           email/password fields above, which always work regardless. -->
+      <button id="auth-biometric-btn" onclick="tryBiometricLogin()" style="display:none;margin-top:8px;background:rgba(201,162,94,0.14);color:#e8cd9a;">👆 Log In with Fingerprint</button>
+      <button id="auth-pin-btn" onclick="openPinUnlock()" style="display:none;margin-top:8px;background:rgba(201,162,94,0.14);color:#e8cd9a;">🔢 Log In with PIN</button>
       <button class="switch" onclick="toggleAuthMode()">Don't have an account? Sign Up</button>
       <a href="articles-public.html" style="display:block;margin-top:14px;font-size:12.5px;color:#93c5fd;">Just here to read? Browse our free health articles →</a>
+    </div>
+  </div>
+
+  <!-- Shown once, right after a normal email/password login succeeds, only
+       on a device that hasn't already set up a quick-unlock shortcut.
+       Offers whichever options actually apply to this device — fingerprint
+       only where supported, PIN always available as the option that works
+       everywhere. Purely optional — dismissible, and skipping it changes
+       nothing about how the account works. -->
+  <div id="quick-unlock-enroll-overlay" style="display:none;">
+    <div class="box">
+      <h2>Skip Typing Your Password?</h2>
+      <p style="color:#94a3b8;font-size:13.5px;">Set up a faster way to log back in on this device. Your email and password still always work too.</p>
+      <div class="error" id="quick-unlock-enroll-error"></div>
+      <button id="quick-unlock-biometric-option" onclick="enableBiometricLogin()" style="display:none;">👆 Use Fingerprint / Face Unlock</button>
+      <button onclick="openPinSetup()">🔢 Set Up a 4-Digit PIN</button>
+      <button class="switch" onclick="dismissQuickUnlockEnroll()">Not now</button>
+    </div>
+  </div>
+
+  <!-- PIN entry keypad — reused for both first-time setup (two steps: enter,
+       then confirm) and everyday unlock (one step). pinScreenMode in
+       auth.js controls which. -->
+  <div id="pin-screen-overlay" style="display:none;">
+    <div class="box" style="text-align:center;">
+      <h2 id="pin-screen-title">Enter Your PIN</h2>
+      <p id="pin-screen-subtitle" style="color:#94a3b8;font-size:13px;margin-top:0;">Quick unlock for this device</p>
+      <div id="pin-dots" style="display:flex;justify-content:center;gap:16px;margin:26px 0;">
+        <span class="pin-dot" id="pin-dot-0"></span>
+        <span class="pin-dot" id="pin-dot-1"></span>
+        <span class="pin-dot" id="pin-dot-2"></span>
+        <span class="pin-dot" id="pin-dot-3"></span>
+      </div>
+      <div class="error" id="pin-screen-error"></div>
+      <div id="pin-keypad">
+        <button type="button" class="pin-key" onclick="pinKeyPress('1')">1</button>
+        <button type="button" class="pin-key" onclick="pinKeyPress('2')">2</button>
+        <button type="button" class="pin-key" onclick="pinKeyPress('3')">3</button>
+        <button type="button" class="pin-key" onclick="pinKeyPress('4')">4</button>
+        <button type="button" class="pin-key" onclick="pinKeyPress('5')">5</button>
+        <button type="button" class="pin-key" onclick="pinKeyPress('6')">6</button>
+        <button type="button" class="pin-key" onclick="pinKeyPress('7')">7</button>
+        <button type="button" class="pin-key" onclick="pinKeyPress('8')">8</button>
+        <button type="button" class="pin-key" onclick="pinKeyPress('9')">9</button>
+        <span></span>
+        <button type="button" class="pin-key" onclick="pinKeyPress('0')">0</button>
+        <button type="button" class="pin-key pin-key-back" onclick="pinKeyBackspace()">⌫</button>
+      </div>
+      <button class="switch" onclick="cancelPinScreen()" id="pin-screen-cancel">Use email &amp; password instead</button>
     </div>
   </div>
 
