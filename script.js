@@ -236,6 +236,20 @@ function getRisk(sys, dia) {
   return { level: "Normal", color: "#bbf7d0", severity: 0 };
 }
 
+// Standard resting pulse range: 60–100 bpm. Purely informational alongside
+// the BP result — deliberately does NOT change BP severity or the
+// caregiver-alert trigger, since a pulse alone outside this range is often
+// benign (fitness, caffeine, anxiety) and treating it as automatically
+// alert-worthy would risk real alert fatigue. Shown so the person still
+// sees it and can act on it themselves.
+function getPulseStatus(hr) {
+  const bpm = parseInt(hr, 10);
+  if (!bpm) return null;
+  if (bpm < 60) return { label: 'Low (' + bpm + ' bpm)', color: '#fed7aa' };
+  if (bpm > 100) return { label: 'High (' + bpm + ' bpm)', color: '#fed7aa' };
+  return { label: 'Normal (' + bpm + ' bpm)', color: '#bbf7d0' };
+}
+
 function checkBP() {
   const sys = parseInt(document.getElementById('systolic').value);
   const dia = parseInt(document.getElementById('diastolic').value);
@@ -252,9 +266,10 @@ function checkBP() {
   }
 
   const risk = getRisk(sys, dia);
+  const pulseStatus = getPulseStatus(hr);
   result.style.display = "block";
   result.style.background = risk.color;
-  result.textContent = risk.level;
+  result.textContent = risk.level + (pulseStatus ? ' · Pulse: ' + pulseStatus.label : '');
 
   const now = new Date();
   const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
@@ -270,6 +285,9 @@ function checkBP() {
 }
 
 function alertCaregiverNow(sys, dia, level) {
+  if (!navigator.onLine) {
+    alert('⚠️ You appear to be offline — this alert may not send until you have signal. Sentra-X will still try to open WhatsApp now.');
+  }
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   // WhatsApp-only button — a wa.me link can only target one chat, so this
   // goes to the primary caregiver. For an alert that reaches every saved
@@ -1215,11 +1233,20 @@ warmUpLocation();
 // this used to live here and never worked.
 
 function triggerSOS() {
-  const confirmMsg = 'This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your primary caregiver' +
+  const isOffline = !navigator.onLine;
+  const confirmMsg = (isOffline ? '⚠️ You appear to be offline — SMS, email, and WhatsApp may not send until you have signal. If possible, move toward network coverage or call for help directly.\n\n' : '') +
+    'This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your primary caregiver' +
     (SOS_SEND_TO_STATE_LINE ? ', and notify the Bayelsa State emergency line' : '') +
     '. Continue?';
   const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
+  if (isOffline) {
+    // A console log is invisible to the person using the app — for
+    // something this safety-critical, silence is the wrong default.
+    // Attempted anyway (connectivity can restore mid-attempt), but this
+    // makes the risk visible on-screen rather than only in dev tools.
+    alert('Still offline — Sentra-X will try to send now, but the alert may not go through until you have signal.');
+  }
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   const caregivers = loadCaregivers().filter(function (c) { return c.phone || c.email; });
   const primary = caregivers.find(function (c) { return c.isPrimary; }) || caregivers[0];
