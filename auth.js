@@ -508,6 +508,8 @@
     const pinBtn = document.getElementById('auth-pin-btn');
     const pinEnrolled = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
     if (pinBtn) pinBtn.style.display = pinEnrolled ? 'block' : 'none';
+    const teaser = document.getElementById('quick-unlock-teaser');
+    if (teaser) teaser.style.display = (!bioEnrolled && !pinEnrolled) ? 'block' : 'none';
 
     if (bioEnrolled) {
       biometricSupported().then(function (supported) {
