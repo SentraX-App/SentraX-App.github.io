@@ -285,9 +285,6 @@ function checkBP() {
 }
 
 function alertCaregiverNow(sys, dia, level) {
-  if (!navigator.onLine) {
-    alert('⚠️ You appear to be offline — this alert may not send until you have signal. Sentra-X will still try to open WhatsApp now.');
-  }
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   // WhatsApp-only button — a wa.me link can only target one chat, so this
   // goes to the primary caregiver. For an alert that reaches every saved
@@ -297,7 +294,15 @@ function alertCaregiverNow(sys, dia, level) {
   const cgPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
   const msg = '\u26A0\uFE0F Sentra-X Alert: ' + name + "'s blood pressure just read " + sys + '/' + dia + ' (' + level + '). Please check on them.';
   const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
+  // window.open() stays synchronous, immediately after the tap — WhatsApp
+  // only reliably auto-launches (instead of showing its own fallback page)
+  // when the navigation happens in the same tick as the user's tap. The
+  // connectivity check below runs in parallel afterward, never gating or
+  // delaying this call.
   window.open(url, '_blank');
+  isReallyOffline().then(function (offline) {
+    if (offline) alert('⚠️ You appear to be offline — this alert may not have sent. Please confirm your caregiver received it, or call them directly.');
+  });
 }
 
 // Parses a flexible duration string like "5 days", "2 weeks", "1 month", or a
@@ -1179,13 +1184,30 @@ const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/';
 // would need a server-side component this app doesn't have.
 const SOS_WORKER_SHARED_SECRET = '9b2130862489d515ded40ad792739e4df2db09a4db6383c8';
 
-// A genuine GPS fix is typically accurate to within tens of meters outdoors.
-// Anything much looser than that is usually the browser falling back to
-// WiFi/cell-tower positioning — which can be off by hundreds of meters to a
-// few kilometers, and tends to return the same stale estimate repeatedly
-// (especially indoors) rather than tracking real movement. Treating that as
-// "exact" is actively misleading in an emergency, so it's gated out here.
-const MAX_EXACT_ACCURACY_M = 100;
+// navigator.onLine alone is known to be unreliable inside PWA/TWA app
+// wrappers (like the PWABuilder-generated APK this runs as) — it can
+// report false even with a perfectly good connection. Rather than trust
+// that single signal for something safety-critical, this actually tests
+// reachability with a real request first. Same-origin (fetches this app's
+// own manifest.json) to avoid any CORS complications, with a short 2.5s
+// cap so a genuinely offline device doesn't leave someone waiting long
+// before they even see the confirm dialog.
+async function isReallyOffline() {
+  if (navigator.onLine === false) {
+    // The browser's own signal says offline — still worth double-checking
+    // rather than trusting it outright, since this exact false-positive is
+    // the bug being fixed here.
+  }
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(function () { controller.abort(); }, 2500);
+    const res = await fetch(location.origin + '/manifest.json?_check=' + Date.now(), { method: 'GET', cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeoutId);
+    return !res.ok;
+  } catch (e) {
+    return true; // the request genuinely failed or timed out — actually offline
+  }
+}
 
 // ---------------------------------------------------------------------
 // Passive location warm-up. Runs quietly on app load — NOT tied to the
@@ -1212,16 +1234,18 @@ function warmUpLocation() {
   function checkLocation() {
     navigator.geolocation.getCurrentPosition(
       function (pos) {
-        // A low-accuracy fix isn't worth caching at all — better to have
-        // SOS try a fresh live fix later than reuse a stale, imprecise one.
-        if (pos.coords.accuracy > MAX_EXACT_ACCURACY_M) return;
+        // Every valid reading is cached, whatever its accuracy — a live SOS
+        // attempt always tries for a fresh fix first regardless (maximumAge:0
+        // there), so this is purely the fallback for when that live attempt
+        // fails outright. An imprecise cached point, honestly labeled, is
+        // still more useful than nothing.
         localStorage.setItem('lastKnownLat', pos.coords.latitude);
         localStorage.setItem('lastKnownLng', pos.coords.longitude);
         localStorage.setItem('lastKnownAccuracy', pos.coords.accuracy);
         localStorage.setItem('lastKnownLocationAt', Date.now());
       },
       function () { /* denied/unavailable — nothing cached, SOS will fall through to "please call them" */ },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     );
   }
   checkLocation();
@@ -1232,8 +1256,8 @@ warmUpLocation();
 // after auth state is actually confirmed — see the comment there for why
 // this used to live here and never worked.
 
-function triggerSOS() {
-  const isOffline = !navigator.onLine;
+async function triggerSOS() {
+  const isOffline = await isReallyOffline();
   const confirmMsg = (isOffline ? '⚠️ You appear to be offline — SMS, email, and WhatsApp may not send until you have signal. If possible, move toward network coverage or call for help directly.\n\n' : '') +
     'This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your primary caregiver' +
     (SOS_SEND_TO_STATE_LINE ? ', and notify the Bayelsa State emergency line' : '') +
@@ -1384,24 +1408,11 @@ function triggerSOS() {
   }
 
   function useCachedLocationOrGiveUp() {
-    const lat = localStorage.getItem('lastKnownLat');
-    const lng = localStorage.getItem('lastKnownLng');
-    const accuracy = parseFloat(localStorage.getItem('lastKnownAccuracy') || 'Infinity');
-    const at = parseInt(localStorage.getItem('lastKnownLocationAt') || '0', 10);
-    const ageMinutes = (Date.now() - at) / 60000;
-    // A cached fix up to 30 minutes old is still far more useful in an
-    // emergency than nothing — worth using rather than discarding. Only
-    // trusted if it actually met the same accuracy bar as a live fix would
-    // (warmUpLocation only caches fixes that already pass this, but the
-    // check is repeated here in case an older cached value predates that
-    // gate, or lastKnownAccuracy is missing for any other reason).
-    if (lat && lng && ageMinutes < 30 && accuracy <= MAX_EXACT_ACCURACY_M) {
-      const link = 'https://maps.google.com/?q=' + lat + ',' + lng;
-      sendAlert(' Exact location, last known ' + Math.round(ageMinutes) + ' min ago: ' + link);
-      return;
-    }
-    // No usable exact fix — say so plainly rather than guess.
-    sendAlert(' Location unavailable — please call to make sure they\'re okay.');
+    // No cache, no estimate — per explicit requirement, only a genuine
+    // live GPS fix counts as a location. If that failed or timed out, say
+    // so plainly and point straight to calling for help, rather than ever
+    // showing an old or approximate point as if it were current.
+    sendAlert(' Exact location unavailable — please call the emergency line (' + BAYELSA_EMERGENCY_PHONE.replace(/(\d{4})(\d{3})(\d{4})/, '$1 $2 $3') + ') or check on them directly.');
   }
 
   if ('geolocation' in navigator) {
@@ -1415,18 +1426,21 @@ function triggerSOS() {
     // regardless of what the browser does.
     setTimeout(function () {
       if (!alertAlreadySent) useCachedLocationOrGiveUp();
-    }, 9500);
+    }, 17000);
 
     navigator.geolocation.getCurrentPosition(
       function(pos) {
-        // A fresh but low-accuracy fix (WiFi/cell-tower based) is no more
-        // trustworthy than one that failed outright — fall back the same way.
-        if (pos.coords.accuracy > MAX_EXACT_ACCURACY_M) { useCachedLocationOrGiveUp(); return; }
+        // "Exact" means a genuine GPS lock, not a rough WiFi/cell-tower
+        // estimate — 50m is a real, achievable bar for actual satellite
+        // fixes, not just a number. Anything looser than this is treated
+        // exactly like a failed fix: no estimate is ever shown as if it
+        // were the real location.
+        if (pos.coords.accuracy > 50) { useCachedLocationOrGiveUp(); return; }
         const link = 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
         sendAlert(' Exact location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link);
       },
       useCachedLocationOrGiveUp,
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 } // maximumAge:0 forces a brand-new GPS fix instead of accepting a stale cached one — an emergency should always use the freshest, most exact position available
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } // maximumAge:0 forces a brand-new GPS fix instead of accepting a stale cached one — an emergency should always use the freshest position available; 15s (not 8s) gives GPS a real chance to lock indoors, where it commonly takes longer
     );
   } else {
     useCachedLocationOrGiveUp();
@@ -2451,8 +2465,7 @@ function renderAiWelcome() {
     const variant = AI_WELCOME_BACK_VARIANTS[Math.floor(Math.random() * AI_WELCOME_BACK_VARIANTS.length)];
     appendAiMessage('bot', variant);
   }
-}
-
+   } 
 function appendAiMessage(role, text) {
   const log = document.getElementById('ai-chat-log');
   const div = document.createElement('div');
