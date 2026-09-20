@@ -425,6 +425,51 @@
     }
   }
 
+  // Reachable anytime from the More menu — unlike the one-time post-login
+  // prompt (which, once dismissed, never offers again), this always works.
+  // Biometric setup needs no password (uses the live Firebase session
+  // directly); PIN setup does need it, since the PIN encrypts a copy of
+  // it — if this isn't right after a fresh login, that plaintext password
+  // may no longer be held in memory, so it's re-confirmed here instead.
+  window.openQuickUnlockSettings = function() {
+    const user = firebase.auth().currentUser;
+    if (!user) { alert('Please log in first.'); return; }
+    const bioEnrolled = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true';
+    const pinEnrolled = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
+
+    biometricSupported().then(function (supported) {
+      if (bioEnrolled && pinEnrolled) {
+        alert('Fingerprint/Face and PIN unlock are both already set up on this device.');
+        return;
+      }
+      if (!bioEnrolled && supported) {
+        if (confirm('Set up fingerprint/face unlock on this device now?')) {
+          doEnableBiometricLogin(user);
+          return;
+        }
+      }
+      if (!pinEnrolled) {
+        if (confirm((bioEnrolled ? '' : (supported ? '' : 'Fingerprint/face isn\u2019t supported on this device. ')) + 'Set up a 4-digit PIN unlock instead? You\u2019ll need to confirm your password first.')) {
+          const pw = prompt('Enter your password to confirm:');
+          if (!pw) return;
+          firebase.auth().signInWithEmailAndPassword(user.email, pw)
+            .then(function () {
+              window.__lastAuthEmail = user.email;
+              window.__lastAuthPassword = pw;
+              window.openPinSetup();
+            })
+            .catch(function () {
+              alert('Incorrect password \u2014 please try again from the More menu.');
+            });
+          return;
+        }
+      }
+      if (bioEnrolled && !pinEnrolled) {
+        alert('Fingerprint/Face unlock is already set up on this device.');
+      }
+    });
+  };
+
   // --- Unified enrollment prompt ------------------------------------------
   window.dismissQuickUnlockEnroll = function() {
     localStorage.setItem('quickUnlockEnrollDismissed', 'true');
