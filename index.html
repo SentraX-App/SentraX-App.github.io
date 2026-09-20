@@ -562,6 +562,11 @@
     <button onclick="showScreen('rewards')" id="nav-rewards"><span class="icon">🪙</span>Rewards</button>
     <button onclick="openRatingOverlay()" id="nav-rate"><span class="icon">⭐</span>Rate Sentra-X</button>
     <button onclick="openWhatsAppCommunity()" id="nav-community"><span class="icon">👥</span>Sentra-X Health Community</button>
+    <!-- Always accessible here regardless of whether the one-time post-login
+         prompt was ever dismissed — that prompt only offers this once, and
+         dismissing it (even once, even by accident) previously meant no way
+         back in without clearing app data. This guarantees a permanent path. -->
+    <button onclick="openQuickUnlockSettings()" id="nav-quickunlock"><span class="icon">🔐</span>Fingerprint / PIN Unlock</button>
   </div>
 
   <nav>
