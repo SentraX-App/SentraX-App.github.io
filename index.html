@@ -105,6 +105,13 @@
       <button id="auth-biometric-btn" onclick="tryBiometricLogin()" style="display:none;margin-top:8px;background:rgba(201,162,94,0.14);color:#e8cd9a;">👆 Log In with Fingerprint</button>
       <button id="auth-pin-btn" onclick="openPinUnlock()" style="display:none;margin-top:8px;background:rgba(201,162,94,0.14);color:#e8cd9a;">🔢 Log In with PIN</button>
       <button class="switch" onclick="toggleAuthMode()">Don't have an account? Sign Up</button>
+      <!-- Advertises the feature right on the sign-in page, as requested —
+           shown only when this device hasn't set it up yet (once it has,
+           the real buttons above take over instead). Actual setup still
+           has to happen right after logging in (WebAuthn needs to know
+           which account it's tied to), so this points there rather than
+           pretending it can be done before login. -->
+      <p id="quick-unlock-teaser" style="display:none;font-size:12.5px;color:#94a3b8;margin-top:12px;">💡 Log in once, then set up Fingerprint or PIN unlock for faster access next time.</p>
       <a href="articles-public.html" style="display:block;margin-top:14px;font-size:12.5px;color:#93c5fd;">Just here to read? Browse our free health articles →</a>
     </div>
   </div>
