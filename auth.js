@@ -450,14 +450,42 @@
   }
 
   // Show whichever quick-unlock button(s) this device has already set up,
-  // on the login screen, before anyone has logged in yet.
+  // on the login screen, before anyone has logged in yet. Also auto-launches
+  // the fingerprint prompt immediately when it's enrolled and the device
+  // supports it — the password screen is skipped entirely in that case,
+  // only appearing as a fallback if biometric fails, is declined, or this
+  // device genuinely can't do it. PIN gets the same treatment if that's
+  // what's enrolled instead.
   function updateAuthScreenQuickUnlockButtons() {
     const bioBtn = document.getElementById('auth-biometric-btn');
-    if (bioBtn) bioBtn.style.display = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true' ? 'block' : 'none';
+    const bioEnrolled = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true';
+    if (bioBtn) bioBtn.style.display = bioEnrolled ? 'block' : 'none';
     const pinBtn = document.getElementById('auth-pin-btn');
-    if (pinBtn) pinBtn.style.display = localStorage.getItem('pinEnrolledOnThisDevice') === 'true' ? 'block' : 'none';
+    const pinEnrolled = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
+    if (pinBtn) pinBtn.style.display = pinEnrolled ? 'block' : 'none';
+
+    if (bioEnrolled) {
+      biometricSupported().then(function (supported) {
+        if (supported) {
+          window.tryBiometricLogin();
+        } else if (pinEnrolled) {
+          window.openPinUnlock();
+        }
+      });
+    } else if (pinEnrolled) {
+      window.openPinUnlock();
+    }
   }
-  document.addEventListener('DOMContentLoaded', updateAuthScreenQuickUnlockButtons);
+  // document.addEventListener('DOMContentLoaded', ...) alone was the bug —
+  // if auth.js finishes loading after that event already fired (common
+  // depending on script placement/caching), the listener never runs at all,
+  // which is why this appeared to "work once then stop." Checking
+  // readyState first makes this run reliably regardless of timing.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateAuthScreenQuickUnlockButtons);
+  } else {
+    updateAuthScreenQuickUnlockButtons();
+  }
   // ======================================================================
   // end Quick Unlock
   // ======================================================================
