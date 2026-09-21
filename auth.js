@@ -12,7 +12,6 @@
   window.showAuthScreen = function() {
     const el = document.getElementById('auth-overlay');
     if (el) el.style.display = 'flex';
-    updateBioSetupLoginButton();
   };
 
   window.hideAuthScreen = function() {
@@ -107,10 +106,6 @@
   // re-authentication faster on a device someone actually owns.
   // ======================================================================
 
-  // REPLACE THIS after deploying the WebAuthn worker (src/worker.js in this
-  // same repo) — same origin, no separate URL to manage once deployed.
-  const WEBAUTHN_WORKER_URL = '/api/webauthn';
-
   function base64urlToBuffer(base64url) {
     // Tolerant decoder: ignores whitespace and any existing '=' padding, accepts
     // both base64 and base64url. (The old one blindly appended '=' and let
@@ -129,144 +124,6 @@
     for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
     return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
-
-  // --- Fingerprint / Face Unlock (WebAuthn) ------------------------------
-  function biometricSupported() {
-    // More than just "does the API exist" — confirms the phone actually
-    // has a usable platform authenticator right now. On Android that
-    // includes fingerprint, face unlock, AND a PIN/pattern/password screen
-    // lock — WebAuthn doesn't require biometric hardware specifically, any
-    // secure screen lock the phone already has qualifies. Only a phone
-    // with NO screen lock at all fails this — for that person, the in-app
-    // PIN below is the option that still works.
-    if (typeof window.PublicKeyCredential === 'undefined') return Promise.resolve(false);
-    if (typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function') return Promise.resolve(false);
-    return window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(function() { return false; });
-  }
-
-  function doEnableBiometricLogin(user) {
-    const errorEl = document.getElementById('quick-unlock-enroll-error');
-    let capturedStateToken = null;
-    fetch(WEBAUTHN_WORKER_URL + '/register-options', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: user.uid, email: user.email })
-    })
-      .then(function(res) { return res.json(); })
-      .then(function(options) {
-        if (options.error || !options.challenge) {
-          throw new Error(options.error || 'The server did not return valid registration options.');
-        }
-        capturedStateToken = options.stateToken;
-        try { options.challenge = base64urlToBuffer(options.challenge); }
-        catch (_e) { throw new Error('the server sent an invalid challenge — please try again'); }
-        // user.id: normally base64url; if the server ever sends it as plain
-        // text instead, use its raw bytes rather than failing.
-        try { options.user.id = base64urlToBuffer(options.user.id); }
-        catch (_e) { options.user.id = new TextEncoder().encode(String(options.user.id)).buffer; }
-        // excludeCredentials only prevents duplicate enrollment — skip any entry
-        // that can't be decoded instead of aborting the whole setup.
-        options.excludeCredentials = (options.excludeCredentials || []).map(function(c) {
-          try { return Object.assign({}, c, { id: base64urlToBuffer(c.id) }); } catch (_e) { return null; }
-        }).filter(Boolean);
-        return navigator.credentials.create({ publicKey: options });
-      })
-      .then(function(credential) {
-        const payload = {
-          uid: user.uid,
-          stateToken: capturedStateToken,
-          id: credential.id,
-          rawId: bufferToBase64url(credential.rawId),
-          type: credential.type,
-          response: {
-            attestationObject: bufferToBase64url(credential.response.attestationObject),
-            clientDataJSON: bufferToBase64url(credential.response.clientDataJSON)
-          }
-        };
-        return fetch(WEBAUTHN_WORKER_URL + '/register-verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(result) {
-        if (!result.verified) throw new Error(result.error || 'Verification failed.');
-        localStorage.setItem('biometricEnrolledOnThisDevice', 'true');
-        window.dismissQuickUnlockEnroll();
-      })
-      .catch(function(err) {
-        console.error('Sentra-X biometric enrollment error:', err && err.message);
-        let reason = err && err.message ? err.message : 'unknown error';
-        if (err && err.name === 'NotAllowedError') reason = 'the fingerprint/face prompt was cancelled or timed out';
-        const msg = "Couldn't set up fingerprint/face unlock: " + reason + "\n\nYou can still log in with your password or PIN as usual.";
-        // Writing to errorEl alone was the real bug — that element lives
-        // inside an overlay that's hidden when this runs from the homepage
-        // card or Settings, so the error was being written somewhere
-        // invisible. This is why it looked like "nothing happens": a real
-        // error WAS occurring, silently. alert() guarantees it's seen
-        // regardless of which screen triggered enrollment.
-        if (errorEl) errorEl.textContent = msg;
-        alert(msg);
-      });
-  }
-
-  window.enableBiometricLogin = function() {
-    const user = firebase.auth().currentUser;
-    if (!user) return;
-    doEnableBiometricLogin(user);
-  };
-
-  window.tryBiometricLogin = function() {
-    const errorEl = document.getElementById('auth-error');
-    if (errorEl) errorEl.textContent = '';
-    if (!requireOnlineOrExplain(errorEl)) return;
-    if (typeof window.PublicKeyCredential === 'undefined') { if (errorEl) errorEl.textContent = "Fingerprint/face unlock isn't supported on this device or browser."; return; }
-
-    let capturedStateToken = null;
-    fetch(WEBAUTHN_WORKER_URL + '/login-options', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    })
-      .then(function(res) { return res.json(); })
-      .then(function(options) {
-        if (options.error || !options.challenge) {
-          throw new Error(options.error || 'The server did not return valid login options.');
-        }
-        capturedStateToken = options.stateToken;
-        options.challenge = base64urlToBuffer(options.challenge);
-        return navigator.credentials.get({ publicKey: options });
-      })
-      .then(function(credential) {
-        const payload = {
-          stateToken: capturedStateToken,
-          id: credential.id,
-          rawId: bufferToBase64url(credential.rawId),
-          type: credential.type,
-          response: {
-            authenticatorData: bufferToBase64url(credential.response.authenticatorData),
-            clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
-            signature: bufferToBase64url(credential.response.signature),
-            userHandle: credential.response.userHandle ? bufferToBase64url(credential.response.userHandle) : null
-          }
-        };
-        return fetch(WEBAUTHN_WORKER_URL + '/login-verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(result) {
-        if (!result.token) throw new Error(result.error || 'Verification failed.');
-        return firebase.auth().signInWithCustomToken(result.token);
-      })
-      .catch(function(err) {
-        console.error('Sentra-X biometric login error:', err && err.message);
-        if (errorEl) errorEl.textContent = "Fingerprint login didn't work — please log in with your email and password instead.";
-      });
-  };
 
   // --- PIN Unlock ---------------------------------------------------------
   // Genuinely different security shape from fingerprint, and it's
@@ -462,47 +319,31 @@
   window.openQuickUnlockSettings = function() {
     const user = firebase.auth().currentUser;
     if (!user) { alert('Please log in first.'); return; }
-    const bioEnrolled = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true';
     const pinEnrolled = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
-
-    biometricSupported().then(function (supported) {
-      if (bioEnrolled && pinEnrolled) {
-        alert('Fingerprint/Face and PIN unlock are both already set up on this device.');
-        return;
-      }
-      if (!bioEnrolled && supported) {
-        if (confirm('Set up fingerprint/face unlock on this device now?')) {
-          doEnableBiometricLogin(user);
-          return;
-        }
-      }
-      if (!pinEnrolled) {
-        if (confirm((bioEnrolled ? '' : (supported ? '' : 'Fingerprint/face isn\u2019t supported on this device. ')) + 'Set up a 4-digit PIN unlock instead? You\u2019ll need to confirm your password first.')) {
-          const pw = prompt('Enter your password to confirm:');
-          if (!pw) return;
-          firebase.auth().signInWithEmailAndPassword(user.email, pw)
-            .then(function () {
-              window.__lastAuthEmail = user.email;
-              window.__lastAuthPassword = pw;
-              window.openPinSetup();
-            })
-            .catch(function () {
-              alert('Incorrect password \u2014 please try again from the More menu.');
-            });
-          return;
-        }
-      }
-      if (bioEnrolled && !pinEnrolled) {
-        alert('Fingerprint/Face unlock is already set up on this device.');
-      }
-    });
+    if (pinEnrolled) {
+      alert('PIN unlock is already set up on this device.');
+      return;
+    }
+    if (confirm('Set up a 4-digit PIN unlock on this device? You\u2019ll need to confirm your password first.')) {
+      const pw = prompt('Enter your password to confirm:');
+      if (!pw) return;
+      firebase.auth().signInWithEmailAndPassword(user.email, pw)
+        .then(function () {
+          window.__lastAuthEmail = user.email;
+          window.__lastAuthPassword = pw;
+          window.openPinSetup();
+        })
+        .catch(function () {
+          alert('Incorrect password \u2014 please try again from the More menu.');
+        });
+    }
   };
 
   // --- Unified enrollment prompt ------------------------------------------
   function updateHomeQuickUnlockCard() {
     const card = document.getElementById('quickunlock-home-card');
     if (!card) return;
-    const alreadyHasOne = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true' || localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
+    const alreadyHasOne = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
     card.style.display = alreadyHasOne ? 'none' : 'block';
   }
 
@@ -519,94 +360,21 @@
   };
 
   function maybeOfferQuickUnlockEnroll() {
-    // Set when the person tapped "Use Fingerprint / Face Unlock" on the login
-    // page — overrides an earlier "Not now" so they actually get the prompt.
-    const forced = window.__wantBiometricSetup === true;
-    const bioEnrolled = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true';
-    const alreadyHasOne = bioEnrolled || localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
-    if (forced) {
-      if (bioEnrolled) { window.__wantBiometricSetup = false; return; }
-    } else if (alreadyHasOne || localStorage.getItem('quickUnlockEnrollDismissed') === 'true') {
-      return;
-    }
+    const alreadyHasOne = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
+    if (alreadyHasOne || localStorage.getItem('quickUnlockEnrollDismissed') === 'true') return;
     if (!window.__lastAuthEmail || !window.__lastAuthPassword) return; // e.g. a session restored without a fresh password entry
-    window.__wantBiometricSetup = false;
-    biometricSupported().then(function(supported) {
-      const bioOption = document.getElementById('quick-unlock-biometric-option');
-      if (bioOption) bioOption.style.display = supported ? 'block' : 'none';
-      const overlay = document.getElementById('quick-unlock-enroll-overlay');
-      if (overlay) overlay.style.display = 'flex';
-    });
+    const overlay = document.getElementById('quick-unlock-enroll-overlay');
+    if (overlay) overlay.style.display = 'flex';
   }
 
-  // Login-page shortcut for devices that support fingerprint/face but haven't
-  // enrolled yet. Also keeps the existing "Log In with ..." buttons in sync
-  // when the login screen is shown again after a logout (visibility only —
-  // it never auto-launches a prompt).
-  function updateBioSetupLoginButton() {
-    const bioEnrolled = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true';
-    const pinEnrolled = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
-    const bioBtn = document.getElementById('auth-biometric-btn');
-    if (bioBtn) bioBtn.style.display = bioEnrolled ? 'block' : 'none';
-    const pinBtn = document.getElementById('auth-pin-btn');
-    if (pinBtn) pinBtn.style.display = pinEnrolled ? 'block' : 'none';
-    const setupBtn = document.getElementById('auth-biometric-setup-btn');
-    const hint = document.getElementById('auth-bio-setup-hint');
-    if (hint && !window.__wantBiometricSetup) hint.style.display = 'none';
-    if (!setupBtn) return;
-    setupBtn.style.display = 'none';
-    if (bioEnrolled) return;
-    biometricSupported().then(function(supported) {
-      if (localStorage.getItem('biometricEnrolledOnThisDevice') === 'true') return;
-      setupBtn.style.display = supported ? 'block' : 'none';
-    });
-  }
-
-  window.startBiometricSetupFromLogin = function() {
-    window.__wantBiometricSetup = true;
-    const errorEl = document.getElementById('auth-error');
-    if (errorEl) errorEl.textContent = '';
-    const emailEl = document.getElementById('auth-email');
-    const pwEl = document.getElementById('auth-password');
-    // Details already typed in? Just log in — the setup prompt follows.
-    if (emailEl && pwEl && emailEl.value.trim() && pwEl.value) {
-      window.submitAuth();
-      return;
-    }
-    const hint = document.getElementById('auth-bio-setup-hint');
-    if (hint) {
-      hint.textContent = "Log in once below with your email and password \u2014 we'll set up fingerprint/face unlock right after.";
-      hint.style.display = 'block';
-    }
-    if (emailEl && !emailEl.value.trim()) emailEl.focus(); else if (pwEl) pwEl.focus();
-  };
-
-  // Show whichever quick-unlock button(s) this device has already set up,
-  // on the login screen, before anyone has logged in yet. Also auto-launches
-  // the fingerprint prompt immediately when it's enrolled and the device
-  // supports it — the password screen is skipped entirely in that case,
-  // only appearing as a fallback if biometric fails, is declined, or this
-  // device genuinely can't do it. PIN gets the same treatment if that's
-  // what's enrolled instead.
+  // Show the PIN button on the login screen when this device has set one up,
+  // and open the PIN keypad straight away in that case (password login stays
+  // available as the fallback).
   function updateAuthScreenQuickUnlockButtons() {
-    const bioBtn = document.getElementById('auth-biometric-btn');
-    const bioEnrolled = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true';
-    if (bioBtn) bioBtn.style.display = bioEnrolled ? 'block' : 'none';
     const pinBtn = document.getElementById('auth-pin-btn');
     const pinEnrolled = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
     if (pinBtn) pinBtn.style.display = pinEnrolled ? 'block' : 'none';
-
-    if (bioEnrolled) {
-      biometricSupported().then(function (supported) {
-        if (supported) {
-          window.tryBiometricLogin();
-        } else if (pinEnrolled) {
-          window.openPinUnlock();
-        }
-      });
-    } else if (pinEnrolled) {
-      window.openPinUnlock();
-    }
+    if (pinEnrolled) window.openPinUnlock();
   }
   // document.addEventListener('DOMContentLoaded', ...) alone was the bug —
   // if auth.js finishes loading after that event already fired (common
@@ -615,10 +383,8 @@
   // readyState first makes this run reliably regardless of timing.
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', updateAuthScreenQuickUnlockButtons);
-    document.addEventListener('DOMContentLoaded', updateBioSetupLoginButton);
   } else {
     updateAuthScreenQuickUnlockButtons();
-    updateBioSetupLoginButton();
   }
   // ======================================================================
   // end Quick Unlock
