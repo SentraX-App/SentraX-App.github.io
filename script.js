@@ -655,10 +655,30 @@ function enableReminders() {
 function renderHistory() {
   const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
   const list = document.getElementById('history-list');
+  if (!list) return;
   if (vitals.length === 0) { list.innerHTML = '<div class="empty">No readings logged yet</div>'; return; }
-  list.innerHTML = vitals.map(function(v) {
-    return '<div class="history-row" style="background:' + v.color + '"><b>' + v.sys + '/' + v.dia + '</b> — ' + escapeHtml(v.level) + '<br><small>' + escapeHtml(v.date) + (v.hr ? ' · HR ' + escapeHtml(v.hr) : '') + (v.weight ? ' · ' + escapeHtml(v.weight) + 'kg' : '') + '</small></div>';
-  }).join('');
+  list.innerHTML = '<div class="med-history-scroll">' + vitals.map(function(v) {
+    const accent = /^#[0-9a-fA-F]{3,8}$/.test(v.color || '') ? v.color : '#6ee7b7';
+    return '<div class="med-history-card vitals-history-card" style="border-left-color:' + accent + ';">' +
+        '<div class="med-history-name">💓 ' + escapeHtml(String(v.sys)) + '/' + escapeHtml(String(v.dia)) + ' mmHg</div>' +
+        '<div class="med-history-details">' +
+          '<div class="med-history-row"><span class="med-history-icon">📅</span><span class="med-history-label">Date:</span><span class="med-history-value">' + escapeHtml(v.date || '—') + '</span></div>' +
+          '<div class="med-history-row"><span class="med-history-icon">❤️</span><span class="med-history-label">Heart rate:</span><span class="med-history-value">' + (v.hr ? escapeHtml(String(v.hr)) + ' bpm' : '—') + '</span></div>' +
+          (v.weight ? '<div class="med-history-row"><span class="med-history-icon">⚖️</span><span class="med-history-label">Weight:</span><span class="med-history-value">' + escapeHtml(String(v.weight)) + ' kg</span></div>' : '') +
+          '<div class="med-history-row"><span class="med-history-icon">🩺</span><span class="med-history-label">Status:</span><span class="vitals-history-badge" style="background:' + accent + ';">' + escapeHtml(v.level || '') + '</span></div>' +
+        '</div>' +
+      '</div>';
+  }).join('') + '</div>';
+}
+
+function toggleVitalsHistory() {
+  const body = document.getElementById('vitals-history-body');
+  const arrow = document.getElementById('vitals-history-arrow');
+  if (!body || !arrow) return;
+  const isOpen = body.style.display === 'block';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.classList.toggle('open', !isOpen);
+  if (!isOpen) renderHistory();
 }
 
 function renderWeeklySummary() {
@@ -1291,8 +1311,8 @@ async function triggerSOS() {
     // Caregiver message explicitly asks them to also call emergency services
     // themselves — the SMS/email/WhatsApp alert is not a substitute for a
     // real emergency call, just the fastest way to reach them.
-    const caregiverMsg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.' + locationText +
-      ' Please also call the emergency line (0800 220 0223) right away.';
+    const caregiverMsg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.\n' + locationText +
+      '\nPlease call them, and also call the emergency line (0800 220 0223), right away.';
 
     // Separate message for the Ministry/state emergency line — this
     // recipient IS the emergency service, so telling them to "call
@@ -1301,8 +1321,8 @@ async function triggerSOS() {
     // reference (there's no field capturing the patient's own phone number
     // yet — add one to the patient's profile if a direct patient callback
     // number is needed instead of the caregiver's).
-    const stateMsg = '\u{1F198} SENTRA-X EMERGENCY ALERT: ' + name + ' has triggered an SOS.' + locationText +
-      (primaryPhone ? (' Caregiver contact: ' + primaryPhone + '.') : '');
+    const stateMsg = '\u{1F198} SENTRA-X EMERGENCY ALERT: ' + name + ' has triggered an SOS.\n' + locationText +
+      (primaryPhone ? ('\nCaregiver contact: ' + primaryPhone + '.') : '');
 
     // 1. SMS + email — sent to EVERY saved caregiver, not just the primary.
     // Each caregiver gets their own fetch to the worker (the worker's
@@ -1412,7 +1432,7 @@ async function triggerSOS() {
     // live GPS fix counts as a location. If that failed or timed out, say
     // so plainly and point straight to calling for help, rather than ever
     // showing an old or approximate point as if it were current.
-    sendAlert(' Exact location unavailable — please call the emergency line (' + BAYELSA_EMERGENCY_PHONE.replace(/(\d{4})(\d{3})(\d{4})/, '$1 $2 $3') + ') or check on them directly.');
+    sendAlert('Live location unavailable.');
   }
 
   if ('geolocation' in navigator) {
@@ -1437,7 +1457,7 @@ async function triggerSOS() {
         // were the real location.
         if (pos.coords.accuracy > 50) { useCachedLocationOrGiveUp(); return; }
         const link = 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
-        sendAlert(' Exact location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link);
+        sendAlert('Live location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link);
       },
       useCachedLocationOrGiveUp,
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } // maximumAge:0 forces a brand-new GPS fix instead of accepting a stale cached one — an emergency should always use the freshest position available; 15s (not 8s) gives GPS a real chance to lock indoors, where it commonly takes longer
@@ -2023,18 +2043,6 @@ function renderMaternalScreen() {
       '<label style="font-size:12px;color:#93c5fd;" id="mat-date-label">' + (data.stage === 'postnatal' ? 'Delivery date' : 'Due date') + '</label>' +
       '<input type="date" id="mat-date" value="' + (data.dueDate || '') + '" data-estimated="' + (data.estimated ? 'true' : 'false') + '" oninput="clearMaternalEstimateFlag()">' +
       '<p id="mat-estimate-toggle" style="margin:4px 0 0;"><a href="#" onclick="toggleMaternalEstimate();return false;" style="color:#94a3b8;font-size:12.5px;text-decoration:underline;">Not sure of the exact date? Estimate instead</a></p>' +
-      '<div id="mat-estimate-box" style="display:none;margin-top:8px;">' + buildMaternalEstimateBoxHTML(data.stage || 'antenatal') + '</div>' +
-      '<button onclick="saveMaternalSetup()">Turn On Tracking</button>';
-  } else {
-    optinBox.innerHTML =
-      '<label style="font-size:12px;color:#93c5fd;">Stage</label>' +
-      '<select id="mat-stage">' +
-        '<option value="antenatal"' + (data.stage !== 'postnatal' ? ' selected' : '') + '>Currently pregnant (antenatal)</option>' +
-        '<option value="postnatal"' + (data.stage === 'postnatal' ? ' selected' : '') + '>Recently gave birth (postnatal)</option>' +
-      '</select>' +
-      '<label style="font-size:12px;color:#93c5fd;" id="mat-date-label">' + (data.stage === 'postnatal' ? 'Delivery date' : 'Due date') + '</label>' +
-      '<input type="date" id="mat-date" value="' + (data.dueDate || '') + '" data-estimated="' + (data.estimated ? 'true' : 'false') + '" oninput="clearMaternalEstimateFlag()">' +
-      '<p id="mat-estimate-toggle" style="margin:4px 0 0;"><a href="#" onclick="toggleMaternalEstimate();return false;" style="color:#94a3b8;font-size:12.5px;text-decoration:underline;">Not sure of the exact date? Estimate instead</a></p>' +
       '<div id="mat-estimate-box" style="display:none;margin-top:8px;">' + buildMaternalEstimateBoxHTML(data.stage) + '</div>' +
       (data.estimated ? '<p style="color:#94a3b8;font-size:12px;margin:6px 0 0;">Current date is an estimate.</p>' : '') +
       '<button onclick="saveMaternalSetup()">Update</button>' +
@@ -2217,7 +2225,7 @@ function saveMaternalSetup() {
   const dateVal = dateInput.value;
   const estimated = dateInput.dataset.estimated === 'true';
   const data = { enabled: true, stage: stage, dueDate: dateVal, estimated: estimated };
-  saveMaternalData(data);
+  saveMaternalData(data); 
   renderMaternalScreen();
   renderMaternalCard();
 }
@@ -2404,7 +2412,7 @@ function showAiHistoryList() {
         '<button onclick="deleteAiThread(\'' + t.id + '\')" title="Delete conversation" ' +
           'style="width:32px;height:32px;padding:0;flex-shrink:0;background:transparent;border:none;color:#64748b;font-size:16px;border-radius:8px;">🗑️</button>' +
         '</div>';
-    }).join('') +
+      }).join('') +
     '<button onclick="clearAllAiHistory()" class="ghost" style="margin-top:10px;color:#fca5a5;">Clear All History</button>';
   }
   document.getElementById('ai-history-overlay').style.display = 'block';
@@ -2754,8 +2762,7 @@ function hrTick() {
   if (!hrStream || !video || video.readyState < 2) {
     hrRafId = requestAnimationFrame(hrTick);
     return;
-  }
-
+   }
   const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const frame = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
