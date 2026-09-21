@@ -235,6 +235,13 @@ button.call { background: rgba(255,255,255,0.10); color: #fca5a5; box-shadow: no
   background: rgba(251,191,36,0.15); color: #fbbf24;
   border-color: rgba(251,191,36,0.35);
 }
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 1500;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  padding: 24px;
+}
 .top-banner {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 11px 20px; font-size: 13px; font-weight: 600; line-height: 1.45;
