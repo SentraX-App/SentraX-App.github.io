@@ -12,6 +12,7 @@
   window.showAuthScreen = function() {
     const el = document.getElementById('auth-overlay');
     if (el) el.style.display = 'flex';
+    updateBioSetupLoginButton();
   };
 
   window.hideAuthScreen = function() {
@@ -505,9 +506,18 @@
   };
 
   function maybeOfferQuickUnlockEnroll() {
-    const alreadyHasOne = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true' || localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
-    if (alreadyHasOne || localStorage.getItem('quickUnlockEnrollDismissed') === 'true') return;
+    // Set when the person tapped "Use Fingerprint / Face Unlock" on the login
+    // page — overrides an earlier "Not now" so they actually get the prompt.
+    const forced = window.__wantBiometricSetup === true;
+    const bioEnrolled = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true';
+    const alreadyHasOne = bioEnrolled || localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
+    if (forced) {
+      if (bioEnrolled) { window.__wantBiometricSetup = false; return; }
+    } else if (alreadyHasOne || localStorage.getItem('quickUnlockEnrollDismissed') === 'true') {
+      return;
+    }
     if (!window.__lastAuthEmail || !window.__lastAuthPassword) return; // e.g. a session restored without a fresh password entry
+    window.__wantBiometricSetup = false;
     biometricSupported().then(function(supported) {
       const bioOption = document.getElementById('quick-unlock-biometric-option');
       if (bioOption) bioOption.style.display = supported ? 'block' : 'none';
@@ -515,6 +525,48 @@
       if (overlay) overlay.style.display = 'flex';
     });
   }
+
+  // Login-page shortcut for devices that support fingerprint/face but haven't
+  // enrolled yet. Also keeps the existing "Log In with ..." buttons in sync
+  // when the login screen is shown again after a logout (visibility only —
+  // it never auto-launches a prompt).
+  function updateBioSetupLoginButton() {
+    const bioEnrolled = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true';
+    const pinEnrolled = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
+    const bioBtn = document.getElementById('auth-biometric-btn');
+    if (bioBtn) bioBtn.style.display = bioEnrolled ? 'block' : 'none';
+    const pinBtn = document.getElementById('auth-pin-btn');
+    if (pinBtn) pinBtn.style.display = pinEnrolled ? 'block' : 'none';
+    const setupBtn = document.getElementById('auth-biometric-setup-btn');
+    const hint = document.getElementById('auth-bio-setup-hint');
+    if (hint && !window.__wantBiometricSetup) hint.style.display = 'none';
+    if (!setupBtn) return;
+    setupBtn.style.display = 'none';
+    if (bioEnrolled) return;
+    biometricSupported().then(function(supported) {
+      if (localStorage.getItem('biometricEnrolledOnThisDevice') === 'true') return;
+      setupBtn.style.display = supported ? 'block' : 'none';
+    });
+  }
+
+  window.startBiometricSetupFromLogin = function() {
+    window.__wantBiometricSetup = true;
+    const errorEl = document.getElementById('auth-error');
+    if (errorEl) errorEl.textContent = '';
+    const emailEl = document.getElementById('auth-email');
+    const pwEl = document.getElementById('auth-password');
+    // Details already typed in? Just log in — the setup prompt follows.
+    if (emailEl && pwEl && emailEl.value.trim() && pwEl.value) {
+      window.submitAuth();
+      return;
+    }
+    const hint = document.getElementById('auth-bio-setup-hint');
+    if (hint) {
+      hint.textContent = "Log in once below with your email and password \u2014 we'll set up fingerprint/face unlock right after.";
+      hint.style.display = 'block';
+    }
+    if (emailEl && !emailEl.value.trim()) emailEl.focus(); else if (pwEl) pwEl.focus();
+  };
 
   // Show whichever quick-unlock button(s) this device has already set up,
   // on the login screen, before anyone has logged in yet. Also auto-launches
@@ -550,8 +602,10 @@
   // readyState first makes this run reliably regardless of timing.
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', updateAuthScreenQuickUnlockButtons);
+    document.addEventListener('DOMContentLoaded', updateBioSetupLoginButton);
   } else {
     updateAuthScreenQuickUnlockButtons();
+    updateBioSetupLoginButton();
   }
   // ======================================================================
   // end Quick Unlock
