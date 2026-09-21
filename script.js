@@ -1311,9 +1311,8 @@ async function triggerSOS() {
     // Caregiver message explicitly asks them to also call emergency services
     // themselves — the SMS/email/WhatsApp alert is not a substitute for a
     // real emergency call, just the fastest way to reach them.
-    const caregiverMsg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.\n' + locationText +
-      '\nPlease call them, and also call the emergency line (0800 220 0223), right away.';
-
+    const caregiverMsg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.\n\n📍 ' + locationText +
+  '\n\n☎️ Please call them now, and also call the emergency line: 0800 220 0223';
     // Separate message for the Ministry/state emergency line — this
     // recipient IS the emergency service, so telling them to "call
     // emergency services" makes no sense; theirs is a dispatch-style alert
@@ -2798,7 +2797,7 @@ function finishHeartRateMeasure() {
     if (patternAbnormal && alertBox) {
       document.getElementById('hr-pattern-text').textContent =
         'Your pulse looked ' + pattern.reasons.join(' and ') + ' during this reading. It could be nothing — activity, caffeine, or just holding the phone can cause this — but it\'s worth checking your blood pressure manually to be safe.';
-      alertBox.style.display = 'block';
+      alertBox.style.display = 'flex';
     }
   } else {
     status.textContent = 'Could not get a clear reading. Try again, holding still.';
