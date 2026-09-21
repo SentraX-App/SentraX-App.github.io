@@ -320,11 +320,10 @@
     const user = firebase.auth().currentUser;
     if (!user) { alert('Please log in first.'); return; }
     const pinEnrolled = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
-    if (pinEnrolled) {
-      alert('PIN unlock is already set up on this device.');
-      return;
-    }
-    if (confirm('Set up a 4-digit PIN unlock on this device? You\u2019ll need to confirm your password first.')) {
+    const msg = pinEnrolled
+      ? 'Change your 4-digit PIN? You\u2019ll need to confirm your password first.'
+      : 'Set up a 4-digit PIN unlock on this device? You\u2019ll need to confirm your password first.';
+    if (confirm(msg)) {
       const pw = prompt('Enter your password to confirm:');
       if (!pw) return;
       firebase.auth().signInWithEmailAndPassword(user.email, pw)
