@@ -112,7 +112,12 @@
   const WEBAUTHN_WORKER_URL = '/api/webauthn';
 
   function base64urlToBuffer(base64url) {
-    const padded = base64url.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (base64url.length % 4)) % 4);
+    // Tolerant decoder: ignores whitespace and any existing '=' padding, accepts
+    // both base64 and base64url. (The old one blindly appended '=' and let
+    // atob() throw on anything unexpected — the cause of the enrollment error.)
+    const clean = String(base64url).replace(/\s+/g, '').replace(/=+$/, '').replace(/-/g, '+').replace(/_/g, '/');
+    if (clean.length % 4 === 1 || /[^A-Za-z0-9+/]/.test(clean)) throw new Error('invalid base64 value');
+    const padded = clean + '=='.slice(0, (4 - (clean.length % 4)) % 4);
     const binary = atob(padded);
     const buffer = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) buffer[i] = binary.charCodeAt(i);
@@ -153,11 +158,17 @@
           throw new Error(options.error || 'The server did not return valid registration options.');
         }
         capturedStateToken = options.stateToken;
-        options.challenge = base64urlToBuffer(options.challenge);
-        options.user.id = base64urlToBuffer(options.user.id);
-        if (options.excludeCredentials) {
-          options.excludeCredentials.forEach(function(c) { c.id = base64urlToBuffer(c.id); });
-        }
+        try { options.challenge = base64urlToBuffer(options.challenge); }
+        catch (_e) { throw new Error('the server sent an invalid challenge — please try again'); }
+        // user.id: normally base64url; if the server ever sends it as plain
+        // text instead, use its raw bytes rather than failing.
+        try { options.user.id = base64urlToBuffer(options.user.id); }
+        catch (_e) { options.user.id = new TextEncoder().encode(String(options.user.id)).buffer; }
+        // excludeCredentials only prevents duplicate enrollment — skip any entry
+        // that can't be decoded instead of aborting the whole setup.
+        options.excludeCredentials = (options.excludeCredentials || []).map(function(c) {
+          try { return Object.assign({}, c, { id: base64urlToBuffer(c.id) }); } catch (_e) { return null; }
+        }).filter(Boolean);
         return navigator.credentials.create({ publicKey: options });
       })
       .then(function(credential) {
@@ -186,7 +197,9 @@
       })
       .catch(function(err) {
         console.error('Sentra-X biometric enrollment error:', err && err.message);
-        const msg = "Couldn't set up fingerprint unlock: " + (err && err.message ? err.message : 'unknown error') + "\n\nYou can still log in with your password as usual.";
+        let reason = err && err.message ? err.message : 'unknown error';
+        if (err && err.name === 'NotAllowedError') reason = 'the fingerprint/face prompt was cancelled or timed out';
+        const msg = "Couldn't set up fingerprint/face unlock: " + reason + "\n\nYou can still log in with your password or PIN as usual.";
         // Writing to errorEl alone was the real bug — that element lives
         // inside an overlay that's hidden when this runs from the homepage
         // card or Settings, so the error was being written somewhere
