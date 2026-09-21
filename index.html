@@ -104,6 +104,12 @@
            email/password fields above, which always work regardless. -->
       <button id="auth-biometric-btn" onclick="tryBiometricLogin()" style="display:none;margin-top:8px;background:rgba(201,162,94,0.14);color:#e8cd9a;">👆 Log In with Fingerprint</button>
       <button id="auth-pin-btn" onclick="openPinUnlock()" style="display:none;margin-top:8px;background:rgba(201,162,94,0.14);color:#e8cd9a;">🔢 Log In with PIN</button>
+      <!-- Shown only on devices that support fingerprint/face but haven't set it up
+           yet (see updateBioSetupLoginButton() in auth.js). Setup itself needs a
+           signed-in account, so this guides the person through one normal login
+           and then opens the setup prompt straight away. -->
+      <button id="auth-biometric-setup-btn" onclick="startBiometricSetupFromLogin()" style="display:none;margin-top:8px;background:rgba(201,162,94,0.14);color:#e8cd9a;">👆 Use Fingerprint / Face Unlock</button>
+      <div id="auth-bio-setup-hint" style="display:none;margin-top:8px;font-size:12.5px;color:#93c5fd;text-align:center;"></div>
       <button class="switch" onclick="toggleAuthMode()">Don't have an account? Sign Up</button>
       <!-- Advertises the feature right on the sign-in page, as requested —
            shown only when this device hasn't set it up yet (once it has,
@@ -205,6 +211,7 @@
 
   <div class="screen active" id="vitals-screen">
     <div id="due-banner"></div>
+
 
     <div class="card top-row">
       <div class="score-card" style="flex:1;">
