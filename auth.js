@@ -148,6 +148,9 @@
     })
       .then(function(res) { return res.json(); })
       .then(function(options) {
+        if (options.error || !options.challenge) {
+          throw new Error(options.error || 'The server did not return valid registration options.');
+        }
         capturedStateToken = options.stateToken;
         options.challenge = base64urlToBuffer(options.challenge);
         options.user.id = base64urlToBuffer(options.user.id);
@@ -214,6 +217,9 @@
     })
       .then(function(res) { return res.json(); })
       .then(function(options) {
+        if (options.error || !options.challenge) {
+          throw new Error(options.error || 'The server did not return valid login options.');
+        }
         capturedStateToken = options.stateToken;
         options.challenge = base64urlToBuffer(options.challenge);
         return navigator.credentials.get({ publicKey: options });
@@ -524,8 +530,6 @@
     const pinBtn = document.getElementById('auth-pin-btn');
     const pinEnrolled = localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
     if (pinBtn) pinBtn.style.display = pinEnrolled ? 'block' : 'none';
-    const teaser = document.getElementById('quick-unlock-teaser');
-    if (teaser) teaser.style.display = (!bioEnrolled && !pinEnrolled) ? 'block' : 'none';
 
     if (bioEnrolled) {
       biometricSupported().then(function (supported) {
