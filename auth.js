@@ -182,7 +182,15 @@
       })
       .catch(function(err) {
         console.error('Sentra-X biometric enrollment error:', err && err.message);
-        if (errorEl) errorEl.textContent = "Couldn't set up fingerprint unlock. You can still log in with your password as usual.";
+        const msg = "Couldn't set up fingerprint unlock: " + (err && err.message ? err.message : 'unknown error') + "\n\nYou can still log in with your password as usual.";
+        // Writing to errorEl alone was the real bug — that element lives
+        // inside an overlay that's hidden when this runs from the homepage
+        // card or Settings, so the error was being written somewhere
+        // invisible. This is why it looked like "nothing happens": a real
+        // error WAS occurring, silently. alert() guarantees it's seen
+        // regardless of which screen triggered enrollment.
+        if (errorEl) errorEl.textContent = msg;
+        alert(msg);
       });
   }
 
@@ -471,10 +479,18 @@
   };
 
   // --- Unified enrollment prompt ------------------------------------------
+  function updateHomeQuickUnlockCard() {
+    const card = document.getElementById('quickunlock-home-card');
+    if (!card) return;
+    const alreadyHasOne = localStorage.getItem('biometricEnrolledOnThisDevice') === 'true' || localStorage.getItem('pinEnrolledOnThisDevice') === 'true';
+    card.style.display = alreadyHasOne ? 'none' : 'block';
+  }
+
   window.dismissQuickUnlockEnroll = function() {
     localStorage.setItem('quickUnlockEnrollDismissed', 'true');
     const el = document.getElementById('quick-unlock-enroll-overlay');
     if (el) el.style.display = 'none';
+    updateHomeQuickUnlockCard();
     // Credentials only ever needed transiently, to offer/complete PIN
     // setup right after a real login — cleared the moment that's done or
     // declined, regardless of which option (or neither) was chosen.
@@ -651,6 +667,7 @@
             window.ensurePushSubscription();
           }
           maybeOfferQuickUnlockEnroll();
+          updateHomeQuickUnlockCard();
         });
       }
     } else {
