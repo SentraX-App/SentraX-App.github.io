@@ -207,6 +207,16 @@
   <div class="screen active" id="vitals-screen">
     <div id="due-banner"></div>
 
+    <!-- Real homepage placement, as requested — styled like every other
+         dashboard card, using the app's existing gold accent. Only shown
+         while neither Fingerprint nor PIN unlock is set up on this device;
+         disappears on its own once either is. -->
+    <div class="card" id="quickunlock-home-card" style="display:none;border:1px solid rgba(201,162,94,0.35);background:linear-gradient(135deg, rgba(201,162,94,0.10), rgba(21,46,77,0.15));">
+      <h3 style="color:#e8cd9a;">🔐 Faster Login</h3>
+      <p style="color:#cbd5e1;font-size:13.5px;margin:4px 0 12px;">Skip typing your password next time — set up Fingerprint or PIN unlock for this device.</p>
+      <button onclick="openQuickUnlockSettings()" style="background:linear-gradient(135deg, #C9A25E, #a9813f); color:#0f172a; margin-top:0;">Set Up Now</button>
+    </div>
+
     <div class="card top-row">
       <div class="score-card" style="flex:1;">
         <div class="score-ring" id="score-ring"><b id="score-num">—</b></div>
@@ -569,11 +579,6 @@
     <button onclick="showScreen('rewards')" id="nav-rewards"><span class="icon">🪙</span>Rewards</button>
     <button onclick="openRatingOverlay()" id="nav-rate"><span class="icon">⭐</span>Rate Sentra-X</button>
     <button onclick="openWhatsAppCommunity()" id="nav-community"><span class="icon">👥</span>Sentra-X Health Community</button>
-    <!-- Always accessible here regardless of whether the one-time post-login
-         prompt was ever dismissed — that prompt only offers this once, and
-         dismissing it (even once, even by accident) previously meant no way
-         back in without clearing app data. This guarantees a permanent path. -->
-    <button onclick="openQuickUnlockSettings()" id="nav-quickunlock"><span class="icon">🔐</span>Fingerprint / PIN Unlock</button>
   </div>
 
   <nav>
