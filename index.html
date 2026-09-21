@@ -212,27 +212,58 @@
   <div class="screen active" id="vitals-screen">
     <div id="due-banner"></div>
 
-
-    <div class="card top-row">
+    <!-- Hero: health score + streak -->
+    <div class="card top-row home-hero">
       <div class="score-card" style="flex:1;">
         <div class="score-ring" id="score-ring"><b id="score-num">—</b></div>
         <div class="score-text">
-          <div class="label" id="score-label" style="font-size:13px;">Log a reading</div>
+          <div class="label" id="score-label">Log a reading</div>
           <div class="sub" id="score-sub"></div>
         </div>
       </div>
       <div class="streak" style="flex:0 0 auto;">
         <div class="streak-ring"><b id="streak-count">0</b></div>
+        <div class="streak-label">day streak</div>
       </div>
     </div>
 
+    <!-- Log a reading: the main action, so it sits right under the score -->
     <div class="card">
+      <h3>🩺 Log a Reading</h3>
+      <div class="input-row">
+        <input type="number" id="systolic" placeholder="Systolic (top)">
+        <input type="number" id="diastolic" placeholder="Diastolic (bottom)">
+      </div>
+      <div class="input-row">
+        <input type="number" id="heartrate" placeholder="Heart rate (opt.)">
+        <input type="number" id="weight" placeholder="Weight kg (opt.)">
+      </div>
+      <button type="button" class="ghost" onclick="measureHeartRate()">📷 Check Heart Rate (Camera)</button>
+      <div id="hr-measure-box" style="display:none;">
+  <video id="hr-video" autoplay playsinline muted style="width:1px;height:1px;position:absolute;opacity:0;"></video>
+  <canvas id="hr-canvas" width="50" height="50" style="display:none;"></canvas>
+  <p style="font-size:13px;color:#94a3b8;text-align:center;margin:8px 0 4px;">Cover the rear camera and flash fully with your fingertip. Hold still for 20 seconds.</p>
+<p id="hr-status" style="text-align:center;font-size:14px;color:#93c5fd;">Starting camera…</p>
+  <button type="button" class="secondary" onclick="cancelHeartRateMeasure()">Cancel</button>
+  <div id="hr-pattern-alert" class="alert-banner caution" style="display:none;margin-top:10px;">
+    <p id="hr-pattern-text" style="margin:0 0 8px;"></p>
+    <p style="font-size:11px;opacity:0.8;font-weight:400;margin:0 0 8px;">This is based on your pulse rate/rhythm only — it is not a blood pressure reading. If you feel unwell, seek medical care.</p>
+    <button type="button" class="secondary" onclick="focusBpFields()">Check Blood Pressure Now</button>
+  </div>
+</div>
+      <button onclick="checkBP()">Save &amp; Check My Risk</button>
+      <div id="result"></div>
+      <div id="alert-caregiver-btn"></div>
+    </div>
+
+    <div class="card">
+      <h3>📊 Health Snapshot</h3>
       <div class="radar-grid" id="radar-grid"></div>
     </div>
 
     <div class="card">
       <div class="checkin-toggle" onclick="toggleCheckin()">
-        <h3 style="margin:0;">Quick Daily Check-in</h3>
+        <h3 style="margin:0;">📝 Quick Daily Check-in</h3>
         <span class="fa-arrow" id="checkin-arrow">▼</span>
       </div>
       <div id="checkin-body" style="display:none;">
@@ -257,13 +288,8 @@
       </div>
     </div>
 
-    <div class="card tip-card">
-      <h3 style="color:#065f46;">💡 Tip of the Day</h3>
-      <p id="tip-text"></p>
-    </div>
-
     <div class="card">
-      <h3>Water Intake</h3>
+      <h3>💧 Water Intake</h3>
       <div class="water-row">
         <button class="secondary" onclick="changeWater(-1)">−</button>
         <span class="water-count" id="water-count">0 cups</span>
@@ -271,35 +297,16 @@
       </div>
     </div>
 
-    <div class="card">
-      <h3>Log a Reading</h3>
-      <input type="number" id="systolic" placeholder="Top number (Systolic)">
-      <input type="number" id="diastolic" placeholder="Bottom number (Diastolic)">
-      <input type="number" id="heartrate" placeholder="Heart rate (optional)">
-      <button type="button" class="ghost" onclick="measureHeartRate()">📷 Check Heart Rate (Camera)</button>
-<div id="hr-measure-box" style="display:none;">
-  <video id="hr-video" autoplay playsinline muted style="width:1px;height:1px;position:absolute;opacity:0;"></video>
-  <canvas id="hr-canvas" width="50" height="50" style="display:none;"></canvas>
-  <p style="font-size:13px;color:#94a3b8;text-align:center;margin:8px 0 4px;">Cover the rear camera and flash fully with your fingertip. Hold still for 20 seconds.</p>
-<p id="hr-status" style="text-align:center;font-size:14px;color:#93c5fd;">Starting camera…</p>
-  <button type="button" class="secondary" onclick="cancelHeartRateMeasure()">Cancel</button>
-  <div id="hr-pattern-alert" class="alert-banner caution" style="display:none;margin-top:10px;">
-    <p id="hr-pattern-text" style="margin:0 0 8px;"></p>
-    <p style="font-size:11px;opacity:0.8;font-weight:400;margin:0 0 8px;">This is based on your pulse rate/rhythm only — it is not a blood pressure reading. If you feel unwell, seek medical care.</p>
-    <button type="button" class="secondary" onclick="focusBpFields()">Check Blood Pressure Now</button>
-  </div>
-</div>
-      <input type="number" id="weight" placeholder="Weight in kg (optional)">
-      <button onclick="checkBP()">Save & Check My Risk</button>
-      <div id="result"></div>
-      <div id="alert-caregiver-btn"></div>
+    <div class="card tip-card">
+      <h3 style="color:#065f46;">💡 Tip of the Day</h3>
+      <p id="tip-text"></p>
     </div>
 
-    <div class="card">
-      <h3>Emergency</h3>
+    <div class="card emergency-card">
+      <h3>🚨 Emergency</h3>
       <button class="sos" onclick="triggerSOS()">🆘 Emergency SOS Alert</button>
       <button class="call" onclick="callEmergency()">📞 Call Emergency Line (0800 220 0223)</button>
-      <p style="text-align:center;margin:8px 0 0;"><a href="#" onclick="callNationalEmergency();return false;" style="color:#94a3b8;font-size:12px;text-decoration:underline;">112 (national line) also works</a></p>
+      <p style="text-align:center;margin:10px 0 0;"><a href="#" onclick="callNationalEmergency();return false;" style="color:#94a3b8;font-size:12px;text-decoration:underline;">112 (national line) also works</a></p>
     </div>
   </div>
 
