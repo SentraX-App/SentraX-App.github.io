@@ -1311,8 +1311,15 @@ async function triggerSOS() {
     // Caregiver message explicitly asks them to also call emergency services
     // themselves — the SMS/email/WhatsApp alert is not a substitute for a
     // real emergency call, just the fastest way to reach them.
-    const caregiverMsg = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.\n\n📍 ' + locationText +
-  '\n\n☎️ Please call them now, and also call the emergency line: 0800 220 0223';
+    // Two variants: WhatsApp renders emoji natively, so it keeps them for
+    // visual urgency. SMS/email go through a plain-text gateway that isn't
+    // guaranteed to support Unicode — many SMS providers silently replace
+    // unsupported characters with "?" — so that path stays plain ASCII,
+    // cleanly spaced with no blank-line gaps.
+    const caregiverMsgWhatsApp = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.\n\n\u{1F4CD} ' + locationText +
+  '\n\n\u260E\uFE0F Please call them now, and also call the emergency line: 0800 220 0223';
+    const caregiverMsgPlain = 'EMERGENCY: ' + name + ' needs help right now.\n' + locationText +
+      '\nPlease call them now. If you can\'t reach them, call emergency services immediately.';
     // Separate message for the Ministry/state emergency line — this
     // recipient IS the emergency service, so telling them to "call
     // emergency services" makes no sense; theirs is a dispatch-style alert
@@ -1342,7 +1349,7 @@ async function triggerSOS() {
         fetch(SOS_SMS_WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Sentra-Secret': SOS_WORKER_SHARED_SECRET },
-          body: JSON.stringify({ phone: phone, email: email, name: name, message: caregiverMsg })
+          body: JSON.stringify({ phone: phone, email: email, name: name, message: caregiverMsgPlain })
         }).then(function (res) {
           // A response coming back at all doesn't mean the alert actually went
           // out — the worker can return 200 while one or both channels failed
@@ -1422,7 +1429,7 @@ async function triggerSOS() {
     // directly — the original, simplest approach. Sometimes shows
     // WhatsApp's own fallback page on a first attempt, but reliably
     // auto-opens the app itself on a retry.
-    const url = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(caregiverMsg)) : ('https://wa.me/?text=' + encodeURIComponent(caregiverMsg));
+    const url = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(caregiverMsgWhatsApp)) : ('https://wa.me/?text=' + encodeURIComponent(caregiverMsgWhatsApp));
     window.open(url, '_blank');
   }
 
