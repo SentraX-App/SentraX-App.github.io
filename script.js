@@ -1325,8 +1325,8 @@ async function triggerSOS() {
     // shared field to restore delivery.
     const caregiverMsgWhatsApp = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.\n\n\u{1F4CD} ' + locationText +
   '\n\n\u260E\uFE0F Please call them now, and also call the emergency line: 0800 220 0223';
-    const caregiverMsgPlain = 'EMERGENCY: ' + name + ' needs help right now.\n' + locationText +
-      '\nPlease call them now. If you can\'t reach them, call emergency services immediately.';
+    const caregiverMsgPlain = 'EMERGENCY: ' + name + ' needs help right now.\n\n' + locationText +
+  '\n\nPlease call them now. If you can\'t reach them, call emergency services immediately on 0800 220 0223.';
     // Separate message for the Ministry/state emergency line — this
     // recipient IS the emergency service, so telling them to "call
     // emergency services" makes no sense; theirs is a dispatch-style alert
