@@ -389,12 +389,13 @@
 
   function fetchMedLibrary() {
     if (!MEDLIB_WORKER_URL) return Promise.reject(new Error('MEDLIB_WORKER_URL not configured'));
+    let cached = null;
     try {
-      const cached = JSON.parse(localStorage.getItem(MEDLIB_CACHE_KEY) || 'null');
+      cached = JSON.parse(localStorage.getItem(MEDLIB_CACHE_KEY) || 'null');
       if (cached && cached.fetchedAt && (Date.now() - cached.fetchedAt) < MEDLIB_CACHE_MS) {
         return Promise.resolve(cached);
       }
-    } catch (e) { /* corrupt cache — fall through to a fresh fetch */ }
+    } catch (e) { cached = null; /* corrupt cache — fall through to a fresh fetch */ }
 
     return fetchWithTimeout(MEDLIB_WORKER_URL, MEDLIB_FETCH_TIMEOUT_MS)
       .then(function (res) {
@@ -404,6 +405,14 @@
       .then(function (data) {
         try { localStorage.setItem(MEDLIB_CACHE_KEY, JSON.stringify(data)); } catch (e) { /* storage full/unavailable */ }
         return data;
+      })
+      .catch(function (err) {
+        // Worker unreachable (down, offline, DNS) — a real, previously-
+        // fetched copy of the same MedlinePlus content (however old) beats
+        // showing nothing. Only truly fails now on a first-ever load with
+        // no cache and no connectivity at all.
+        if (cached && cached.items && cached.items.length) return cached;
+        throw err;
       });
   }
 
@@ -555,7 +564,7 @@
         if (window.SentraXAds) SentraXAds.init(container);
       })
       .catch(function () {
-        container.innerHTML = '';
+        container.innerHTML = '<p style="font-size:12px;color:#64748b;text-align:center;padding:12px;">Health library isn\'t available right now — check your connection and reopen this page to try again.</p>';
       });
   }
 
