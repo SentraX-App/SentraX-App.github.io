@@ -1312,10 +1312,17 @@ async function triggerSOS() {
     // themselves — the SMS/email/WhatsApp alert is not a substitute for a
     // real emergency call, just the fastest way to reach them.
     // Two variants: WhatsApp renders emoji natively, so it keeps them for
-    // visual urgency. SMS/email go through a plain-text gateway that isn't
-    // guaranteed to support Unicode — many SMS providers silently replace
-    // unsupported characters with "?" — so that path stays plain ASCII,
-    // cleanly spaced with no blank-line gaps.
+    // visual urgency. SMS + email go through the same worker/gateway call,
+    // which isn't guaranteed to support Unicode — many SMS providers
+    // silently replace unsupported characters with "?" (confirmed happening
+    // in practice) — so both share one plain-ASCII copy, cleanly spaced.
+    // NOTE: a prior version of this sent an extra `emailMessage` field to
+    // try to give email its own emoji copy. That worker's source isn't in
+    // this repo, so there was no way to confirm it would tolerate an
+    // unrecognized field — and real-world testing showed SMS+email both
+    // silently stopped sending after that change (WhatsApp, which doesn't
+    // go through this worker, kept working). Reverted back to a single
+    // shared field to restore delivery.
     const caregiverMsgWhatsApp = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.\n\n\u{1F4CD} ' + locationText +
   '\n\n\u260E\uFE0F Please call them now, and also call the emergency line: 0800 220 0223';
     const caregiverMsgPlain = 'EMERGENCY: ' + name + ' needs help right now.\n' + locationText +
@@ -2759,7 +2766,7 @@ function measureHeartRate() {
     .catch(function () {
       status.textContent = 'Could not access camera. Check permissions and try again.';
     });
-}
+  }
 
 function hrTick() {
   
