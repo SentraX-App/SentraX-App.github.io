@@ -218,53 +218,7 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="checkin-toggle" onclick="toggleCheckin()">
-        <h3 style="margin:0;">📝 Quick Daily Check-in</h3>
-        <span class="fa-arrow" id="checkin-arrow">▼</span>
-      </div>
-      <div id="checkin-body" style="display:none;">
-        <p style="color:#94a3b8;font-size:12px;margin:10px 0 8px;">Sleep</p>
-        <div class="quick-row" id="quick-sleep">
-          <button class="quick-btn" onclick="setQuickStat('sleep','poor')" data-val="poor">😴 Poor</button>
-          <button class="quick-btn" onclick="setQuickStat('sleep','ok')" data-val="ok">🙂 OK</button>
-          <button class="quick-btn" onclick="setQuickStat('sleep','good')" data-val="good">😃 Good</button>
-        </div>
-        <p style="color:#94a3b8;font-size:12px;margin:12px 0 8px;">Activity</p>
-        <div class="quick-row" id="quick-activity">
-          <button class="quick-btn" onclick="setQuickStat('activity','low')" data-val="low">🛋️ Low</button>
-          <button class="quick-btn" onclick="setQuickStat('activity','moderate')" data-val="moderate">🚶 Moderate</button>
-          <button class="quick-btn" onclick="setQuickStat('activity','active')" data-val="active">🏃 Active</button>
-        </div>
-        <p style="color:#94a3b8;font-size:12px;margin:12px 0 8px;">Mood</p>
-        <div class="quick-row" id="quick-mood">
-          <button class="quick-btn" onclick="setQuickStat('mood','low')" data-val="low">😔 Low</button>
-          <button class="quick-btn" onclick="setQuickStat('mood','okay')" data-val="okay">😐 Okay</button>
-          <button class="quick-btn" onclick="setQuickStat('mood','good')" data-val="good">😊 Good</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>📊 Health Radar</h3>
-      <div class="radar-grid" id="radar-grid"></div>
-    </div>
-
-    <div class="card tip-card">
-      <h3 style="color:#065f46;">💡 Tip of the Day</h3>
-      <p id="tip-text"></p>
-    </div>
-
-    <div class="card">
-      <h3>💧 Water Intake</h3>
-      <div class="water-row">
-        <button class="secondary" onclick="changeWater(-1)">−</button>
-        <span class="water-count" id="water-count">0 cups</span>
-        <button class="secondary" onclick="changeWater(1)">+</button>
-      </div>
-    </div>
-
-    <!-- Log a reading: the main action -->
+    <!-- Log a reading: the main action, right under the score -->
     <div class="card">
       <h3>🩺 Log a Reading</h3>
       <div class="input-row">
@@ -293,6 +247,52 @@
       <button onclick="checkBP()">Save &amp; Check My Risk</button>
       <div id="result"></div>
       <div id="alert-caregiver-btn"></div>
+    </div>
+
+    <div class="card">
+      <h3>📊 Health Radar</h3>
+      <div class="radar-grid" id="radar-grid"></div>
+    </div>
+
+    <div class="card">
+      <div class="checkin-toggle" onclick="toggleCheckin()">
+        <h3 style="margin:0;">📝 Quick Daily Check-in</h3>
+        <span class="fa-arrow" id="checkin-arrow">▼</span>
+      </div>
+      <div id="checkin-body" style="display:none;">
+        <p style="color:#94a3b8;font-size:12px;margin:10px 0 8px;">Sleep</p>
+        <div class="quick-row" id="quick-sleep">
+          <button class="quick-btn" onclick="setQuickStat('sleep','poor')" data-val="poor">😴 Poor</button>
+          <button class="quick-btn" onclick="setQuickStat('sleep','ok')" data-val="ok">🙂 OK</button>
+          <button class="quick-btn" onclick="setQuickStat('sleep','good')" data-val="good">😃 Good</button>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;margin:12px 0 8px;">Activity</p>
+        <div class="quick-row" id="quick-activity">
+          <button class="quick-btn" onclick="setQuickStat('activity','low')" data-val="low">🛋️ Low</button>
+          <button class="quick-btn" onclick="setQuickStat('activity','moderate')" data-val="moderate">🚶 Moderate</button>
+          <button class="quick-btn" onclick="setQuickStat('activity','active')" data-val="active">🏃 Active</button>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;margin:12px 0 8px;">Mood</p>
+        <div class="quick-row" id="quick-mood">
+          <button class="quick-btn" onclick="setQuickStat('mood','low')" data-val="low">😔 Low</button>
+          <button class="quick-btn" onclick="setQuickStat('mood','okay')" data-val="okay">😐 Okay</button>
+          <button class="quick-btn" onclick="setQuickStat('mood','good')" data-val="good">😊 Good</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💧 Water Intake</h3>
+      <div class="water-row">
+        <button class="secondary" onclick="changeWater(-1)">−</button>
+        <span class="water-count" id="water-count">0 cups</span>
+        <button class="secondary" onclick="changeWater(1)">+</button>
+      </div>
+    </div>
+
+    <div class="card tip-card">
+      <h3 style="color:#065f46;">💡 Tip of the Day</h3>
+      <p id="tip-text"></p>
     </div>
 
     <div class="card emergency-card">
