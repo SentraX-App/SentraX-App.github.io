@@ -82,7 +82,13 @@
       </div>
     </div>
 
-    <button onclick="hideCaregiverMode();window.loadPatientFlow();" style="background:linear-gradient(135deg,#38bdf8,#1d4ed8);margin-bottom:10px;">🏠 Go to My Own Dashboard</button>
+    <div class="card">
+      <h3 class="cgv-h3">Wellness This Week</h3>
+      <div class="radar-grid" id="cgv-wellness-radar"></div>
+    </div>
+
+    <button onclick="hideCaregiverMode();window.loadPatientFlow();localStorage.setItem('sentrax-view-mode','patient');" style="background:linear-gradient(135deg,#38bdf8,#1d4ed8);margin-bottom:10px;">🏠 Go to My Own Dashboard</button>
+    <button onclick="optOutOfCaregiverRole()" class="secondary" style="margin-bottom:10px;">🚫 Stop Being a Caregiver for This Person</button>
     <button onclick="logOut()">Sign Out</button>
     <div class="cgv-last-sync" id="cgv-last-sync"></div>
   </div>
@@ -350,6 +356,15 @@
         <div id="med-history-list" style="margin-top:10px;"><div class="empty">No completed medications yet</div></div>
       </div>
     </div>
+    <div class="card">
+      <div class="checkin-toggle" onclick="toggleWellnessHistory()">
+        <h3 style="margin:0;">💧 Water &amp; Wellness History</h3>
+        <span class="fa-arrow" id="wellness-history-arrow">▼</span>
+      </div>
+      <div id="wellness-history-body" style="display:none;">
+        <div id="wellness-history-list" style="margin-top:10px;"><div class="empty">No water or wellness check-ins logged yet</div></div>
+      </div>
+    </div>
   </div>
 
   <div class="screen" id="family-screen">
@@ -582,6 +597,7 @@
     <button onclick="closeMoreMenu();openQuickUnlockSettings()" id="nav-pin"><span class="icon">🔐</span>Set / Change PIN</button>
     <button onclick="openRatingOverlay()" id="nav-rate"><span class="icon">⭐</span>Rate Sentra-X</button>
     <button onclick="openWhatsAppCommunity()" id="nav-community"><span class="icon">👥</span>Sentra-X Health Community</button>
+    <button onclick="closeMoreMenu();switchToCaregiverView()" id="nav-caregiver-switch" style="display:none;"><span class="icon">🔄</span>Switch to Caregiver View</button>
   </div>
 
   <nav>
