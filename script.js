@@ -56,7 +56,7 @@ function showScreen(name) {
   }
   closeMoreMenu();
   if (name === 'meds') renderMeds();
-  if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); renderMedHistory(); }
+  if (name === 'history') { renderHistory(); renderWeeklySummary(); renderBadges(); renderQuickStats(); renderHealthRadar(); renderMedHistory(); renderWellnessHistory(); }
   if (name === 'family') { renderCaregiverNote(); renderLinkedCaregivers(); }
   if (name === 'passport') renderPassport();
   if (name === 'maternal') renderMaternalScreen();
@@ -150,6 +150,43 @@ function renderCaregiverDashboard(data) {
     }
   }
   document.getElementById('cgv-adherence').textContent = totalPossible > 0 ? Math.round((totalTaken / totalPossible) * 100) + '%' : '—';
+
+  // Sleep/Activity/Mood aren't single-day snapshots here the way the
+  // patient's own Health Radar shows them — a caregiver checking in once a
+  // day benefits more from "how has this been this week" than "what did
+  // they log in the last hour". Same 3-tier good/fair/poor language as the
+  // patient's Health Radar, just rolled up over 7 days instead of today only.
+  const wellnessGrid = document.getElementById('cgv-wellness-radar');
+  if (wellnessGrid) {
+    function weekTierSummary(statsObj, tierOf) {
+      const counts = { green: 0, yellow: 0, red: 0 };
+      let loggedDays = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+        const tier = tierOf[(statsObj || {})[d]];
+        if (tier) { counts[tier]++; loggedDays++; }
+      }
+      if (loggedDays === 0) return { dot: 'gray', status: 'Not logged this week' };
+      let dominant = 'green';
+      if (counts.red >= counts.yellow && counts.red >= counts.green && counts.red > 0) dominant = 'red';
+      else if (counts.yellow >= counts.green && counts.yellow > 0) dominant = 'yellow';
+      const label = { green: 'Good', yellow: 'Fair', red: 'Poor' }[dominant];
+      return { dot: dominant, status: label + ' (' + counts[dominant] + '/' + loggedDays + ' days logged)' };
+    }
+    const sleepSum = weekTierSummary(data.quickSleep, { good: 'green', ok: 'yellow', poor: 'red' });
+    const activitySum = weekTierSummary(data.quickActivity, { active: 'green', moderate: 'yellow', low: 'red' });
+    const moodSum = weekTierSummary(data.quickMood, { good: 'green', okay: 'yellow', low: 'red' });
+    const wellnessDots = { green: '\ud83d\udfe2', yellow: '\ud83d\udfe1', red: '\ud83d\udd34', gray: '\u26aa' };
+    const wellnessItems = [
+      { icon: '\ud83d\ude34', label: 'Sleep', summary: sleepSum },
+      { icon: '\ud83c\udfc3', label: 'Activity', summary: activitySum },
+      { icon: '\ud83d\ude0a', label: 'Wellness', summary: moodSum }
+    ];
+    wellnessGrid.innerHTML = wellnessItems.map(function (item) {
+      return '<div class="radar-item"><span class="dot">' + wellnessDots[item.summary.dot] + '</span><span class="label">' + item.icon + ' ' + item.label + '</span><div class="status">' + escapeHtml(item.summary.status) + '</div></div>';
+    }).join('');
+  }
+
   document.getElementById('cgv-last-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
@@ -170,6 +207,42 @@ function hideCaregiverMode() {
   if (el) el.style.display = 'none';
 }
 window.hideCaregiverMode = hideCaregiverMode;
+
+// Lets someone who's both a patient AND a linked caregiver jump into
+// caregiver view on demand from their own dashboard, instead of only ever
+// landing there automatically at sign-in. Only ever visible/callable for
+// accounts that actually have a caregiverLinks record — window.__sentraxCaregiverPatientUid
+// is set once, right after auth.js confirms that link exists.
+function switchToCaregiverView() {
+  if (!window.__sentraxCaregiverPatientUid) return;
+  localStorage.setItem('sentrax-view-mode', 'caregiver');
+  showCaregiverMode(window.__sentraxCaregiverPatientUid);
+}
+window.switchToCaregiverView = switchToCaregiverView;
+
+// Deliberately caregiver-only, and deliberately not exposed anywhere in the
+// patient flow: this deletes ONLY the signed-in user's own caregiverLinks
+// doc (keyed by their own uid) — a caregiver opting themselves out. A
+// patient can never reach this, and can never remove a caregiver's access
+// from their own side, by design — that access is the caregiver's to give
+// up, not the patient's to secretly revoke.
+function optOutOfCaregiverRole() {
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  if (!confirm('Stop being a caregiver for this person? You will lose access to their readings and medications unless they invite you again.')) return;
+  firebase.firestore().collection('caregiverLinks').doc(user.uid).delete().then(function () {
+    window.__sentraxCaregiverPatientUid = null;
+    const navSwitch = document.getElementById('nav-caregiver-switch');
+    if (navSwitch) navSwitch.style.display = 'none';
+    localStorage.setItem('sentrax-view-mode', 'patient');
+    hideCaregiverMode();
+    if (typeof window.loadPatientFlow === 'function') window.loadPatientFlow();
+  }).catch(function (err) {
+    alert('Could not remove caregiver access right now — check your connection and try again.');
+    console.error('Sentra-X: caregiver opt-out failed:', err.message);
+  });
+}
+window.optOutOfCaregiverRole = optOutOfCaregiverRole;
 function completeOnboarding() {
   const name = document.getElementById('ob-name').value.trim();
   const condition = document.getElementById('ob-condition').value;
@@ -427,6 +500,58 @@ function toggleMedHistory() {
   body.style.display = isOpen ? 'none' : 'block';
   arrow.classList.toggle('open', !isOpen);
   if (!isOpen) renderMedHistory();
+}
+
+// Water intake and the Quick Daily Check-in (sleep/activity/mood) were
+// already being saved correctly, date-keyed, every single day — the gap
+// was that nothing ever displayed that history back. This reads the same
+// localStorage data the Water Intake card and Health Radar already write,
+// just presented as a day-by-day list instead of only ever showing today.
+function renderWellnessHistory() {
+  const list = document.getElementById('wellness-history-list');
+  if (!list) return;
+  const waterLogs = JSON.parse(localStorage.getItem('waterLogs') || '{}');
+  const sleepStats = JSON.parse(localStorage.getItem('quick_sleep') || '{}');
+  const activityStats = JSON.parse(localStorage.getItem('quick_activity') || '{}');
+  const moodStats = JSON.parse(localStorage.getItem('quick_mood') || '{}');
+
+  const allDates = {};
+  [waterLogs, sleepStats, activityStats, moodStats].forEach(function (obj) {
+    Object.keys(obj).forEach(function (d) { allDates[d] = true; });
+  });
+  const dates = Object.keys(allDates).sort().reverse().slice(0, 14);
+
+  if (dates.length === 0) {
+    list.innerHTML = '<div class="empty">No water or wellness check-ins logged yet</div>';
+    return;
+  }
+
+  const sleepLabel = { good: 'Good', ok: 'OK', poor: 'Poor' };
+  const activityLabel = { active: 'Active', moderate: 'Moderate', low: 'Low' };
+  const moodLabel = { good: 'Good', okay: 'Okay', low: 'Low' };
+
+  list.innerHTML = '<div class="med-history-scroll">' + dates.map(function (d) {
+    const dateText = new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const cups = waterLogs[d];
+    const sleep = sleepStats[d];
+    const activity = activityStats[d];
+    const mood = moodStats[d];
+    let rows = '';
+    if (cups !== undefined) rows += '<div class="med-history-row"><span class="med-history-icon">💧</span><span class="med-history-label">Water:</span><span class="med-history-value">' + cups + ' cup' + (cups === 1 ? '' : 's') + '</span></div>';
+    if (sleep) rows += '<div class="med-history-row"><span class="med-history-icon">😴</span><span class="med-history-label">Sleep:</span><span class="med-history-badge">' + (sleepLabel[sleep] || escapeHtml(sleep)) + '</span></div>';
+    if (activity) rows += '<div class="med-history-row"><span class="med-history-icon">🏃</span><span class="med-history-label">Activity:</span><span class="med-history-badge">' + (activityLabel[activity] || escapeHtml(activity)) + '</span></div>';
+    if (mood) rows += '<div class="med-history-row"><span class="med-history-icon">😊</span><span class="med-history-label">Wellness:</span><span class="med-history-badge">' + (moodLabel[mood] || escapeHtml(mood)) + '</span></div>';
+    return '<div class="med-history-card"><div class="med-history-name">📅 ' + dateText + '</div><div class="med-history-details">' + rows + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function toggleWellnessHistory() {
+  const body = document.getElementById('wellness-history-body');
+  const arrow = document.getElementById('wellness-history-arrow');
+  const isOpen = body.style.display === 'block';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.classList.toggle('open', !isOpen);
+  if (!isOpen) renderWellnessHistory();
 }
 function toggleTaken(id) {
   const today = todayStr();
