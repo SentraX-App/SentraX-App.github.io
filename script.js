@@ -180,7 +180,7 @@ function renderCaregiverDashboard(data) {
     const wellnessItems = [
       { icon: '\ud83d\ude34', label: 'Sleep', summary: sleepSum },
       { icon: '\ud83c\udfc3', label: 'Activity', summary: activitySum },
-      { icon: '\ud83d\ude0a', label: 'Wellness', summary: moodSum }
+      { icon: '\ud83d\ude0a', label: 'Mood', summary: moodSum }
     ];
     wellnessGrid.innerHTML = wellnessItems.map(function (item) {
       return '<div class="radar-item"><span class="dot">' + wellnessDots[item.summary.dot] + '</span><span class="label">' + item.icon + ' ' + item.label + '</span><div class="status">' + escapeHtml(item.summary.status) + '</div></div>';
@@ -238,8 +238,11 @@ function optOutOfCaregiverRole() {
     hideCaregiverMode();
     if (typeof window.loadPatientFlow === 'function') window.loadPatientFlow();
   }).catch(function (err) {
-    alert('Could not remove caregiver access right now — check your connection and try again.');
-    console.error('Sentra-X: caregiver opt-out failed:', err.message);
+    const msg = err.code === 'permission-denied'
+      ? 'Could not remove caregiver access — this account isn\'t permitted to do that right now. Please try again shortly.'
+      : 'Could not remove caregiver access right now — check your connection and try again.';
+    alert(msg);
+    console.error('Sentra-X: caregiver opt-out failed:', err.code, err.message);
   });
 }
 window.optOutOfCaregiverRole = optOutOfCaregiverRole;
@@ -522,7 +525,7 @@ function renderWellnessHistory() {
   const dates = Object.keys(allDates).sort().reverse().slice(0, 14);
 
   if (dates.length === 0) {
-    list.innerHTML = '<div class="empty">No water or wellness check-ins logged yet</div>';
+    list.innerHTML = '<div class="empty">No water or mood check-ins logged yet</div>';
     return;
   }
 
@@ -540,7 +543,7 @@ function renderWellnessHistory() {
     if (cups !== undefined) rows += '<div class="med-history-row"><span class="med-history-icon">💧</span><span class="med-history-label">Water:</span><span class="med-history-value">' + cups + ' cup' + (cups === 1 ? '' : 's') + '</span></div>';
     if (sleep) rows += '<div class="med-history-row"><span class="med-history-icon">😴</span><span class="med-history-label">Sleep:</span><span class="med-history-badge">' + (sleepLabel[sleep] || escapeHtml(sleep)) + '</span></div>';
     if (activity) rows += '<div class="med-history-row"><span class="med-history-icon">🏃</span><span class="med-history-label">Activity:</span><span class="med-history-badge">' + (activityLabel[activity] || escapeHtml(activity)) + '</span></div>';
-    if (mood) rows += '<div class="med-history-row"><span class="med-history-icon">😊</span><span class="med-history-label">Wellness:</span><span class="med-history-badge">' + (moodLabel[mood] || escapeHtml(mood)) + '</span></div>';
+    if (mood) rows += '<div class="med-history-row"><span class="med-history-icon">😊</span><span class="med-history-label>Mood:</span><span class="med-history-badge">' + (moodLabel[mood] || escapeHtml(mood)) + '</span></div>';
     return '<div class="med-history-card"><div class="med-history-name">📅 ' + dateText + '</div><div class="med-history-details">' + rows + '</div></div>';
   }).join('') + '</div>';
 }
@@ -1690,7 +1693,7 @@ function renderHealthRadar() {
   if (moodVal === 'good') { moodStatus = 'Good'; moodDot = 'green'; }
   else if (moodVal === 'okay') { moodStatus = 'Okay'; moodDot = 'yellow'; }
   else if (moodVal === 'low') { moodStatus = 'Low'; moodDot = 'red'; }
-  items.push({ icon: 'wellness', label: 'Wellness', dot: moodDot, status: moodStatus });
+  items.push({ icon: 'wellness', label: 'Mood', dot: moodDot, status: moodStatus });
 
   var ICONS = { heart: '\u2764\ufe0f', pill: '\ud83d\udc8a', water: '\ud83d\udca7', sleep: '\ud83d\ude34', activity: '\ud83c\udfc3', wellness: '\ud83d\ude0a' };
   var DOTS = { green: '\ud83d\udfe2', yellow: '\ud83d\udfe1', red: '\ud83d\udd34', gray: '\u26aa' };
