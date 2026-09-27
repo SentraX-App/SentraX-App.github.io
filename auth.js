@@ -467,8 +467,23 @@
       firebase.firestore().collection('caregiverLinks').doc(user.uid).get().then(function(linkDoc) {
         if (linkDoc.exists) {
           const patientUid = linkDoc.data().patientUid;
-          if (typeof window.showCaregiverMode === 'function') window.showCaregiverMode(patientUid);
-          return;
+          // Remembered so a dual-role account can switch back into caregiver
+          // view on demand later, without a fresh Firestore read each time.
+          window.__sentraxCaregiverPatientUid = patientUid;
+          const navSwitch = document.getElementById('nav-caregiver-switch');
+          if (navSwitch) navSwitch.style.display = '';
+
+          // First time ever seeing this account, there's no saved preference
+          // yet — default to caregiver mode (unchanged behavior for anyone
+          // who's purely a caregiver with no patient data of their own).
+          // Once they've explicitly chosen a side even once, respect that
+          // choice on every future sign-in instead of forcing caregiver mode
+          // every single time.
+          const preferredMode = localStorage.getItem('sentrax-view-mode');
+          if (preferredMode !== 'patient') {
+            if (typeof window.showCaregiverMode === 'function') window.showCaregiverMode(patientUid);
+            return;
+          }
         }
         loadPatientFlow();
       }).catch(function(err) {
