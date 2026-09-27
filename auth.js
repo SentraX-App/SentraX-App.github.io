@@ -506,6 +506,7 @@
           updateHomeQuickUnlockCard();
         });
       }
+      window.loadPatientFlow = loadPatientFlow;
     } else {
       console.log('Sentra-X: auth state -> logged out');
       if (typeof window.hideCaregiverMode === 'function') window.hideCaregiverMode();
