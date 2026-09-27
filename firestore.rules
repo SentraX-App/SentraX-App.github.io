@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     match /users/{userId} {
-      // Unchanged â€” owner keeps full read/write, exactly as before.
+      // Unchanged - owner keeps full read/write, exactly as before.
       allow read, write: if request.auth != null
                           && request.auth.uid == userId;
 
@@ -37,7 +37,7 @@ service cloud.firestore {
       // this isn't practically guessable/enumerable.
       allow read: if request.auth != null;
 
-      // Claiming: can only move usedBy from empty to your own uid â€” nothing
+      // Claiming: can only move usedBy from empty to your own uid - nothing
       // else on the invite can be changed, and it can't be re-claimed.
       allow update: if request.auth != null
                     && resource.data.usedBy == null
@@ -56,6 +56,12 @@ service cloud.firestore {
                     && request.resource.data.claimCode is string
                     && get(/databases/$(database)/documents/invites/$(request.resource.data.claimCode)).data.usedBy == request.auth.uid
                     && get(/databases/$(database)/documents/invites/$(request.resource.data.claimCode)).data.patientUid == request.resource.data.patientUid;
+
+      // A caregiver may remove ONLY their own link, opting themselves out.
+      // There is deliberately no path here for a patient to delete this â€”
+      // this doc is keyed by the caregiver's own uid, and patients are never
+      // granted access to it at all, by design.
+      allow delete: if request.auth != null && request.auth.uid == caregiverUid;
     }
 
   }
