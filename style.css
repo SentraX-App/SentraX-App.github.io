@@ -870,6 +870,8 @@ nav button.active .icon { filter: none; }
 /* Health snapshot */
 #vitals-screen .radar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 #vitals-screen .radar-grid .radar-item { padding: 12px 6px; border-radius: 14px; }
+#caregiver-overlay .radar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+#caregiver-overlay .radar-grid .radar-item { padding: 12px 6px; border-radius: 14px; }
 
 /* Water */
 #vitals-screen .water-row {
