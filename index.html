@@ -56,11 +56,24 @@
     updateOfflineBanner();
   })();
 </script>
+<!-- Top level on purpose: it must be able to open from the patient's own
+     screens too, where the caregiver overlay below is display:none. -->
+<div id="caregiver-patient-picker" class="modal-backdrop" style="display:none;">
+  <div class="card" style="max-width:340px;width:100%;margin-bottom:0;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+    <h3 style="margin-top:0;">👥 Switch Patient</h3>
+    <div id="caregiver-patient-picker-list"></div>
+    <button type="button" class="secondary" onclick="document.getElementById('caregiver-patient-picker').style.display='none';">Cancel</button>
+  </div>
+</div>
 <div id="caregiver-overlay" style="display:none;">
   <div class="cgv-wrap">
     <div class="cgv-brand">
       <span class="cgv-brand-mark">✚</span> Sentra-X
       <span class="cgv-tag">Caregiver</span>
+    </div>
+    <div class="cgv-viewing" id="cgv-viewing" style="display:none;">
+      <span>Viewing <b id="cgv-viewing-name"></b></span>
+      <button type="button" class="cgv-switch-btn" id="cgv-switch-btn" style="display:none;" onclick="switchToCaregiverView()">Switch ⇄</button>
     </div>
 
     <div class="card">
@@ -88,8 +101,8 @@
     </div>
 
     <button onclick="hideCaregiverMode();window.loadPatientFlow();localStorage.setItem('sentrax-view-mode','patient');" style="background:linear-gradient(135deg,#38bdf8,#1d4ed8);margin-bottom:10px;">🏠 Go to My Own Dashboard</button>
-    <button onclick="optOutOfCaregiverRole()" class="secondary" style="margin-bottom:10px;">🚫 Stop Being a Caregiver for This Person</button>
     <button onclick="logOut()">Sign Out</button>
+    <button onclick="optOutOfCaregiverRole()" class="cgv-danger-btn">Stop being a caregiver for this person</button>
     <div class="cgv-last-sync" id="cgv-last-sync"></div>
   </div>
 </div>
@@ -358,7 +371,7 @@
     </div>
     <div class="card">
       <div class="checkin-toggle" onclick="toggleWellnessHistory()">
-        <h3 style="margin:0;">💧 Water &amp; Mood History</h3>
+        <h3 style="margin:0;">💧 Daily Wellness Log</h3>
         <span class="fa-arrow" id="wellness-history-arrow">▼</span>
       </div>
       <div id="wellness-history-body" style="display:none;">
@@ -591,9 +604,11 @@
     <button onclick="showScreen('maternal')" id="nav-maternal" style="display:none;"><span class="icon">🤰</span>Maternal &amp; Child</button>
     <button onclick="showScreen('passport')" id="nav-passport"><span class="icon">🪪</span>Passport</button>
     <button onclick="showScreen('ai')" id="nav-ai"><span class="icon">💬</span>Assistant</button>
+    <div class="more-divider"></div>
     <button onclick="showScreen('articles')" id="nav-articles"><span class="icon">📰</span>Articles</button>
     <button onclick="showScreen('marketplace')" id="nav-marketplace"><span class="icon">🛍️</span>Marketplace</button>
     <button onclick="showScreen('rewards')" id="nav-rewards"><span class="icon">🪙</span>Rewards</button>
+    <div class="more-divider"></div>
     <button onclick="closeMoreMenu();openQuickUnlockSettings()" id="nav-pin"><span class="icon">🔐</span>Set / Change PIN</button>
     <button onclick="openRatingOverlay()" id="nav-rate"><span class="icon">⭐</span>Rate Sentra-X</button>
     <button onclick="openWhatsAppCommunity()" id="nav-community"><span class="icon">👥</span>Sentra-X Health Community</button>
