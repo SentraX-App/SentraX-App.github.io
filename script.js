@@ -187,11 +187,24 @@ function renderCaregiverDashboard(data) {
     }).join('');
   }
 
+  const viewingRow = document.getElementById('cgv-viewing');
+  if (viewingRow) {
+    document.getElementById('cgv-viewing-name').textContent = data.userName || 'this patient';
+    viewingRow.style.display = 'flex';
+    const switchBtn = document.getElementById('cgv-switch-btn');
+    if (switchBtn) switchBtn.style.display = (window.__sentraxCaregiverLinks || []).length > 1 ? '' : 'none';
+  }
+
   document.getElementById('cgv-last-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
-function showCaregiverMode(patientUid) {
+function showCaregiverMode(patientUid, linkId) {
+  // Switching patients must stop the previous patient's live listener first,
+  // otherwise both keep writing to the same screen and the wrong person's
+  // numbers can flash back over the one you just picked.
+  if (caregiverUnsub) { caregiverUnsub(); caregiverUnsub = null; }
   document.getElementById('caregiver-overlay').style.display = 'block';
+  window.__sentraxCurrentCaregiverLink = { patientUid: patientUid, id: linkId || patientUid };
   caregiverUnsub = firebase.firestore().collection('users').doc(patientUid)
     .onSnapshot(function (doc) {
       if (doc.exists) renderCaregiverDashboard(doc.data());
@@ -208,35 +221,85 @@ function hideCaregiverMode() {
 }
 window.hideCaregiverMode = hideCaregiverMode;
 
+function activateCaregiverLink(link) {
+  localStorage.setItem('sentrax-view-mode', 'caregiver');
+  localStorage.setItem('sentrax-caregiver-patient', link.patientUid);
+  showCaregiverMode(link.patientUid, link.id);
+}
+
+// Fetches each linked patient's display name for the picker, best-effort —
+// falls back to a generic "Patient N" label for any read that fails rather
+// than blocking the whole picker over one name.
+function showCaregiverPatientPicker(links) {
+  const modal = document.getElementById('caregiver-patient-picker');
+  const listEl = document.getElementById('caregiver-patient-picker-list');
+  if (!modal || !listEl) return;
+  listEl.innerHTML = '<p style="text-align:center;color:#94a3b8;font-size:13px;">Loading…</p>';
+  modal.style.display = 'flex';
+  Promise.all(links.map(function (l) {
+    return firebase.firestore().collection('users').doc(l.patientUid).get()
+      .then(function (d) { return (d.exists && d.data().userName) || null; })
+      .catch(function () { return null; });
+  })).then(function (names) {
+    const currentUid = (window.__sentraxCurrentCaregiverLink || {}).patientUid;
+    listEl.innerHTML = links.map(function (l, i) {
+      const label = names[i] || ('Patient ' + (i + 1));
+      const mark = l.patientUid === currentUid ? '✓ ' : '👤 ';
+      return '<button type="button" onclick="document.getElementById(\'caregiver-patient-picker\').style.display=\'none\';activateCaregiverLinkByIndex(' + i + ')" style="margin-bottom:8px;">' + mark + escapeHtml(label) + '</button>';
+    }).join('');
+    window.__sentraxCaregiverLinksForPicker = links;
+  });
+}
+window.showCaregiverPatientPicker = showCaregiverPatientPicker;
+
+function activateCaregiverLinkByIndex(i) {
+  const links = window.__sentraxCaregiverLinksForPicker || window.__sentraxCaregiverLinks || [];
+  if (links[i]) activateCaregiverLink(links[i]);
+}
+window.activateCaregiverLinkByIndex = activateCaregiverLinkByIndex;
+
 // Lets someone who's both a patient AND a linked caregiver jump into
 // caregiver view on demand from their own dashboard, instead of only ever
 // landing there automatically at sign-in. Only ever visible/callable for
-// accounts that actually have a caregiverLinks record — window.__sentraxCaregiverPatientUid
-// is set once, right after auth.js confirms that link exists.
+// accounts that actually have at least one caregiverLinks record —
+// window.__sentraxCaregiverLinks is set once, right after auth.js confirms
+// those links exist. A caregiver linked to more than one patient gets a
+// picker instead of jumping straight to whichever was found first.
 function switchToCaregiverView() {
-  if (!window.__sentraxCaregiverPatientUid) return;
-  localStorage.setItem('sentrax-view-mode', 'caregiver');
-  showCaregiverMode(window.__sentraxCaregiverPatientUid);
+  const links = window.__sentraxCaregiverLinks || [];
+  if (links.length === 0) return;
+  if (links.length === 1) { activateCaregiverLink(links[0]); return; }
+  showCaregiverPatientPicker(links);
 }
 window.switchToCaregiverView = switchToCaregiverView;
 
 // Deliberately caregiver-only, and deliberately not exposed anywhere in the
-// patient flow: this deletes ONLY the signed-in user's own caregiverLinks
-// doc (keyed by their own uid) — a caregiver opting themselves out. A
+// patient flow: this deletes ONLY the currently-active link doc — a
+// caregiver opting themselves out of ONE patient relationship, by its own
+// specific doc id (not every link they might hold, if they have several). A
 // patient can never reach this, and can never remove a caregiver's access
 // from their own side, by design — that access is the caregiver's to give
 // up, not the patient's to secretly revoke.
 function optOutOfCaregiverRole() {
   const user = firebase.auth().currentUser;
-  if (!user) return;
+  const current = window.__sentraxCurrentCaregiverLink;
+  if (!user || !current) return;
   if (!confirm('Stop being a caregiver for this person? You will lose access to their readings and medications unless they invite you again.')) return;
-  firebase.firestore().collection('caregiverLinks').doc(user.uid).delete().then(function () {
-    window.__sentraxCaregiverPatientUid = null;
-    const navSwitch = document.getElementById('nav-caregiver-switch');
-    if (navSwitch) navSwitch.style.display = 'none';
-    localStorage.setItem('sentrax-view-mode', 'patient');
+  firebase.firestore().collection('caregiverLinks').doc(current.id).delete().then(function () {
+    const links = (window.__sentraxCaregiverLinks || []).filter(function (l) { return l.id !== current.id; });
+    window.__sentraxCaregiverLinks = links;
+    window.__sentraxCurrentCaregiverLink = null;
     hideCaregiverMode();
-    if (typeof window.loadPatientFlow === 'function') window.loadPatientFlow();
+    if (links.length > 0) {
+      // Still a caregiver for at least one other person — drop straight
+      // into the next one rather than bouncing out to the patient view.
+      activateCaregiverLink(links[0]);
+    } else {
+      const navSwitch = document.getElementById('nav-caregiver-switch');
+      if (navSwitch) navSwitch.style.display = 'none';
+      localStorage.setItem('sentrax-view-mode', 'patient');
+      if (typeof window.loadPatientFlow === 'function') window.loadPatientFlow();
+    }
   }).catch(function (err) {
     const msg = err.code === 'permission-denied'
       ? 'Could not remove caregiver access — this account isn\'t permitted to do that right now. Please try again shortly.'
@@ -358,6 +421,8 @@ function checkBP() {
     const safeLevel = risk.level.replace(/'/g, "");
     cgBtn.innerHTML = '<button class="danger" onclick="alertCaregiverNow(' + sys + ',' + dia + ',\'' + safeLevel + '\')">🚨 Alert My Caregiver Now</button>';
   }
+
+  renderHealthRadar();
 }
 
 function alertCaregiverNow(sys, dia, level) {
@@ -529,8 +594,11 @@ function renderWellnessHistory() {
     return;
   }
 
+  const sleepTier = { good: 'med-history-badge', ok: 'wellness-badge-fair', poor: 'wellness-badge-poor' };
   const sleepLabel = { good: 'Good', ok: 'OK', poor: 'Poor' };
+  const activityTier = { active: 'med-history-badge', moderate: 'wellness-badge-fair', low: 'wellness-badge-poor' };
   const activityLabel = { active: 'Active', moderate: 'Moderate', low: 'Low' };
+  const moodTier = { good: 'med-history-badge', okay: 'wellness-badge-fair', low: 'wellness-badge-poor' };
   const moodLabel = { good: 'Good', okay: 'Okay', low: 'Low' };
 
   list.innerHTML = '<div class="med-history-scroll">' + dates.map(function (d) {
@@ -541,9 +609,9 @@ function renderWellnessHistory() {
     const mood = moodStats[d];
     let rows = '';
     if (cups !== undefined) rows += '<div class="med-history-row"><span class="med-history-icon">💧</span><span class="med-history-label">Water:</span><span class="med-history-value">' + cups + ' cup' + (cups === 1 ? '' : 's') + '</span></div>';
-    if (sleep) rows += '<div class="med-history-row"><span class="med-history-icon">😴</span><span class="med-history-label">Sleep:</span><span class="med-history-badge">' + (sleepLabel[sleep] || escapeHtml(sleep)) + '</span></div>';
-    if (activity) rows += '<div class="med-history-row"><span class="med-history-icon">🏃</span><span class="med-history-label">Activity:</span><span class="med-history-badge">' + (activityLabel[activity] || escapeHtml(activity)) + '</span></div>';
-    if (mood) rows += '<div class="med-history-row"><span class="med-history-icon">😊</span><span class="med-history-label>Mood:</span><span class="med-history-badge">' + (moodLabel[mood] || escapeHtml(mood)) + '</span></div>';
+    if (sleep) rows += '<div class="med-history-row"><span class="med-history-icon">😴</span><span class="med-history-label">Sleep:</span><span class="' + (sleepTier[sleep] || 'med-history-badge') + '">' + (sleepLabel[sleep] || escapeHtml(sleep)) + '</span></div>';
+    if (activity) rows += '<div class="med-history-row"><span class="med-history-icon">🏃</span><span class="med-history-label">Activity:</span><span class="' + (activityTier[activity] || 'med-history-badge') + '">' + (activityLabel[activity] || escapeHtml(activity)) + '</span></div>';
+    if (mood) rows += '<div class="med-history-row"><span class="med-history-icon">😊</span><span class="med-history-label">Mood:</span><span class="' + (moodTier[mood] || 'med-history-badge') + '">' + (moodLabel[mood] || escapeHtml(mood)) + '</span></div>';
     return '<div class="med-history-card"><div class="med-history-name">📅 ' + dateText + '</div><div class="med-history-details">' + rows + '</div></div>';
   }).join('') + '</div>';
 }
@@ -3036,7 +3104,6 @@ function calculateBpmFromSamples(samples) {
   }
 
   const peakTimes = mergeDoubleCountedPeaks(rawPeakTimes);
-
   const durationMinutes = (usable[usable.length - 1].t - usable[0].t) / 60000;
   if (durationMinutes <= 0) return null;
 
