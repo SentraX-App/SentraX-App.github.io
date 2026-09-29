@@ -23,8 +23,21 @@ service cloud.firestore {
                     && request.resource.data.caregiverUids.size() == resource.data.get('caregiverUids', []).size() + 1
                     && resource.data.get('caregiverUids', []).size() < 8
                     && request.resource.data.caregiverInfo.diff(resource.data.get('caregiverInfo', {})).affectedKeys().hasOnly([request.auth.uid])
-                    && exists(/databases/$(database)/documents/caregiverLinks/$(request.auth.uid))
-                    && get(/databases/$(database)/documents/caregiverLinks/$(request.auth.uid)).data.patientUid == userId;
+                    && (
+                      (exists(/databases/$(database)/documents/caregiverLinks/$(request.auth.uid))
+                        && get(/databases/$(database)/documents/caregiverLinks/$(request.auth.uid)).data.patientUid == userId)
+                      || exists(/databases/$(database)/documents/caregiverLinks/$(request.auth.uid + '_' + userId))
+                    );
+      // A caregiver may take THEMSELVES off the access list (opting out),
+      // and nothing else on the document: exactly one entry removed, and it
+      // must be their own.
+      allow update: if request.auth != null
+                    && request.auth.uid != userId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caregiverUids', 'caregiverInfo'])
+                    && request.auth.uid in resource.data.get('caregiverUids', [])
+                    && !(request.auth.uid in request.resource.data.get('caregiverUids', []))
+                    && request.resource.data.get('caregiverUids', []).size() == resource.data.get('caregiverUids', []).size() - 1
+                    && request.resource.data.get('caregiverInfo', {}).diff(resource.data.get('caregiverInfo', {})).affectedKeys().hasOnly([request.auth.uid]);
     }
 
     match /invites/{code} {
@@ -45,24 +58,30 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy']);
     }
 
-    match /caregiverLinks/{caregiverUid} {
-      allow read: if request.auth != null && request.auth.uid == caregiverUid;
+    match /caregiverLinks/{linkId} {
+      // Two link formats coexist on purpose. OLD links use the caregiver's
+      // own uid as the doc ID (linkId == uid, no caregiverUid field). NEW
+      // links use an auto-generated ID plus an explicit caregiverUid field,
+      // which is what lets one caregiver hold links to several patients.
+      // Reads are checked per document, so a query for your own links only
+      // ever returns docs that pass this check.
+      allow read: if request.auth != null
+                  && (linkId == request.auth.uid || resource.data.caregiverUid == request.auth.uid);
 
-      // Can only create your OWN link doc, and only if it points at the
-      // patient whose invite you just successfully claimed.
+      // Can only create a link that names YOU as the caregiver, and only if
+      // it points at the patient whose invite you just successfully claimed.
       allow create: if request.auth != null
-                    && request.auth.uid == caregiverUid
+                    && request.resource.data.caregiverUid == request.auth.uid
+                    && linkId == request.auth.uid + '_' + request.resource.data.patientUid
                     && request.resource.data.patientUid is string
                     && request.resource.data.claimCode is string
                     && get(/databases/$(database)/documents/invites/$(request.resource.data.claimCode)).data.usedBy == request.auth.uid
                     && get(/databases/$(database)/documents/invites/$(request.resource.data.claimCode)).data.patientUid == request.resource.data.patientUid;
 
-      // A caregiver may remove ONLY their own link, opting themselves out.
-      // There is deliberately no path here for a patient to delete this â€”
-      // this doc is keyed by the caregiver's own uid, and patients are never
-      // granted access to it at all, by design.
-      allow delete: if request.auth != null && request.auth.uid == caregiverUid;
+      // A caregiver may remove ONLY their own links, opting themselves out.
+      // There is deliberately no path for a patient to delete these.
+      allow delete: if request.auth != null
+                    && (linkId == request.auth.uid || resource.data.caregiverUid == request.auth.uid);
     }
-
   }
 }
