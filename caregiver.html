@@ -279,19 +279,30 @@ const consentEl = document.getElementById('cg-join-consent');
         if (invite.expiresAt && Date.now() > invite.expiresAt) throw new Error('That invite code has expired — ask for a new one.');
         const patientUid = invite.patientUid;
 
-        if (invite.usedBy === newUid) {
-          return patientUid;
-        }
+        // Skip re-claiming the invite itself if this exact account already
+        // claimed it — the invite can only move from unclaimed to claimed
+        // once, so retrying that step would fail. But still (re-)run both
+        // writes below every time regardless: both are safe to repeat, and
+        // doing so self-heals a previous attempt that claimed the invite
+        // but didn't finish actually granting access (e.g. the patient hit
+        // their caregiver cap right after the link doc was created) —
+        // otherwise a retry after that exact failure would silently look
+        // successful while the caregiver still has no real access.
+        const claimStep = (invite.usedBy === newUid)
+          ? Promise.resolve()
+          : firebase.firestore().collection('invites').doc(code).update({ usedBy: newUid });
 
-        return firebase.firestore().collection('invites').doc(code).update({ usedBy: newUid })
+        return claimStep
           .then(function () {
             // A new, separate document per link (ID = caregiverUid_patientUid) instead
             // of one doc keyed by the caregiver's own uid — the old approach
             // meant joining a second patient's invite would silently
             // overwrite and destroy the first link entirely, since both
             // would try to write to the exact same doc ID.
-            return firebase.firestore().collection('caregiverLinks').doc(newUid + '_' + patientUid).set({
-              caregiverUid: newUid, patientUid: patientUid, claimCode: code, linkedAt: Date.now()
+            const linkRef = firebase.firestore().collection('caregiverLinks').doc(newUid + '_' + patientUid);
+            return linkRef.get().then(function (existing) {
+              if (existing.exists) return; // already created by an earlier attempt
+              return linkRef.set({ caregiverUid: newUid, patientUid: patientUid, claimCode: code, linkedAt: Date.now() });
             });
           })
           .then(function () {
@@ -305,13 +316,10 @@ const consentEl = document.getElementById('cg-join-consent');
       })
       .then(function (patientUid) {
         isLinking = false;
-        showView('dashboard-view');
-        cgUnsub = firebase.firestore().collection('users').doc(patientUid)
-          .onSnapshot(function (doc) {
-            if (doc.exists) renderDashboard(doc.data());
-          }, function (err2) {
-            console.error('Sentra-X Caregiver: read failed:', err2.message);
-          });
+        return cgFetchAllLinks(newUid);
+      })
+      .then(function (links) {
+        cgActivateLinks(links);
       })
       .catch(function (e) {
         isLinking = false;
