@@ -138,6 +138,7 @@
 
   <div id="dashboard-view">
     <div class="cg-greeting" id="cg-greeting"></div>
+    <select id="cg-patient-switcher" style="display:none;margin-bottom:14px;width:100%;" onchange="cgSwitchPatient(this.value)"></select>
     <div class="cg-alert-banner" id="cg-alert-banner"></div>
 
     <div class="card">
@@ -227,15 +228,10 @@
         if (inviteCodeFromUrl) { location.href = location.pathname; return; }
         const user = firebase.auth().currentUser;
         user.getIdToken(true).then(function () {
-          return firebase.firestore().collection('caregiverLinks').doc(user.uid).get();
-        }).then(function (linkDoc) {
-          if (!linkDoc.exists) { showView('no-link-view'); return; }
-          const patientUid = linkDoc.data().patientUid;
-          showView('dashboard-view');
-          cgUnsub = firebase.firestore().collection('users').doc(patientUid)
-            .onSnapshot(function (doc) {
-              if (doc.exists) renderDashboard(doc.data());
-            }, function (e) { console.error('Sentra-X Caregiver: read failed:', e.message); });
+          return cgFetchAllLinks(user.uid);
+        }).then(function (links) {
+          if (links.length === 0) { showView('no-link-view'); return; }
+          cgActivateLinks(links);
         }).catch(function (e) {
           console.error('Sentra-X Caregiver: link lookup failed:', e.message);
           err.textContent = 'Something went wrong loading your account — please try again.';
@@ -289,8 +285,13 @@ const consentEl = document.getElementById('cg-join-consent');
 
         return firebase.firestore().collection('invites').doc(code).update({ usedBy: newUid })
           .then(function () {
-            return firebase.firestore().collection('caregiverLinks').doc(newUid).set({
-              patientUid: patientUid, claimCode: code, linkedAt: Date.now()
+            // A new, separate document per link (ID = caregiverUid_patientUid) instead
+            // of one doc keyed by the caregiver's own uid — the old approach
+            // meant joining a second patient's invite would silently
+            // overwrite and destroy the first link entirely, since both
+            // would try to write to the exact same doc ID.
+            return firebase.firestore().collection('caregiverLinks').doc(newUid + '_' + patientUid).set({
+              caregiverUid: newUid, patientUid: patientUid, claimCode: code, linkedAt: Date.now()
             });
           })
           .then(function () {
@@ -325,6 +326,92 @@ const consentEl = document.getElementById('cg-join-consent');
   function cgLogOut() {
     if (cgUnsub) { cgUnsub(); cgUnsub = null; }
     firebase.auth().signOut();
+  }
+
+  // Combines the two lookup formats (see the long comment in auth.js for
+  // why both exist) into one plain list of {id, patientUid} links for this
+  // caregiver, deduped by patientUid.
+  function cgFetchAllLinks(uid) {
+    // Each lookup survives on its own: if one is denied (for example the new
+    // security rules aren't published yet) the other still works, instead of
+    // the whole check failing and hiding links that do exist.
+    const legacy = firebase.firestore().collection('caregiverLinks').doc(uid).get()
+      .catch(function (e) { console.warn('Sentra-X Caregiver: legacy link lookup failed:', e.message); return { exists: false, failed: e }; });
+    const queried = firebase.firestore().collection('caregiverLinks').where('caregiverUid', '==', uid).get()
+      .catch(function (e) { console.warn('Sentra-X Caregiver: link query failed:', e.message); return { failed: e, forEach: function () {} }; });
+    return Promise.all([legacy, queried]).then(function (results) {
+      const legacyDoc = results[0], queriedSnap = results[1];
+      if (legacyDoc.failed && queriedSnap.failed) throw legacyDoc.failed;
+      const links = [];
+      queriedSnap.forEach(function (d) { links.push({ id: d.id, patientUid: d.data().patientUid }); });
+      if (legacyDoc.exists && !links.some(function (l) { return l.patientUid === legacyDoc.data().patientUid; })) {
+        links.push({ id: uid, patientUid: legacyDoc.data().patientUid });
+      }
+      return links;
+    });
+  }
+
+  // Subscribes to one patient's live data and, when there's more than one
+  // link, shows a simple dropdown to jump between them — same idea as the
+  // main app's picker, just a plain <select> here since this page is meant
+  // to stay lightweight.
+  // Built with real DOM nodes and textContent on purpose: a patient's name is
+  // typed by the patient, so it must never be parsed as HTML on a caregiver's screen.
+  function cgFillSwitcher(switcher, links, names) {
+    const keep = switcher.value;
+    switcher.textContent = '';
+    links.forEach(function (l, i) {
+      const o = document.createElement('option');
+      o.value = l.patientUid;
+      o.textContent = (names && names[i]) || ('Patient ' + (i + 1));
+      switcher.appendChild(o);
+    });
+    if (keep) switcher.value = keep;
+  }
+
+  function cgActivateLinks(links) {
+    const switcher = document.getElementById('cg-patient-switcher');
+    if (links.length > 1) {
+      switcher.style.display = 'block';
+      cgFillSwitcher(switcher, links, null);
+      Promise.all(links.map(function (l) {
+        return firebase.firestore().collection('users').doc(l.patientUid).get()
+          .then(function (d) { return (d.exists && d.data().userName) || null; }).catch(function () { return null; });
+      })).then(function (names) { cgFillSwitcher(switcher, links, names); });
+    } else {
+      switcher.style.display = 'none';
+    }
+    window.__cgLinks = links;
+    cgSwitchPatient(links[0].patientUid);
+  }
+
+  // Clears the previous patient's numbers the moment you switch, so a slow
+  // load (or a patient who has ended your access) can never leave one
+  // person's data sitting on screen under another person's name.
+  function cgResetDashboard() {
+    const empty = { 'cg-bp': 'No readings yet', 'cg-trend': 'Not enough readings yet', 'cg-meds': 'No medications added yet', 'cg-vitals-history': 'No readings yet', 'cg-med-history': 'No medication history yet' };
+    Object.keys(empty).forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="empty">' + empty[id] + '</div>';
+    });
+    ['cg-streak', 'cg-adherence', 'cg-readings'].forEach(function (id) { const el = document.getElementById(id); if (el) el.textContent = '—'; });
+    const g = document.getElementById('cg-greeting'); if (g) g.textContent = '';
+    const b = document.getElementById('cg-alert-banner'); if (b) { b.textContent = ''; b.style.display = 'none'; }
+    const s = document.getElementById('cg-last-sync'); if (s) s.textContent = 'Loading…';
+  }
+
+  function cgSwitchPatient(patientUid) {
+    if (cgUnsub) { cgUnsub(); cgUnsub = null; }
+    cgResetDashboard();
+    showView('dashboard-view');
+    cgUnsub = firebase.firestore().collection('users').doc(patientUid)
+      .onSnapshot(function (doc) {
+        if (doc.exists) renderDashboard(doc.data());
+      }, function (e) {
+        console.error('Sentra-X Caregiver: read failed:', e.message);
+        const s = document.getElementById('cg-last-sync');
+        if (s) s.textContent = e.code === 'permission-denied' ? 'This patient has ended your access.' : 'Could not load this patient right now.';
+      });
   }
 
   function todayStr() { return new Date().toISOString().split('T')[0]; }
@@ -563,18 +650,11 @@ const consentEl = document.getElementById('cg-join-consent');
     }
     if (!user) { showView('login-view'); return; }
     user.getIdToken(true).then(function () {
-      return firebase.firestore().collection('caregiverLinks').doc(user.uid).get();
+      return cgFetchAllLinks(user.uid);
     })
-      .then(function (linkDoc) {
-        if (!linkDoc.exists) { showView('no-link-view'); return; }
-        const patientUid = linkDoc.data().patientUid;
-        showView('dashboard-view');
-        cgUnsub = firebase.firestore().collection('users').doc(patientUid)
-          .onSnapshot(function (doc) {
-            if (doc.exists) renderDashboard(doc.data());
-          }, function (err) {
-            console.error('Sentra-X Caregiver: read failed:', err.message);
-          });
+      .then(function (links) {
+        if (links.length === 0) { showView('no-link-view'); return; }
+        cgActivateLinks(links);
       })
       .catch(function (err) {
         console.error('Sentra-X Caregiver: link lookup failed:', err.message);
