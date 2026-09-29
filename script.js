@@ -198,6 +198,18 @@ function renderCaregiverDashboard(data) {
   document.getElementById('cgv-last-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
+// Wipes the previous patient's numbers the instant you switch, so a slow
+// load, or a patient who has ended your access, can never leave one person's
+// data on screen under another person's name.
+function resetCaregiverDashboard() {
+  const bp = document.getElementById('cgv-bp'); if (bp) bp.innerHTML = '<div class="empty">Loading…</div>';
+  const meds = document.getElementById('cgv-meds'); if (meds) meds.innerHTML = '<div class="empty">Loading…</div>';
+  ['cgv-streak', 'cgv-adherence', 'cgv-readings'].forEach(function (id) { const el = document.getElementById(id); if (el) el.textContent = '—'; });
+  const radar = document.getElementById('cgv-wellness-radar'); if (radar) radar.innerHTML = '';
+  const nm = document.getElementById('cgv-viewing-name'); if (nm) nm.textContent = '…';
+  const sync = document.getElementById('cgv-last-sync'); if (sync) sync.textContent = '';
+}
+
 function showCaregiverMode(patientUid, linkId) {
   // Switching patients must stop the previous patient's live listener first,
   // otherwise both keep writing to the same screen and the wrong person's
@@ -205,11 +217,16 @@ function showCaregiverMode(patientUid, linkId) {
   if (caregiverUnsub) { caregiverUnsub(); caregiverUnsub = null; }
   document.getElementById('caregiver-overlay').style.display = 'block';
   window.__sentraxCurrentCaregiverLink = { patientUid: patientUid, id: linkId || patientUid };
+  resetCaregiverDashboard();
   caregiverUnsub = firebase.firestore().collection('users').doc(patientUid)
     .onSnapshot(function (doc) {
       if (doc.exists) renderCaregiverDashboard(doc.data());
     }, function (err) {
       console.error('Sentra-X: caregiver read failed:', err.message);
+      const sync = document.getElementById('cgv-last-sync');
+      if (sync) sync.textContent = err.code === 'permission-denied'
+        ? 'This patient has ended your access. You can remove them with the button below.'
+        : 'Could not load this patient right now.';
     });
 }
 window.showCaregiverMode = showCaregiverMode;
@@ -285,7 +302,16 @@ function optOutOfCaregiverRole() {
   const current = window.__sentraxCurrentCaregiverLink;
   if (!user || !current) return;
   if (!confirm('Stop being a caregiver for this person? You will lose access to their readings and medications unless they invite you again.')) return;
-  firebase.firestore().collection('caregiverLinks').doc(current.id).delete().then(function () {
+  // Also step off the patient's access list, otherwise opting out would only
+  // delete this link while leaving read access to their data in place. Best
+  // effort: if it can't be done, the link is still removed below.
+  const revokeAccess = firebase.firestore().collection('users').doc(current.patientUid).update({
+    caregiverUids: firebase.firestore.FieldValue.arrayRemove(user.uid),
+    ['caregiverInfo.' + user.uid]: firebase.firestore.FieldValue.delete()
+  }).catch(function (e) { console.warn('Sentra-X: could not clear access list entry:', e.code); });
+  revokeAccess.then(function () {
+    return firebase.firestore().collection('caregiverLinks').doc(current.id).delete();
+  }).then(function () {
     const links = (window.__sentraxCaregiverLinks || []).filter(function (l) { return l.id !== current.id; });
     window.__sentraxCaregiverLinks = links;
     window.__sentraxCurrentCaregiverLink = null;
@@ -3104,6 +3130,7 @@ function calculateBpmFromSamples(samples) {
   }
 
   const peakTimes = mergeDoubleCountedPeaks(rawPeakTimes);
+
   const durationMinutes = (usable[usable.length - 1].t - usable[0].t) / 60000;
   if (durationMinutes <= 0) return null;
 
@@ -3165,4 +3192,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-      } 
+      }  
