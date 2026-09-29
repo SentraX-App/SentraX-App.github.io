@@ -96,7 +96,23 @@
       });
   };
 
-  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
+  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE).then(function () {
+    // setPersistence(NONE) only governs how a FUTURE sign-in gets stored —
+    // it does nothing to a session that was already saved before this line
+    // ever ran (e.g. by an older version of the app, before this setting
+    // existed, or by the browser's own default behavior). Any such session
+    // would otherwise still be found and auto-signed-in on every load,
+    // completely bypassing the login screen — including with no internet,
+    // since reading an already-saved session needs no network round trip
+    // at all. Signing it out here, once, the moment NONE is actually
+    // confirmed, guarantees the login screen always shows first, exactly
+    // as intended for a device other family members may also use.
+    if (firebase.auth().currentUser) {
+      return firebase.auth().signOut();
+    }
+  }).catch(function (err) {
+    console.error('Sentra-X: could not enforce NONE persistence:', err.message);
+  });
 
   // ======================================================================
   // Quick Unlock — fingerprint/face (WebAuthn) and PIN, as two independent
