@@ -462,14 +462,39 @@
       window.hideAuthScreen();
 
       // Check whether this account is a linked caregiver before loading the
-      // normal patient flow. Existing patients simply won't have this doc,
-      // so this adds one extra read and falls through unchanged for them.
-      firebase.firestore().collection('caregiverLinks').doc(user.uid).get().then(function(linkDoc) {
-        if (linkDoc.exists) {
-          const patientUid = linkDoc.data().patientUid;
+      // normal patient flow. Existing patients simply won't have any of
+      // these docs, so this adds a couple of reads and falls through
+      // unchanged for them.
+      //
+      // Two lookups run here for one reason: the ORIGINAL design keyed a
+      // caregiver's link doc by their own uid — one doc ID per caregiver,
+      // which meant a caregiver could only ever be linked to a single
+      // patient, ever, for their whole account. New links are now created
+      // with an auto-generated ID plus an explicit caregiverUid field
+      // instead, so one caregiver can hold multiple links (one per
+      // patient). The old doc.id-keyed lookup stays here purely so anyone
+      // already linked before this change keeps working exactly as before.
+      // Each lookup survives on its own, so if one is denied (say the new
+      // security rules aren't published yet) links found by the other still
+      // work instead of the whole check failing.
+      const legacyLinkLookup = firebase.firestore().collection('caregiverLinks').doc(user.uid).get()
+        .catch(function (e) { console.warn('Sentra-X: legacy link lookup failed:', e.message); return { exists: false, failed: e }; });
+      const multiLinkLookup = firebase.firestore().collection('caregiverLinks').where('caregiverUid', '==', user.uid).get()
+        .catch(function (e) { console.warn('Sentra-X: link query failed:', e.message); return { failed: e, forEach: function () {} }; });
+      Promise.all([legacyLinkLookup, multiLinkLookup]).then(function (results) {
+        const legacyDoc = results[0];
+        const queried = results[1];
+        if (legacyDoc.failed && queried.failed) throw legacyDoc.failed;
+        const links = [];
+        queried.forEach(function (d) { links.push({ id: d.id, patientUid: d.data().patientUid }); });
+        if (legacyDoc.exists && !links.some(function (l) { return l.patientUid === legacyDoc.data().patientUid; })) {
+          links.push({ id: user.uid, patientUid: legacyDoc.data().patientUid });
+        }
+
+        if (links.length > 0) {
           // Remembered so a dual-role account can switch back into caregiver
           // view on demand later, without a fresh Firestore read each time.
-          window.__sentraxCaregiverPatientUid = patientUid;
+          window.__sentraxCaregiverLinks = links;
           const navSwitch = document.getElementById('nav-caregiver-switch');
           if (navSwitch) navSwitch.style.display = '';
 
@@ -481,7 +506,9 @@
           // every single time.
           const preferredMode = localStorage.getItem('sentrax-view-mode');
           if (preferredMode !== 'patient') {
-            if (typeof window.showCaregiverMode === 'function') window.showCaregiverMode(patientUid);
+            const preferredPatient = localStorage.getItem('sentrax-caregiver-patient');
+            const startLink = links.find(function (l) { return l.patientUid === preferredPatient; }) || links[0];
+            if (typeof window.showCaregiverMode === 'function') window.showCaregiverMode(startLink.patientUid, startLink.id);
             return;
           }
         }
