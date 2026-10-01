@@ -77,7 +77,7 @@
   }
 
   function today() {
-    return (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().split('T')[0];
+    return (typeof todayStr === 'function') ? todayStr() : localDateStr();
   }
 
   // ---- Trusted server time (streak-manipulation defense) -----------------
@@ -105,7 +105,7 @@
     });
   }
 
-  function dateStr(d) { return d.toISOString().split('T')[0]; }
+  function dateStr(d) { return localDateStr(d); }
 
   // ---- Data (localStorage 'rwd-data', synced to Firestore as `rewards`) -
   function getData() {
