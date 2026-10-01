@@ -103,7 +103,14 @@ window.addEventListener('popstate', function() {
   document.getElementById('more-sheet-backdrop').style.display = 'none';
   document.getElementById('rating-overlay').style.display = 'none';
 });
-function todayStr() { return new Date().toISOString().split('T')[0]; }
+function localDateStr(d) {
+  d = d || new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+function todayStr() { return localDateStr(); }
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]) * 60 + parseInt(parts[1]); }
 function dayOfYear(d) { return Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000); }
@@ -144,7 +151,7 @@ function renderCaregiverDashboard(data) {
   let totalPossible = 0, totalTaken = 0;
   if (meds.length > 0) {
     for (let i = 0; i < 7; i++) {
-      const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+      const d = localDateStr(new Date(Date.now() - i * 86400000));
       const dayLog = medLogs[d] || {};
       meds.forEach(function (m) { totalPossible++; if (dayLog[m.id]) totalTaken++; });
     }
@@ -162,7 +169,7 @@ function renderCaregiverDashboard(data) {
       const counts = { green: 0, yellow: 0, red: 0 };
       let loggedDays = 0;
       for (let i = 0; i < 7; i++) {
-        const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+        const d = localDateStr(new Date(Date.now() - i * 86400000));
         const tier = tierOf[(statsObj || {})[d]];
         if (tier) { counts[tier]++; loggedDays++; }
       }
@@ -384,7 +391,7 @@ function updateStreak() {
   let lastActive = localStorage.getItem('lastActive');
   const today = todayStr();
   if (lastActive !== today) {
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const yesterday = localDateStr(new Date(Date.now() - 86400000));
     streak = (lastActive === yesterday) ? streak + 1 : 1;
     localStorage.setItem('lastActive', today);
     localStorage.setItem('streak', streak);
@@ -932,7 +939,7 @@ function getWeeklyAdherencePct(meds, medLogs) {
   if (!meds || meds.length === 0) return null;
   let totalPossible = 0, totalTaken = 0;
   for (let i = 0; i < 7; i++) {
-    const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+    const d = localDateStr(new Date(Date.now() - i * 86400000));
     const dayLog = medLogs[d] || {};
     meds.forEach(function(m) {
       totalPossible++;
