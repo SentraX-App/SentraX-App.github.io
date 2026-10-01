@@ -422,7 +422,19 @@ const consentEl = document.getElementById('cg-join-consent');
       });
   }
 
-  function todayStr() { return new Date().toISOString().split('T')[0]; }
+  function localDateStr(d) {
+    // A calendar-day key based on the DEVICE's local time, not UTC. Using
+    // toISOString() here (as this used to) computes the date in UTC — for
+    // anyone east of UTC (e.g. Nigeria, UTC+1), that means "today" doesn't
+    // roll over until 1am local time, not midnight, so the last hour of a
+    // day silently gets treated as the day before it really was.
+    d = d || new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+  function todayStr() { return localDateStr(); }
   function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
   function timeToMinutes(t) { const parts = t.split(':'); return parseInt(parts[0]) * 60 + parseInt(parts[1]); }
 
@@ -465,7 +477,7 @@ const consentEl = document.getElementById('cg-join-consent');
     const points = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000);
-      const key = d.toISOString().split('T')[0];
+      const key = localDateStr(d);
       const dayReadings = vitals.filter(function (v) { return (v.dateISO || '').split('T')[0] === key; });
       let sys = null, dia = null, color = '#38bdf8';
       if (dayReadings.length > 0) {
@@ -634,7 +646,7 @@ const consentEl = document.getElementById('cg-join-consent');
     let totalPossible = 0, totalTaken = 0;
     if (meds.length > 0) {
       for (let i = 0; i < 7; i++) {
-        const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+        const d = localDateStr(new Date(Date.now() - i * 86400000));
         const dayLog = medLogs[d] || {};
         meds.forEach(function (m) { totalPossible++; if (dayLog[m.id]) totalTaken++; });
       }
