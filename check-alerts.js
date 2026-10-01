@@ -28,8 +28,24 @@ const NIGERIA_OFFSET_MINUTES = 60;
 // Single source of truth — do not hardcode this number elsewhere.
 const REMINDER_DELAY_MINUTES = 10;
 
+function localDateStr(d) {
+  // This runs server-side (firebase-admin), so getFullYear()/getMonth()
+  // would reflect THIS PROCESS's own configured timezone — almost always
+  // UTC on a cloud runtime — not any individual user's timezone. That's a
+  // different problem than the client-side version of this same fix.
+  // Every current user is in Nigeria (UTC+1, no DST), so that offset is
+  // applied explicitly here rather than trusting the server's own TZ
+  // setting, or assuming it happens to already be UTC+1.
+  // NOTE: if users outside Nigeria are ever added, this needs to become
+  // per-user (store each user's UTC offset and apply it here per record)
+  // instead of one hardcoded offset for everyone.
+  d = d || new Date();
+  const NIGERIA_UTC_OFFSET_MS = 60 * 60 * 1000;
+  const nigeriaTime = new Date(d.getTime() + NIGERIA_UTC_OFFSET_MS);
+  return nigeriaTime.toISOString().split('T')[0];
+}
 function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  return localDateStr();
 }
 
 function nowMinutesNigeria() {
@@ -90,7 +106,7 @@ function getWeeklyStats(data) {
   if (meds.length > 0) {
     let totalPossible = 0, totalTaken = 0;
     for (let i = 0; i < 7; i++) {
-      const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+      const d = localDateStr(new Date(Date.now() - i * 86400000));
       const dayLog = medLogs[d] || {};
       meds.forEach(function(m) {
         totalPossible++;
