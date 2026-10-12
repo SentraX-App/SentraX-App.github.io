@@ -58,6 +58,24 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy']);
     }
 
+    match /medPhotos/{photoId} {
+      // Doc ID convention (patientUid_medId_date) is for readability/
+      // uniqueness only â€” the actual permission check below is always on
+      // the patientUid FIELD inside the document, never parsed from the ID.
+      allow create: if request.auth != null
+                    && request.resource.data.patientUid == request.auth.uid
+                    && request.resource.data.medId is string
+                    && request.resource.data.photoBase64 is string;
+
+      // Owner, or a caregiver this patient's own users/{uid} doc already
+      // lists in caregiverUids â€” the same access gate the main patient
+      // record itself uses, so a photo is never readable by anyone who
+      // couldn't already read the rest of this patient's data.
+      allow read: if request.auth != null
+                  && (resource.data.patientUid == request.auth.uid
+                      || request.auth.uid in get(/databases/$(database)/documents/users/$(resource.data.patientUid)).data.get('caregiverUids', []));
+    }
+
     match /caregiverLinks/{linkId} {
       // Two link formats coexist on purpose. OLD links use the caregiver's
       // own uid as the doc ID (linkId == uid, no caregiverUid field). NEW
