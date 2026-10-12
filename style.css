@@ -932,3 +932,35 @@ nav button.active .icon { filter: none; }
 .emergency-card h3 { color: #fca5a5 !important; }
 .emergency-card button.sos { margin-top: 0; }
 .emergency-card button.call { line-height: 1.35; }
+
+
+/* ==========================================================================
+   Meds screen polish — spacing/grouping only; no selectors shared with
+   #vitals-screen, so the earlier homepage styling is untouched.
+   ========================================================================== */
+.field-hint { font-size: 11.5px; line-height: 1.5; color: #94a3b8; margin: -2px 0 12px; }
+#meds-screen .card { padding: 18px; border-radius: 22px; }
+#meds-screen .card h3 { font-size: 12.5px; letter-spacing: 0.8px; margin-bottom: 14px; }
+#meds-screen input { margin: 0 0 10px; }
+#meds-screen .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+#meds-screen .input-row input { margin: 0; min-width: 0; }
+#meds-screen .card > button { margin-top: 6px; }
+#meds-screen .card > button + button { margin-top: 8px; }
+
+/* Each medication row: name/time on top, a full-width status line below,
+   action button pinned to the right and never wrapping/squeezing the name. */
+#meds-screen .med-row {
+  flex-direction: column; align-items: stretch; gap: 6px;
+  padding: 14px 4px;
+}
+#meds-screen .med-row > div:first-child {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+}
+#meds-screen .med-row > div:first-child > span {
+  font-size: 14.5px; font-weight: 600; color: #f1f5f9; line-height: 1.4;
+}
+#meds-screen .med-row button {
+  flex-shrink: 0; white-space: nowrap; width: auto;
+  padding: 10px 14px; font-size: 12.5px; border-radius: 10px;
+}
+#med-photo-pending-note { padding: 2px 0; }
