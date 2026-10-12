@@ -104,6 +104,11 @@ window.addEventListener('popstate', function() {
   document.getElementById('rating-overlay').style.display = 'none';
 });
 function localDateStr(d) {
+  // A calendar-day key based on the DEVICE's local time, not UTC. Using
+  // toISOString() here (as this used to) computes the date in UTC — for
+  // anyone east of UTC (e.g. Nigeria, UTC+1), that means "today" doesn't
+  // roll over until 1am local time, not midnight, so the last hour of a
+  // day silently gets treated as the day before it really was.
   d = d || new Date();
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -131,15 +136,33 @@ function renderCaregiverDashboard(data) {
 
   const medsBox = document.getElementById('cgv-meds');
   const meds = data.meds || [];
-  const logs = (data.medLogs || {})[todayStr()] || {};
+  const allMedLogs = data.medLogs || {};
+  const photoLog = data.medPhotoLog || {};
+  const today = todayStr();
+  const logs = allMedLogs[today] || {};
   if (meds.length === 0) {
     medsBox.innerHTML = '<div class="empty">No medications added yet</div>';
   } else {
     medsBox.innerHTML = meds.map(function (m) {
       const taken = !!logs[m.id];
-      return '<div class="cgv-row"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + '</span>' +
-        '<span class="cgv-badge ' + (taken ? 'cgv-badge-taken' : 'cgv-badge-missed') + '">' + (taken ? '✓ Taken' : 'Not yet') + '</span></div>';
+      const hasPhoto = taken && photoLog[today] && photoLog[today][m.id];
+      const pillStatus = computePillStatus(m, allMedLogs);
+      let pillNote = '';
+      if (pillStatus && pillStatus.overdrawn) {
+        pillNote = '<div style="font-size:11px;color:#f87171;margin-top:2px;">⚠️ Logged as taken more times than the reported pill count allows for</div>';
+      }
+      return '<div class="cgv-row" style="flex-direction:column;align-items:stretch;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;width:100%;"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + (hasPhoto ? ' <span title="Proof photo attached">📷</span>' : '') + '</span>' +
+        '<span class="cgv-badge ' + (taken ? 'cgv-badge-taken' : 'cgv-badge-missed') + '">' + (taken ? '✓ Taken' : 'Not yet') + '</span></div>' +
+        pillNote + '</div>';
     }).join('');
+
+    const flags = computeMedPatternFlags(meds, allMedLogs, today);
+    if (flags.length > 0) {
+      medsBox.innerHTML += '<div style="margin-top:10px;padding:10px;border-radius:10px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);">' +
+        flags.map(function (f) { return '<div style="font-size:11.5px;color:#fbbf24;margin-bottom:4px;">⚠️ ' + f + '</div>'; }).join('') +
+        '</div>';
+    }
   }
 
   document.getElementById('cgv-streak').textContent = data.streak || '0';
@@ -521,14 +544,71 @@ function addMed() {
   if (!name || !time || !durationText) { alert('Please enter the medication name, time, and duration.'); return; }
   const durationDays = parseDurationToDays(durationText);
   if (durationDays === null) { alert('Please enter a valid duration like "5 days", "2 weeks", or "1 month".'); return; }
+  const pillsRaw = document.getElementById('med-pills').value.trim();
+  const pillsTotal = pillsRaw ? parseInt(pillsRaw, 10) : null;
   const meds = JSON.parse(localStorage.getItem('meds') || '[]');
-  meds.push({ id: Date.now().toString(), name: name, time: time, startDate: todayStr(), createdAt: Date.now(), durationDays: durationDays });
+  const med = { id: Date.now().toString(), name: name, time: time, startDate: todayStr(), createdAt: Date.now(), durationDays: durationDays };
+  if (pillsTotal && pillsTotal > 0) { med.pillsTotal = pillsTotal; med.pillsSetAt = todayStr(); }
+  meds.push(med);
   localStorage.setItem('meds', JSON.stringify(meds));
   document.getElementById('med-name').value = '';
   document.getElementById('med-time').value = '';
   document.getElementById('med-duration').value = '';
+  document.getElementById('med-pills').value = '';
   renderMeds();
   syncToFirestore({ meds: meds });
+}
+
+// How many pills SHOULD be left, based purely on confirmed "taken" log
+// entries since the count was last set — not a separately-tracked counter
+// that could drift out of sync with the actual log. overdrawn is true the
+// moment taken-count exceeds what the reported supply could cover, which is
+// the one honest signal a patient can't produce by simply tapping the
+// button more carefully: it would require ALSO having lied about the pill
+// count, a second, independent lie, not just a missed tap.
+function computePillStatus(med, medLogs) {
+  if (!med.pillsTotal || !med.pillsSetAt) return null;
+  let takenSinceSet = 0;
+  Object.keys(medLogs).forEach(function (d) {
+    if (d >= med.pillsSetAt && medLogs[d] && medLogs[d][med.id]) takenSinceSet++;
+  });
+  const remaining = med.pillsTotal - takenSinceSet;
+  return { remaining: remaining, overdrawn: remaining < 0, takenSinceSet: takenSinceSet };
+}
+
+// Two honest, non-accusatory signals from timestamps that already exist in
+// medLogs — nothing new stored, nothing shown to the patient as a verdict,
+// just surfaced to the caregiver as context. Neither proves dishonesty on
+// its own (a bad morning, a forgotten dose remembered at once, both happen
+// to perfectly honest people) — that's deliberate: this flags a pattern
+// worth a caregiver's attention, not an accusation the app itself makes.
+function computeMedPatternFlags(meds, medLogs, dateStr) {
+  const dayLog = medLogs[dateStr];
+  if (!dayLog) return [];
+  const flags = [];
+  const entries = Object.keys(dayLog)
+    .map(function (medId) { return { medId: medId, ts: dayLog[medId] }; })
+    .filter(function (e) { return typeof e.ts === 'number'; })
+    .sort(function (a, b) { return a.ts - b.ts; });
+
+  for (let i = 1; i < entries.length; i++) {
+    if (entries[i].ts - entries[i - 1].ts < 3 * 60 * 1000) {
+      flags.push('Several medications logged within minutes of each other — worth asking if each was actually taken at the time shown.');
+      break;
+    }
+  }
+
+  entries.forEach(function (e) {
+    const med = meds.find(function (m) { return m.id === e.medId; });
+    if (!med || !med.time) return;
+    const loggedMinutes = new Date(e.ts).getHours() * 60 + new Date(e.ts).getMinutes();
+    const scheduledMinutes = timeToMinutes(med.time);
+    if (loggedMinutes - scheduledMinutes > 240) {
+      flags.push(escapeHtml(med.name) + ' was logged more than 4 hours after its scheduled time.');
+    }
+  });
+
+  return flags;
 }
 
 function isMedActive(m) {
@@ -670,30 +750,132 @@ function toggleTaken(id) {
       alert('This medication isn\'t due yet — you can mark it taken starting at ' + med.time + '.');
       return;
     }
-    logs[today][id] = Date.now();
-  } else {
-    if (!confirm('Mark this medication as not taken?')) return;
-    delete logs[today][id];
+    // A new "taken" entry needs a photo before it commits at all — see
+    // handleMedPhotoCapture, which does the actual logs[today][id] write
+    // once a photo comes back. Nothing is marked taken here yet. If the
+    // camera is cancelled, nothing was ever logged — safe either way, never
+    // stuck half-done.
+    window.__pendingMedTakenId = id;
+    const note = document.getElementById('med-photo-pending-note');
+    if (note) note.style.display = 'block';
+    const input = document.getElementById('med-photo-input');
+    if (input) input.click();
+    return;
   }
+
+  if (!confirm('Mark this medication as not taken?')) return;
+  delete logs[today][id];
+  const photoLog = JSON.parse(localStorage.getItem('medPhotoLog') || '{}');
+  if (photoLog[today]) delete photoLog[today][id];
+  localStorage.setItem('medPhotoLog', JSON.stringify(photoLog));
 
   localStorage.setItem('medLogs', JSON.stringify(logs));
   updateStreak();
   renderMeds();
-  syncToFirestore({ medLogs: logs, streak: localStorage.getItem('streak'), lastActive: localStorage.getItem('lastActive') });
+  syncToFirestore({ medLogs: logs, medPhotoLog: photoLog, streak: localStorage.getItem('streak'), lastActive: localStorage.getItem('lastActive') });
+}
+
+// Small and fast on purpose — this is a quick confirmation snapshot, not a
+// document scan, so it's downscaled much further than the passport-scan
+// feature's own copy of this same pattern (which needs to stay
+// OCR-readable). Kept as its own function rather than sharing that one, so
+// a change to either never risks the other.
+function fileToResizedJpegBase64ForMedProof(file) {
+  return new Promise(function (resolve, reject) {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onerror = function () { reject(new Error('Could not read that file.')); };
+    reader.onload = function () {
+      img.onerror = function () { reject(new Error('Could not read that image.')); };
+      img.onload = function () {
+        const MAX_DIM = 480;
+        let w = img.width, h = img.height;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          const scale = MAX_DIM / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function handleMedPhotoCapture(event) {
+  const note = document.getElementById('med-photo-pending-note');
+  if (note) note.style.display = 'none';
+  const id = window.__pendingMedTakenId;
+  window.__pendingMedTakenId = null;
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  if (!id || !file) return; // cancelled — nothing was ever marked taken, safe to just stop here
+
+  const today = todayStr();
+  const user = (typeof firebase !== 'undefined' && firebase.auth().currentUser) ? firebase.auth().currentUser : null;
+
+  fileToResizedJpegBase64ForMedProof(file).then(function (dataUrl) {
+    const commit = function (photoSaved) {
+      const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+      if (!logs[today]) logs[today] = {};
+      logs[today][id] = Date.now();
+      localStorage.setItem('medLogs', JSON.stringify(logs));
+
+      const photoLog = JSON.parse(localStorage.getItem('medPhotoLog') || '{}');
+      if (photoSaved) {
+        if (!photoLog[today]) photoLog[today] = {};
+        photoLog[today][id] = true;
+        localStorage.setItem('medPhotoLog', JSON.stringify(photoLog));
+      }
+
+      updateStreak();
+      renderMeds();
+      syncToFirestore({ medLogs: logs, medPhotoLog: photoLog, streak: localStorage.getItem('streak'), lastActive: localStorage.getItem('lastActive') });
+    };
+
+    if (!user) { commit(false); return; }
+    firebase.firestore().collection('medPhotos').doc(user.uid + '_' + id + '_' + today).set({
+      patientUid: user.uid, medId: id, date: today, photoBase64: dataUrl, takenAt: Date.now()
+    }).then(function () { commit(true); })
+      .catch(function (err) {
+        console.error('Sentra-X: med photo upload failed:', err.message);
+        commit(false); // still log the dose — a failed upload shouldn't block a real, already-taken dose
+      });
+  }).catch(function (err) {
+    console.error('Sentra-X: med photo processing failed:', err.message);
+    alert('Could not process that photo — please try marking this dose taken again.');
+  });
 }
 function renderMeds() {
   const meds = JSON.parse(localStorage.getItem('meds') || '[]');
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+  const photoLog = JSON.parse(localStorage.getItem('medPhotoLog') || '{}');
   const today = todayStr();
   const list = document.getElementById('med-list');
   const activeMeds = meds.filter(isMedActive);
   if (activeMeds.length === 0) { list.innerHTML = '<div class="empty">No medications added yet</div>'; return; }
   list.innerHTML = activeMeds.map(function(m) {
     const taken = logs[today] && logs[today][m.id];
+    const hasPhoto = taken && photoLog[today] && photoLog[today][m.id];
     const left = daysLeft(m);
     let leftText = '';
     if (left !== null) { leftText = ' <small style="color:#94a3b8;">(' + left + (left === 1 ? ' day left)' : ' days left)') + '</small>'; }
-    return '<div class="med-row"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + leftText + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? '✓ Taken' : 'Mark Taken') + '</button></div>';
+    const pillStatus = computePillStatus(m, logs);
+    let pillText = '';
+    if (pillStatus) {
+      if (pillStatus.remaining <= 0) {
+        pillText = '<div style="font-size:11px;color:#fbbf24;margin-top:2px;">⚠️ Time to refill — reported supply is used up</div>';
+      } else if (pillStatus.remaining <= 3) {
+        pillText = '<div style="font-size:11px;color:#fbbf24;margin-top:2px;">💊 ' + pillStatus.remaining + ' pills left — refill soon</div>';
+      } else {
+        pillText = '<div style="font-size:11px;color:#64748b;margin-top:2px;">💊 ' + pillStatus.remaining + ' pills left</div>';
+      }
+    }
+    return '<div class="med-row" style="flex-direction:column;align-items:stretch;"><div style="display:flex;justify-content:space-between;align-items:center;width:100%;"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + leftText + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? (hasPhoto ? '✓ Taken 📷' : '✓ Taken') : '📷 Mark Taken') + '</button></div>' + pillText + '</div>';
   }).join('');
   checkDueMeds();
 }
@@ -3109,8 +3291,7 @@ function calculateBpmFromSamples(samples) {
     const variance = slice.reduce(function (s, v) { return s + Math.pow(v - avg, 2); }, 0) / slice.length;
     localAmp.push(Math.sqrt(variance));
   }
-
-  // Peak detection with a refractory period: a real pulse can't repeat
+// Peak detection with a refractory period: a real pulse can't repeat
   // faster than ~300ms (200bpm — the same ceiling already enforced below),
   // so a crossing sooner than that is noise, not a beat. PROMINENCE_K
   // requires each candidate peak to clear the baseline by a real margin
@@ -3199,4 +3380,4 @@ function cancelHeartRateMeasure() {
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
-      }  
+      } 
