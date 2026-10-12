@@ -1686,7 +1686,39 @@ warmUpLocation();
 // Push subscription sync now happens from auth.js's loadPatientFlow(),
 // after auth state is actually confirmed — see the comment there for why
 // this used to live here and never worked.
-
+// Takes several GPS readings over the given time budget (via watchPosition,
+// not a single getCurrentPosition call) and keeps the most precise one seen.
+// A phone's first fix after waking the GPS radio is often its least accurate;
+// letting it keep listening for the rest of the budget and keeping only the
+// tightest reading gets meaningfully closer to the device's true position
+// than just taking whatever arrives first. No GPS chain can promise a
+// literal 100%-exact fix — that's a physical limit of the technology, not
+// this code — but this uses the full time budget to get as close as the
+// hardware allows, and still reports the real accuracy rather than ever
+// claiming more precision than it actually got.
+function getBestLocationFix(budgetMs) {
+  return new Promise(function (resolve) {
+    if (!('geolocation' in navigator)) { resolve(null); return; }
+    let best = null;
+    let watchId = null;
+    let settled = false;
+    function finish() {
+      if (settled) return;
+      settled = true;
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      resolve(best);
+    }
+    const timer = setTimeout(finish, budgetMs);
+    watchId = navigator.geolocation.watchPosition(
+      function (pos) {
+        if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
+        if (pos.coords.accuracy <= 10) { clearTimeout(timer); finish(); }
+      },
+      function () { /* one bad reading is fine — the timer still resolves with the best seen, or null */ },
+      { enableHighAccuracy: true, maximumAge: 0 }
+    );
+  });
+    }
 async function triggerSOS() {
   const isOffline = await isReallyOffline();
   const confirmMsg = (isOffline ? '⚠️ You appear to be offline — SMS, email, and WhatsApp may not send until you have signal. If possible, move toward network coverage or call for help directly.\n\n' : '') +
@@ -1860,32 +1892,24 @@ async function triggerSOS() {
   }
 
   if ('geolocation' in navigator) {
-    // Hard safety net, independent of the browser's own geolocation timeout
-    // option below. That timeout is supposed to guarantee one of the two
-    // callbacks fires within 8s, but some Android WebView/PWA wrappers have
-    // known bugs where geolocation silently hangs with neither callback
-    // ever firing. For SOS specifically, a total silent failure — nothing
-    // sent, no SMS/email/WhatsApp at all — is worse than sending late or
-    // without exact coordinates, so this forces the alert through
-    // regardless of what the browser does.
+    // Hard safety net, independent of getBestLocationFix's own budget below.
+    // Some Android WebView/PWA wrappers have known bugs where geolocation
+    // silently hangs with no callback ever firing. For SOS specifically, a
+    // total silent failure — nothing sent, no SMS/email/WhatsApp at all — is
+    // worse than sending late or without exact coordinates, so this forces
+    // the alert through regardless of what the browser does.
     setTimeout(function () {
       if (!alertAlreadySent) useCachedLocationOrGiveUp();
     }, 17000);
 
-    navigator.geolocation.getCurrentPosition(
-      function(pos) {
-        // "Exact" means a genuine GPS lock, not a rough WiFi/cell-tower
-        // estimate — 50m is a real, achievable bar for actual satellite
-        // fixes, not just a number. Anything looser than this is treated
-        // exactly like a failed fix: no estimate is ever shown as if it
-        // were the real location.
-        if (pos.coords.accuracy > 50) { useCachedLocationOrGiveUp(); return; }
-        const link = 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
-        sendAlert('Live location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link);
-      },
-      useCachedLocationOrGiveUp,
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } // maximumAge:0 forces a brand-new GPS fix instead of accepting a stale cached one — an emergency should always use the freshest position available; 15s (not 8s) gives GPS a real chance to lock indoors, where it commonly takes longer
-    );
+    // 15s budget: samples every fix GPS produces in that window (not just
+    // the first) and keeps the tightest one — see getBestLocationFix above.
+    getBestLocationFix(15000).then(function (pos) {
+      if (!pos) { useCachedLocationOrGiveUp(); return; }
+      if (pos.coords.accuracy > 50) { useCachedLocationOrGiveUp(); return; }
+      const link = 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
+      sendAlert('Live location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link);
+    });
   } else {
     useCachedLocationOrGiveUp();
   }
