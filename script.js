@@ -3180,7 +3180,7 @@ function measureHeartRate() {
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 100 }, height: { ideal: 100 }, frameRate: { ideal: 30 } } })
     .then(function (stream) {
       hrStream = stream;
       const video = document.getElementById('hr-video');
@@ -3189,6 +3189,9 @@ function measureHeartRate() {
       const track = stream.getVideoTracks()[0];
       if (track && track.applyConstraints) {
         track.applyConstraints({ advanced: [{ torch: true }] }).catch(function () {});
+        track.applyConstraints({ advanced: [{ focusMode: 'fixed' }] }).catch(function () {});
+        track.applyConstraints({ advanced: [{ exposureMode: 'manual' }] }).catch(function () {});
+        track.applyConstraints({ advanced: [{ whiteBalanceMode: 'manual' }] }).catch(function () {});
       }
 
       video.onloadedmetadata = function () {
@@ -3342,7 +3345,9 @@ function calculateBpmFromSamples(samples) {
   }
 
   const peakTimes = mergeDoubleCountedPeaks(rawPeakTimes);
-
+  const meanLocalAmp = localAmp.reduce(function (a, b) { return a + b; }, 0) / localAmp.length;
+  const meanBrightness = values.reduce(function (a, b) { return a + b; }, 0) / values.length;
+  if (meanBrightness < 10 || (meanLocalAmp / meanBrightness) < 0.0015) return null;
   const durationMinutes = (usable[usable.length - 1].t - usable[0].t) / 60000;
   if (durationMinutes <= 0) return null;
 
