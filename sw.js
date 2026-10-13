@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sentrax-fix-revert-emailfield-2';
+const CACHE_NAME = 'sentrax-dose-and-bg-reminder-1';
 const OFFLINE_FALLBACK = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sentra-X</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#f1f5f9;font-family:-apple-system,sans-serif;text-align:center;padding:24px;}div{max-width:320px;}h2{margin:0 0 10px;}p{color:#94a3b8;font-size:14px;line-height:1.6;}button{margin-top:18px;background:#3b82f6;color:#fff;border:none;padding:13px 26px;border-radius:12px;font-weight:700;font-size:15px;}</style></head><body><div><h2>Sentra-X</h2><p>Couldn\'t connect this time. Check your signal and try again.</p><button onclick="location.reload()">Retry</button></div></body></html>';
 
 const CORE_ASSETS = [
@@ -69,6 +69,77 @@ self.addEventListener('push', function (event) {
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
+
+// Best-effort reminder while the app is fully closed, on the (currently
+// Chrome/Edge-on-Android-only) browsers that support Periodic Background
+// Sync -- see script.js's registerMedBackgroundSync() for the registration
+// side and its real-world support caveats. A service worker has no access
+// to localStorage, so this reads the small IndexedDB mirror script.js keeps
+// updated (at most ~60s stale) instead.
+self.addEventListener('periodicsync', function (event) {
+  if (event.tag !== 'sentrax-med-check') return;
+  event.waitUntil(checkDueMedsInBackground());
+});
+
+function openBgKv() {
+  return new Promise(function (resolve, reject) {
+    const req = indexedDB.open('sentrax-bg', 1);
+    req.onupgradeneeded = function () { req.result.createObjectStore('kv'); };
+    req.onsuccess = function () { resolve(req.result); };
+    req.onerror = function () { reject(req.error); };
+  });
+}
+function bgKvGet(db, key) {
+  return new Promise(function (resolve) {
+    const tx = db.transaction('kv', 'readonly');
+    const r = tx.objectStore('kv').get(key);
+    r.onsuccess = function () { resolve(r.result); };
+    r.onerror = function () { resolve(undefined); };
+  });
+}
+function bgKvPut(db, key, val) {
+  return new Promise(function (resolve) {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(val, key);
+    tx.oncomplete = function () { resolve(); };
+  });
+}
+
+async function checkDueMedsInBackground() {
+  try {
+    const db = await openBgKv();
+    const meds = (await bgKvGet(db, 'meds')) || [];
+    const medLogs = (await bgKvGet(db, 'medLogs')) || {};
+    const notified = (await bgKvGet(db, 'notifiedDue')) || {};
+    const now = new Date();
+    // Must match script.js's localDateStr() exactly (device-local calendar
+    // day, not toISOString's UTC day) or this silently looks at the wrong
+    // day's log near midnight -- see localDateStr()'s own comment for why
+    // that distinction matters for Nigeria's UTC+1.
+    const todayKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const todayLog = medLogs[todayKey] || {};
+    const due = meds.filter(function (m) {
+      if (!m.time) return false;
+      const parts = m.time.split(':');
+      const mins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+      return mins <= nowMin && !todayLog[m.id];
+    });
+    if (!due.length) return;
+    const dueKey = todayKey + ':' + due.map(function (m) { return m.id; }).sort().join(',');
+    if (notified[dueKey]) return;
+    const names = due.map(function (m) { return m.name; }).join(', ');
+    await self.registration.showNotification('Sentra-X reminder', {
+      body: 'Time for: ' + names,
+      icon: 'icon-192-1.png',
+      badge: 'icon-192-1.png',
+      vibrate: [200, 100, 200, 100, 200],
+      requireInteraction: true
+    });
+    notified[dueKey] = true;
+    await bgKvPut(db, 'notifiedDue', notified);
+  } catch (e) { /* best effort only -- never throw inside a periodicsync handler */ }
+}
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
