@@ -331,8 +331,9 @@
         <input type="time" id="med-time">
         <input type="text" id="med-duration" placeholder="Duration — e.g. 5 days">
       </div>
+      <input type="number" id="med-dose" placeholder="Pills per dose (e.g. 2) — default 1" min="1">
       <input type="number" id="med-pills" placeholder="Pills in this bottle (optional)" min="1">
-      <p class="field-hint">Optional, but lets Sentra-X tell you when you're due for a refill — and keeps your count honest if anyone ever asks.</p>
+      <p class="field-hint">Set "pills per dose" if this medication is more than 1 tablet each time — e.g. 2 pills morning, 3 pills evening needs two separate entries, one per time, each with its own dose. Pill count is optional, but lets Sentra-X tell you when you're due for a refill — and keeps your count honest if anyone ever asks.</p>
       <button onclick="addMed()">Add Medication</button>
       <button class="ghost" onclick="enableReminders()" id="enable-btn">🔔 Enable Reminder Alerts</button>
     </div>
