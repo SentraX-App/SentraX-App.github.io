@@ -546,8 +546,10 @@ function addMed() {
   if (durationDays === null) { alert('Please enter a valid duration like "5 days", "2 weeks", or "1 month".'); return; }
   const pillsRaw = document.getElementById('med-pills').value.trim();
   const pillsTotal = pillsRaw ? parseInt(pillsRaw, 10) : null;
+  const doseRaw = document.getElementById('med-dose').value.trim();
+  const pillsPerDose = doseRaw ? parseInt(doseRaw, 10) : 1;
   const meds = JSON.parse(localStorage.getItem('meds') || '[]');
-  const med = { id: Date.now().toString(), name: name, time: time, startDate: todayStr(), createdAt: Date.now(), durationDays: durationDays };
+  const med = { id: Date.now().toString(), name: name, time: time, startDate: todayStr(), createdAt: Date.now(), durationDays: durationDays, pillsPerDose: (pillsPerDose && pillsPerDose > 0) ? pillsPerDose : 1 };
   if (pillsTotal && pillsTotal > 0) { med.pillsTotal = pillsTotal; med.pillsSetAt = todayStr(); }
   meds.push(med);
   localStorage.setItem('meds', JSON.stringify(meds));
@@ -555,6 +557,7 @@ function addMed() {
   document.getElementById('med-time').value = '';
   document.getElementById('med-duration').value = '';
   document.getElementById('med-pills').value = '';
+  document.getElementById('med-dose').value = '';
   renderMeds();
   syncToFirestore({ meds: meds });
 }
@@ -568,10 +571,12 @@ function addMed() {
 // count, a second, independent lie, not just a missed tap.
 function computePillStatus(med, medLogs) {
   if (!med.pillsTotal || !med.pillsSetAt) return null;
-  let takenSinceSet = 0;
+  const perDose = med.pillsPerDose && med.pillsPerDose > 0 ? med.pillsPerDose : 1;
+  let dosesSinceSet = 0;
   Object.keys(medLogs).forEach(function (d) {
-    if (d >= med.pillsSetAt && medLogs[d] && medLogs[d][med.id]) takenSinceSet++;
+    if (d >= med.pillsSetAt && medLogs[d] && medLogs[d][med.id]) dosesSinceSet++;
   });
+  const takenSinceSet = dosesSinceSet * perDose;
   const remaining = med.pillsTotal - takenSinceSet;
   return { remaining: remaining, overdrawn: remaining < 0, takenSinceSet: takenSinceSet };
 }
@@ -875,7 +880,8 @@ function renderMeds() {
         pillText = '<div style="font-size:11px;color:#64748b;margin-top:2px;">💊 ' + pillStatus.remaining + ' pills left</div>';
       }
     }
-    return '<div class="med-row" style="flex-direction:column;align-items:stretch;"><div style="display:flex;justify-content:space-between;align-items:center;width:100%;"><span>' + escapeHtml(m.name) + ' — ' + escapeHtml(m.time) + leftText + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? (hasPhoto ? '✓ Taken 📷' : '✓ Taken') : '📷 Mark Taken') + '</button></div>' + pillText + '</div>';
+    const doseText = (m.pillsPerDose && m.pillsPerDose > 1) ? (' <small style="color:#94a3b8;">(' + m.pillsPerDose + ' pills)</small>') : '';
+    return '<div class="med-row" style="flex-direction:column;align-items:stretch;"><div style="display:flex;justify-content:space-between;align-items:center;width:100%;"><span>' + escapeHtml(m.name) + doseText + ' — ' + escapeHtml(m.time) + leftText + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? (hasPhoto ? '✓ Taken 📷' : '✓ Taken') : '📷 Mark Taken') + '</button></div>' + pillText + '</div>';
   }).join('');
   checkDueMeds();
 }
@@ -929,10 +935,27 @@ function playMedAlarmSound() {
   } catch (e) { /* best effort — a failed tone shouldn't block the notification/vibration below */ }
 }
 
+function mirrorMedsForBackgroundCheck(meds, medLogs) {
+  if (!('indexedDB' in window)) return;
+  try {
+    const req = indexedDB.open('sentrax-bg', 1);
+    req.onupgradeneeded = function () { req.result.createObjectStore('kv'); };
+    req.onsuccess = function () {
+      const db = req.result;
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(meds, 'meds');
+      tx.objectStore('kv').put(medLogs, 'medLogs');
+      tx.oncomplete = function () { db.close(); };
+    };
+    req.onerror = function () {};
+  } catch (e) {}
+}
+
 function checkDueMeds() {
   expireOldMeds();
   const meds = JSON.parse(localStorage.getItem('meds') || '[]').filter(isMedActive);
   const logs = JSON.parse(localStorage.getItem('medLogs') || '{}');
+  mirrorMedsForBackgroundCheck(meds, logs);
   const today = todayStr();
   const now = nowMinutes();
   const banner = document.getElementById('due-banner');
@@ -2751,7 +2774,22 @@ document.addEventListener('click', function unlockMedAlarmAudio() {
 }, { once: true });
 
 setInterval(checkDueMeds, 60000);
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible') checkDueMeds();
+});
+window.addEventListener('focus', checkDueMeds);
 
+function registerMedBackgroundSync() {
+  if (!('serviceWorker' in navigator) || !('PeriodicSyncManager' in window)) return;
+  navigator.serviceWorker.ready.then(function (reg) {
+    if (!reg.periodicSync) return;
+    navigator.permissions.query({ name: 'periodic-background-sync' }).then(function (status) {
+      if (status.state !== 'granted') return;
+      reg.periodicSync.register('sentrax-med-check', { minInterval: 15 * 60 * 1000 }).catch(function () {});
+    }).catch(function () {});
+  }).catch(function () {});
+}
+registerMedBackgroundSync();
 const AI_WORKER_URL = 'https://sentrax-ai.alecedoh1994.workers.dev/';
 const AI_MAX_THREADS = 20;
 const AI_MAX_MESSAGES_PER_THREAD = 40;
