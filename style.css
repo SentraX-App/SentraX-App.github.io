@@ -942,10 +942,11 @@ nav button.active .icon { filter: none; }
 #meds-screen .card { padding: 18px; border-radius: 22px; }
 #meds-screen .card h3 { font-size: 12.5px; letter-spacing: 0.8px; margin-bottom: 14px; }
 #meds-screen input { margin: 0 0 10px; }
-#meds-screen #med-dose { margin-bottom: 6px; }
+#meds-screen #med-dose { margin-bottom: 4px; }
+#meds-screen #med-pills { margin-top: 4px; margin-bottom: 4px; }
 #meds-screen .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 #meds-screen .input-row input { margin: 0; min-width: 0; }
-#meds-screen .card > button { margin-top: 6px; }
+#meds-screen .card > button { margin-top: 14px; }
 #meds-screen .card > button + button { margin-top: 8px; }
 
 /* Each medication row: name/time on top, a full-width status line below,
