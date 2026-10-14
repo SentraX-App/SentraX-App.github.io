@@ -989,8 +989,7 @@ function checkDueMeds() {
 // Public half of the VAPID key pair used to sign push messages — safe to
 // expose client-side by design (this is what proves a push claiming to be
 // from Sentra-X actually is; the private half never leaves the server).
-const VAPID_PUBLIC_KEY = 'BOVKb7yg86nVhkWDVLaOe0iuljVUDs7axNMG21lpQHBuaXBBS5kzZ5sLDAJU50rXQ8EpwOPg4cLJHZmloHExf_g';
-
+const VAPID_PUBLIC_KEY = 'BGSSW-Ku6eH0scUgUXFKyBPXP_kD2evQ0v-pVk1SDVBrh85RNaClLquTMZoMkVs_opsEr5WK0DDLcihxg6XlcCA';
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
