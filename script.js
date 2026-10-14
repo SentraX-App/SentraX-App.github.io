@@ -972,14 +972,14 @@ function checkDueMeds() {
     // second medication becoming due later that same day never alerted at
     // all, since the first one had already "used up" the day's one notice.
     const dueKey = today + ':' + due.map(function(m){ return m.id; }).sort().join(',');
-    if (Notification.permission === 'granted' && localStorage.getItem('reminders-muted') !== '1' && sessionStorage.getItem('notified-set') !== dueKey) {
+    if (Notification.permission === 'granted' && localStorage.getItem('reminders-muted') !== '1' && localStorage.getItem('notified-set') !== dueKey) {
       if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
         navigator.serviceWorker.getRegistration().then(function(reg) {
           if (reg) reg.showNotification('Sentra-X reminder', { body: 'Time for: ' + names, icon: 'icon-192-1.png', badge: 'icon-192-1.png', vibrate: [200, 100, 200, 100, 200], requireInteraction: true });
         });
       }
       if (document.visibilityState === 'visible') playMedAlarmSound();
-      sessionStorage.setItem('notified-set', dueKey);
+      localStorage.setItem('notified-set', dueKey);
     }
   } else {
     banner.innerHTML = '';
