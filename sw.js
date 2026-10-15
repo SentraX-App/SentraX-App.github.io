@@ -128,7 +128,7 @@ async function checkDueMedsInBackground() {
     if (!due.length) return;
     const dueKey = todayKey + ':' + due.map(function (m) { return m.id; }).sort().join(',');
     if (notified[dueKey]) return;
-    const names = due.map(function (m) { return m.name; }).join(', ');
+    const names = due.map(function (m) { return m.name + ' (' + m.time + ')'; }).join(', ');
     await self.registration.showNotification('Sentra-X reminder', {
       body: 'Time for: ' + names,
       icon: 'icon-192-1.png',
