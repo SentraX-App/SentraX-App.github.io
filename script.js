@@ -964,7 +964,7 @@ function checkDueMeds() {
     return !taken && timeToMinutes(m.time) <= now;
   });
   if (due.length > 0) {
-    const names = due.map(function(m){ return m.name; }).join(', ');
+    const names = due.map(function(m){ return m.name + ' (' + m.time + ')'; }).join(', ');
     banner.innerHTML = '<div class="alert-banner">⏰ ' + due.length + ' medication' + (due.length > 1 ? 's' : '') + ' due or overdue today: ' + names + '</div>';
 
     // Re-fires whenever the SET of currently-due meds changes, not just
