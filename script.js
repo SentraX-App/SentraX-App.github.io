@@ -755,6 +755,22 @@ function toggleTaken(id) {
       alert('This medication isn\'t due yet — you can mark it taken starting at ' + med.time + '.');
       return;
     }
+    // Photo proof is OPTIONAL by default — a caregiver can turn it on for
+    // this patient from the caregiver dashboard (synced down via
+    // loadFromFirestore as 'photoProofRequired'), in which case this falls
+    // through to the camera-required flow below, unchanged from before.
+    // Without that setting, marking taken is a single instant tap; a photo
+    // can still be attached afterward voluntarily via addPhotoToTakenDose().
+    if (localStorage.getItem('photoProofRequired') !== '1') {
+      const logs2 = JSON.parse(localStorage.getItem('medLogs') || '{}');
+      if (!logs2[today]) logs2[today] = {};
+      logs2[today][id] = Date.now();
+      localStorage.setItem('medLogs', JSON.stringify(logs2));
+      updateStreak();
+      renderMeds();
+      syncToFirestore({ medLogs: logs2, streak: localStorage.getItem('streak'), lastActive: localStorage.getItem('lastActive') });
+      return;
+    }
     // A new "taken" entry needs a photo before it commits at all — see
     // handleMedPhotoCapture, which does the actual logs[today][id] write
     // once a photo comes back. Nothing is marked taken here yet. If the
@@ -810,7 +826,13 @@ function fileToResizedJpegBase64ForMedProof(file) {
     reader.readAsDataURL(file);
   });
 }
-
+function addPhotoToTakenDose(id) {
+  window.__pendingMedTakenId = id;
+  const note = document.getElementById('med-photo-pending-note');
+  if (note) note.style.display = 'block';
+  const input = document.getElementById('med-photo-input');
+  if (input) input.click();
+}
 function handleMedPhotoCapture(event) {
   const note = document.getElementById('med-photo-pending-note');
   if (note) note.style.display = 'none';
@@ -880,8 +902,13 @@ function renderMeds() {
         pillText = '<div style="font-size:11px;color:#64748b;margin-top:2px;">💊 ' + pillStatus.remaining + ' pills left</div>';
       }
     }
-    const doseText = (m.pillsPerDose && m.pillsPerDose > 1) ? (' <small style="color:#94a3b8;">(' + m.pillsPerDose + ' pills)</small>') : '';
-    return '<div class="med-row" style="flex-direction:column;align-items:stretch;"><div style="display:flex;justify-content:space-between;align-items:center;width:100%;"><span>' + escapeHtml(m.name) + doseText + ' — ' + escapeHtml(m.time) + leftText + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? (hasPhoto ? '✓ Taken 📷' : '✓ Taken') : '📷 Mark Taken') + '</button></div>' + pillText + '</div>';
+const doseText = (m.pillsPerDose && m.pillsPerDose > 1) ? (' <small style="color:#94a3b8;">(' + m.pillsPerDose + ' pills)</small>') : '';
+    const photoRequired = localStorage.getItem('photoProofRequired') === '1';
+    const takeBtnLabel = photoRequired ? '📷 Mark Taken' : '✓ Mark Taken';
+    const addPhotoLink = (taken && !hasPhoto && !photoRequired)
+      ? ' <a href="#" onclick="addPhotoToTakenDose(\'' + m.id + '\');return false;" style="font-size:11px;color:#93c5fd;text-decoration:underline;margin-left:6px;">📷 Add photo</a>'
+      : '';
+    return '<div class="med-row" style="flex-direction:column;align-items:stretch;"><div style="display:flex;justify-content:space-between;align-items:center;width:100%;"><span>' + escapeHtml(m.name) + doseText + ' — ' + escapeHtml(m.time) + leftText + '</span><button class="' + (taken ? 'taken' : 'secondary') + '" onclick="toggleTaken(\'' + m.id + '\')">' + (taken ? (hasPhoto ? '✓ Taken 📷' : '✓ Taken') : takeBtnLabel) + '</button></div>' + pillText + addPhotoLink + '</div>';
   }).join('');
   checkDueMeds();
 }
