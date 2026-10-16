@@ -463,6 +463,10 @@
         if (data.quickSleep) localStorage.setItem('quick_sleep', JSON.stringify(data.quickSleep));
         if (data.quickActivity) localStorage.setItem('quick_activity', JSON.stringify(data.quickActivity));
         if (data.quickMood) localStorage.setItem('quick_mood', JSON.stringify(data.quickMood));
+        // Caregiver-set toggle: whether this patient must attach a photo to
+        // mark a dose taken, or it's optional (the default). Written by the
+        // caregiver dashboard (caregiver.html), read here on every login.
+        localStorage.setItem('photoProofRequired', data.photoProofRequired ? '1' : '0');
         console.log('Sentra-X: Firestore data loaded for user', uid);
       } else {
         console.log('Sentra-X: no Firestore document yet for user', uid, '(normal for a brand new account)');
