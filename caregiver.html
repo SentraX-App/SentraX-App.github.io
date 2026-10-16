@@ -162,6 +162,10 @@
 
     <div class="card">
       <h3>Today's Medications</h3>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#94a3b8;margin-bottom:10px;cursor:pointer;">
+        <input type="checkbox" id="cg-photo-proof-toggle" onchange="cgTogglePhotoProof(this.checked)" style="width:auto;margin:0;">
+        Require a photo when marking a dose taken
+      </label>
       <div id="cg-meds"><div class="empty">No medications added yet</div></div>
     </div>
 
@@ -195,6 +199,7 @@
   });
 
   let cgUnsub = null;
+  let cgCurrentPatientUid = null;
   let isLinking = false;
   let vitalsHistExpanded = false;
   let medHistExpanded = false;
@@ -408,7 +413,22 @@ const consentEl = document.getElementById('cg-join-consent');
     const s = document.getElementById('cg-last-sync'); if (s) s.textContent = 'Loading…';
   }
 
+  window.cgTogglePhotoProof = function (checked) {
+    if (!cgCurrentPatientUid) return;
+    window.__cgPhotoProofPending = true;
+    firebase.firestore().collection('users').doc(cgCurrentPatientUid)
+      .update({ photoProofRequired: checked })
+      .catch(function (e) {
+        console.error('Sentra-X Caregiver: could not update photo-proof setting:', e.message);
+        alert('Could not save that setting right now — please try again.');
+        const t = document.getElementById('cg-photo-proof-toggle');
+        if (t) t.checked = !checked; // revert the visible toggle to match what's actually saved
+      })
+      .finally(function () { window.__cgPhotoProofPending = false; });
+  };
+
   function cgSwitchPatient(patientUid) {
+    cgCurrentPatientUid = patientUid;
     if (cgUnsub) { cgUnsub(); cgUnsub = null; }
     cgResetDashboard();
     showView('dashboard-view');
@@ -607,6 +627,16 @@ const consentEl = document.getElementById('cg-join-consent');
   function renderDashboard(data) {
     window.__cgLastData = data;
     renderGreetingAndAlert(data);
+
+    const photoToggle = document.getElementById('cg-photo-proof-toggle');
+    // Only sync from the live snapshot when the caregiver isn't actively
+    // mid-click on it themselves -- cgTogglePhotoProof sets this flag
+    // briefly so an incoming snapshot (which can arrive before Firestore's
+    // own write is reflected back) can't visually flip the checkbox back
+    // before the write actually lands.
+    if (photoToggle && !window.__cgPhotoProofPending) {
+      photoToggle.checked = !!data.photoProofRequired;
+    }
 
     const bpBox = document.getElementById('cg-bp');
     const vitals = data.vitals || [];
