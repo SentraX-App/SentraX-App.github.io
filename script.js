@@ -776,11 +776,7 @@ function toggleTaken(id) {
     // once a photo comes back. Nothing is marked taken here yet. If the
     // camera is cancelled, nothing was ever logged — safe either way, never
     // stuck half-done.
-    window.__pendingMedTakenId = id;
-    const note = document.getElementById('med-photo-pending-note');
-    if (note) note.style.display = 'block';
-    const input = document.getElementById('med-photo-input');
-    if (input) input.click();
+    openMedPhotoCamera(id);
     return;
   }
 
@@ -827,9 +823,23 @@ function fileToResizedJpegBase64ForMedProof(file) {
   });
 }
 function addPhotoToTakenDose(id) {
+  openMedPhotoCamera(id);
+}
+
+function openMedPhotoCamera(id) {
   window.__pendingMedTakenId = id;
   const note = document.getElementById('med-photo-pending-note');
   if (note) note.style.display = 'block';
+  window.addEventListener('focus', function onMedPhotoFocus() {
+    window.removeEventListener('focus', onMedPhotoFocus);
+    setTimeout(function () {
+      if (window.__pendingMedTakenId !== null) {
+        window.__pendingMedTakenId = null;
+        const n = document.getElementById('med-photo-pending-note');
+        if (n) n.style.display = 'none';
+      }
+    }, 600);
+  });
   const input = document.getElementById('med-photo-input');
   if (input) input.click();
 }
