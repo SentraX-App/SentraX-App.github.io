@@ -51,8 +51,8 @@ function showScreen(name) {
   document.querySelectorAll('#more-sheet button').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
-  if (name === 'firstaid' || name === 'maternal' || name === 'passport' || name === 'ai' || name === 'articles' || name === 'marketplace' || name === 'rewards') {
-    document.getElementById('nav-more').classList.add('active');
+  if (name === 'firstaid' || name === 'maternal' || name === 'passport' || name === 'ai' || name === 'articles' || name === 'marketplace' || name === 'rewards' || name === 'tips' || name === 'profile') {
+  document.getElementById('nav-more').classList.add('active');
   }
   closeMoreMenu();
   if (name === 'meds') renderMeds();
@@ -60,6 +60,8 @@ function showScreen(name) {
   if (name === 'family') { renderCaregiverNote(); renderLinkedCaregivers(); }
   if (name === 'passport') renderPassport();
   if (name === 'maternal') renderMaternalScreen();
+  if (name === 'tips') renderTipsScreen();
+  if (name === 'profile') loadProfileScreen();
   // Only re-render (and, for an existing thread, inject a fresh spoken
   // "welcome back" line) on a genuine arrival into the AI screen. Without
   // this guard, showScreen('ai') firing again while already there — e.g. a
@@ -444,11 +446,192 @@ function getPulseStatus(hr) {
   if (bpm > 100) return { label: 'High (' + bpm + ' bpm)', color: '#fed7aa' };
   return { label: 'Normal (' + bpm + ' bpm)', color: '#bbf7d0' };
 }
+// Plain-language reference table shown behind "View recommended ranges".
+// Matches the thresholds already used by getRisk() above — purely a
+// restatement for the user, never a separate source of truth.
+function getRecommendedRangesHtml() {
+  return '<div class="bp-ranges-table">' +
+    '<div><span>Normal</span><span>Below 120 / 80</span></div>' +
+    '<div><span>Elevated</span><span>120–129 / below 80</span></div>' +
+    '<div><span>Stage 1 Hypertension</span><span>130–139 / 80–89</span></div>' +
+    '<div><span>Stage 2 Hypertension</span><span>140+ / 90+</span></div>' +
+    '<div><span>Hypertensive Crisis</span><span>180+ / 120+</span></div>' +
+    '</div>';
+}
 
+function toggleBpRanges() {
+  const box = document.getElementById('bp-ranges-box');
+  if (!box) return;
+  box.style.display = box.style.display === 'block' ? 'none' : 'block';
+}
+
+// Educational guidance only, by severity band (0-4, matching getRisk()).
+// Deliberately generic/non-prescriptive — same spirit as the existing First
+// Aid "What to do" cards elsewhere in the app, not individualized medical
+// advice.
+function getBpGuidance(severity) {
+  const base = {
+    next30: [
+      'Recheck your blood pressure regularly.',
+      'Track whether readings improve, stay the same, or increase.',
+      'Continue any lifestyle adjustments that are working.'
+    ],
+    seekCareIf: [
+      'Your blood pressure remains high across multiple readings.',
+      'You experience headaches, dizziness, chest pain, or breathlessness.'
+    ]
+  };
+  if (severity >= 3) {
+    return {
+      summary: 'Your blood pressure is above the recommended range. It\u2019s important to monitor it closely and consider making lifestyle changes. A medical review may be helpful if this continues.',
+      why: 'High blood pressure often does not cause symptoms, but over time it can strain the heart and blood vessels. At this stage, careful monitoring and lifestyle changes are important.',
+      next7: [
+        'Reduce salt and salty foods immediately.',
+        'Prioritise rest and adequate sleep.',
+        'Avoid alcohol and smoking.',
+        'Reduce stress where possible.',
+        'Stay lightly active (e.g. walking).',
+        'Goal: reduce strain, not push the body.'
+      ],
+      next30: base.next30.concat('Seek medical review if readings remain high.'),
+      seekCareIf: base.seekCareIf
+    };
+  }
+  if (severity >= 1) {
+    return {
+      summary: 'Your blood pressure is a little higher than the ideal range. Small, steady changes now can help keep it from climbing further.',
+      why: 'Blood pressure in this range isn\u2019t an emergency, but it\u2019s worth paying attention to \u2014 left unchecked over months or years, it can gradually increase your risk of heart and blood vessel problems.',
+      next7: [
+        'Cut back on salty and processed foods.',
+        'Get regular, adequate sleep.',
+        'Stay lightly active most days (e.g. walking).',
+        'Limit alcohol and avoid smoking.',
+        'Keep logging readings so you can see the trend.'
+      ],
+      next30: base.next30,
+      seekCareIf: base.seekCareIf
+    };
+  }
+  return {
+    summary: 'Your blood pressure is within the normal range. Keep up whatever you\u2019re doing \u2014 consistency is what keeps it there.',
+    why: 'A normal reading today doesn\u2019t guarantee it stays that way on its own. Diet, activity, sleep, and stress all affect it over time.',
+    next7: [
+      'Keep meals balanced and moderate on salt.',
+      'Stay active most days.',
+      'Get enough sleep.',
+      'Keep logging readings to build a clear history.'
+    ],
+    next30: [
+      'Recheck your blood pressure periodically, even without symptoms.',
+      'Watch for any upward trend over time.'
+    ],
+    seekCareIf: base.seekCareIf
+  };
+}
+
+function bpPillClass(ok) { return ok === 'ok' ? 'ok' : (ok === 'warn' ? 'warn' : 'bad'); }
+
+// Renders the per-metric breakdown + "What to do next" card shown under the
+// result banner after a reading is saved. Purely additive — the existing
+// #result banner above it is untouched.
+function renderBpBreakdown(sys, dia, hr, risk, pulseStatus) {
+  const box = document.getElementById('bp-breakdown');
+  if (!box) return;
+
+  const sysOk = sys < 120 ? 'ok' : (sys < 140 ? 'warn' : 'bad');
+  const diaOk = dia < 80 ? 'ok' : (dia < 90 ? 'warn' : 'bad');
+  const sysLabel = sysOk === 'ok' ? 'Normal' : (sysOk === 'warn' ? 'Elevated' : 'High');
+  const diaLabel = diaOk === 'ok' ? 'Normal' : (diaOk === 'warn' ? 'Elevated' : 'High');
+
+  let pulseRow = '';
+  if (pulseStatus) {
+    const bpm = parseInt(hr, 10);
+    const pOk = (bpm >= 60 && bpm <= 100) ? 'ok' : 'warn';
+    const pLabel = pOk === 'ok' ? 'Normal' : (bpm < 60 ? 'Low' : 'High');
+    pulseRow =
+      '<div class="bp-metric-row">' +
+        '<div>' +
+          '<p class="bp-metric-label">Pulse</p>' +
+          '<p class="bp-metric-sub">Heart rate (beats per minute)</p>' +
+          '<p class="bp-metric-text">Your pulse is ' + bpm + ' bpm, which is ' + (pOk === 'ok' ? 'within the normal range.' : (bpm < 60 ? 'below the normal range.' : 'above the normal range.')) + '</p>' +
+        '</div>' +
+        '<span class="bp-status-pill ' + bpPillClass(pOk) + '">' + pLabel + '</span>' +
+      '</div>';
+  }
+
+  const guidance = getBpGuidance(risk.severity);
+
+  box.innerHTML =
+    '<div class="card">' +
+      '<div class="bp-metric-row">' +
+        '<div>' +
+          '<p class="bp-metric-label">Systolic</p>' +
+          '<p class="bp-metric-sub">Pressure when your heart beats</p>' +
+          '<p class="bp-metric-text">Your systolic pressure is ' + sys + ' mmHg, which is ' + (sysOk === 'ok' ? 'within the recommended range.' : 'above the recommended range.') + '</p>' +
+        '</div>' +
+        '<span class="bp-status-pill ' + bpPillClass(sysOk) + '">' + sysLabel + '</span>' +
+      '</div>' +
+      '<div class="bp-metric-row">' +
+        '<div>' +
+          '<p class="bp-metric-label">Diastolic</p>' +
+          '<p class="bp-metric-sub">Pressure when your heart rests</p>' +
+          '<p class="bp-metric-text">Your diastolic pressure is ' + dia + ' mmHg, which is ' + (diaOk === 'ok' ? 'within the recommended range.' : 'above the recommended range.') + '</p>' +
+        '</div>' +
+        '<span class="bp-status-pill ' + bpPillClass(diaOk) + '">' + diaLabel + '</span>' +
+      '</div>' +
+      pulseRow +
+      '<button type="button" class="bp-ranges-link" onclick="toggleBpRanges()">View recommended ranges \u2192</button>' +
+      '<div id="bp-ranges-box" style="display:none;">' + getRecommendedRangesHtml() + '</div>' +
+    '</div>' +
+    '<div class="card">' +
+      '<h3>What to do next</h3>' +
+      '<p class="bp-metric-text">' + guidance.summary + '</p>' +
+      '<p class="bp-why"><b>Why this matters:</b> ' + guidance.why + '</p>' +
+      '<p class="bp-disclaimer">Educational guidance only \u2014 not a medical diagnosis.</p>' +
+      '<button onclick="showScreen(\'tips\')">Full guidance</button>' +
+    '</div>';
+}
+
+// Renders the standalone Tips screen — same guidance content as the
+// breakdown card above, based on the most recent saved reading if one
+// exists, or general tips if the user hasn't logged one yet.
+function renderTipsScreen() {
+  const content = document.getElementById('tips-content');
+  if (!content) return;
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  const latest = vitals[0];
+  const risk = latest ? getRisk(latest.sys, latest.dia) : { severity: 0 };
+  const guidance = getBpGuidance(risk.severity);
+
+  function list(items) { return '<ul>' + items.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ul>'; }
+
+  content.innerHTML =
+    '<div class="card">' +
+      '<h3>Your Guidance</h3>' +
+      (latest ? '<p class="bp-metric-text">Based on your latest reading (' + latest.sys + '/' + latest.dia + ').</p>' : '<p class="bp-metric-text">Log a reading to get guidance tailored to it. These are general tips for now.</p>') +
+      '<p class="bp-metric-text" style="margin-top:8px;">' + guidance.summary + '</p>' +
+      '<ul><li>' + guidance.why + '</li></ul>' +
+    '</div>' +
+    '<div class="card tips-section">' +
+      '<h4>Next 7 days</h4>' + list(guidance.next7) +
+    '</div>' +
+    '<div class="card tips-section">' +
+      '<h4>Next 30 days</h4>' + list(guidance.next30) +
+    '</div>' +
+    '<div class="card tips-section">' +
+      '<h4>Seek medical care if</h4>' + list(guidance.seekCareIf) +
+    '</div>' +
+    '<div class="card"><p class="bp-disclaimer" style="margin:0;">Educational guidance only \u2014 not a medical diagnosis.</p></div>';
+}
+
+function toggleSecondReading() {
+  const on = document.getElementById('bp-second-toggle').checked;
+  document.getElementById('bp-second-fields').style.display = on ? 'block' : 'none';
+}
 function checkBP() {
-  const sys = parseInt(document.getElementById('systolic').value);
-  const dia = parseInt(document.getElementById('diastolic').value);
-  const hr = document.getElementById('heartrate').value;
+  let sys = parseInt(document.getElementById('systolic').value);
+  let dia = parseInt(document.getElementById('diastolic').value);
+  let hr = document.getElementById('heartrate').value;
   const weight = document.getElementById('weight').value;
   const result = document.getElementById('result');
   const cgBtn = document.getElementById('alert-caregiver-btn');
@@ -458,6 +641,23 @@ function checkBP() {
     result.style.display = "block"; result.style.background = "#eee";
     result.textContent = "Please enter both blood pressure numbers.";
     return;
+  }
+
+  // Optional second reading: average with the first, standard practice for
+  // a more reliable BP reading. Only the averaged values get saved/shown —
+  // both raw readings aren't stored separately, keeping the history list
+  // unchanged (one entry per check, same as before this feature existed).
+  const wantsSecond = document.getElementById('bp-second-toggle') && document.getElementById('bp-second-toggle').checked;
+  if (wantsSecond) {
+    const sys2 = parseInt(document.getElementById('systolic2').value);
+    const dia2 = parseInt(document.getElementById('diastolic2').value);
+    const hr2 = document.getElementById('heartrate2').value;
+    if (sys2 && dia2) {
+      sys = Math.round((sys + sys2) / 2);
+      dia = Math.round((dia + dia2) / 2);
+      if (hr && hr2) hr = String(Math.round((parseInt(hr, 10) + parseInt(hr2, 10)) / 2));
+      else if (hr2 && !hr) hr = hr2;
+    }
   }
 
   const risk = getRisk(sys, dia);
@@ -478,8 +678,92 @@ function checkBP() {
     cgBtn.innerHTML = '<button class="danger" onclick="alertCaregiverNow(' + sys + ',' + dia + ',\'' + safeLevel + '\')">🚨 Alert My Caregiver Now</button>';
   }
 
+  renderBpBreakdown(sys, dia, hr, risk, pulseStatus);
   renderHealthRadar();
+      }
+// --- Profile / Account screen -------------------------------------------
+// Stored separately from the existing Passport feature (which is a
+// shareable emergency card) — this is personal account/health info the
+// user manages for themselves, saved to localStorage + synced to
+// Firestore the same way every other feature in this file does.
+function loadProfileScreen() {
+  const p = JSON.parse(localStorage.getItem('userProfile') || '{}');
+  document.getElementById('prof-sex').value = p.sex || '';
+  document.getElementById('prof-dob').value = p.dob || '';
+  document.getElementById('prof-height').value = p.height || '';
+  document.getElementById('prof-weight').value = p.weight || '';
+  document.getElementById('prof-city').value = p.city || '';
+  document.getElementById('prof-state').value = p.state || '';
+  document.getElementById('prof-ec-name').value = p.emergencyName || '';
+  document.getElementById('prof-ec-phone').value = p.emergencyPhone || '';
+  setProfileToggle('htn', typeof p.knownHypertension === 'boolean' ? p.knownHypertension : null);
+  setProfileToggle('med', typeof p.onBpMedication === 'boolean' ? p.onBpMedication : null);
+  updateProfileComputed();
+  document.getElementById('prof-saved-note').textContent = '';
 }
+
+function setProfileToggle(key, value) {
+  const yesBtn = document.getElementById('prof-' + key + '-yes');
+  const noBtn = document.getElementById('prof-' + key + '-no');
+  yesBtn.classList.toggle('active', value === true);
+  noBtn.classList.toggle('active', value === false);
+  // The Yes button's dataset is the single source of truth for this
+  // group's value, read back by getProfileToggleValue() in saveProfile().
+  yesBtn.dataset.selected = value === true ? 'true' : (value === false ? 'false' : '');
+}
+
+function getProfileToggleValue(key) {
+  const sel = document.getElementById('prof-' + key + '-yes').dataset.selected;
+  if (sel === 'true') return true;
+  if (sel === 'false') return false;
+  return null;
+}
+
+function updateProfileComputed() {
+  const dob = document.getElementById('prof-dob').value;
+  const ageDisplay = document.getElementById('prof-age-display');
+  if (dob) {
+    const birth = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    ageDisplay.textContent = (age >= 0 && age < 130) ? age + ' yrs' : '';
+  } else {
+    ageDisplay.textContent = '';
+  }
+
+  const h = parseFloat(document.getElementById('prof-height').value);
+  const w = parseFloat(document.getElementById('prof-weight').value);
+  const bmiDisplay = document.getElementById('prof-bmi-display');
+  if (h && w) {
+    const m = h / 100;
+    const bmi = w / (m * m);
+    bmiDisplay.textContent = bmi.toFixed(1);
+  } else {
+    bmiDisplay.textContent = '—';
+  }
+}
+
+function saveProfile() {
+  const profile = {
+    sex: document.getElementById('prof-sex').value,
+    dob: document.getElementById('prof-dob').value,
+    height: document.getElementById('prof-height').value,
+    weight: document.getElementById('prof-weight').value,
+    knownHypertension: getProfileToggleValue('htn'),
+    onBpMedication: getProfileToggleValue('med'),
+    city: document.getElementById('prof-city').value.trim(),
+    state: document.getElementById('prof-state').value.trim(),
+    emergencyName: document.getElementById('prof-ec-name').value.trim(),
+    emergencyPhone: document.getElementById('prof-ec-phone').value.trim()
+  };
+  localStorage.setItem('userProfile', JSON.stringify(profile));
+  syncToFirestore({ userProfile: profile });
+  const note = document.getElementById('prof-saved-note');
+  note.textContent = 'Saved.';
+  setTimeout(function () { note.textContent = ''; }, 2500);
+    }
 
 function alertCaregiverNow(sys, dia, level) {
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
