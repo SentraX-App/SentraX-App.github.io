@@ -249,6 +249,20 @@
         <input type="number" id="heartrate" placeholder="Heart rate (opt.)">
         <input type="number" id="weight" placeholder="Weight kg (opt.)">
       </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#94a3b8;margin:4px 0 10px;">
+        <input type="checkbox" id="bp-second-toggle" style="width:16px;height:16px;padding:0;margin:0;accent-color:#3b82f6;" onchange="toggleSecondReading()">
+        Add second reading
+      </label>
+      <div id="bp-second-fields" style="display:none;">
+        <p style="font-size:12px;color:#64748b;margin:0 0 8px;">Wait a minute or two, then take a second reading. We'll save the average of both.</p>
+        <div class="input-row">
+          <input type="number" id="systolic2" placeholder="Systolic #2">
+          <input type="number" id="diastolic2" placeholder="Diastolic #2">
+        </div>
+        <div class="input-row">
+          <input type="number" id="heartrate2" placeholder="Heart rate #2 (opt.)">
+        </div>
+      </div>
       <button type="button" class="ghost" onclick="measureHeartRate()">📷 Check Heart Rate (Camera)</button>
       <div id="hr-measure-box" style="display:none;">
   <video id="hr-video" autoplay playsinline muted style="width:1px;height:1px;position:absolute;opacity:0;"></video>
@@ -268,6 +282,7 @@
       <div id="result"></div>
       <div id="alert-caregiver-btn"></div>
     </div>
+    <div id="bp-breakdown"></div>
 
     <div class="card">
       <h3>📊 Health Radar</h3>
@@ -609,11 +624,98 @@
   <div class="screen" id="rewards-screen">
   <div id="rewards-root"></div>
   </div>
+  <div class="screen" id="tips-screen">
+    <div id="tips-content"></div>
+    <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="secondary" style="flex:1;" onclick="showScreen('vitals')">Back to Home</button>
+      <button class="ghost" style="flex:1;" onclick="showScreen('vitals');focusBpFields()">Log BP</button>
+      <button class="ghost" style="flex:1;" onclick="showScreen('history')">View History</button>
+    </div>
+  </div>
+  <div class="screen" id="profile-screen">
+    <div class="card">
+      <h3>Account Details</h3>
+      <div class="profile-row">
+        <label>Sex</label>
+        <select id="prof-sex">
+          <option value="">Select…</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+        </select>
+      </div>
+      <div class="profile-row">
+        <label>Date of Birth</label>
+        <input type="date" id="prof-dob" oninput="updateProfileComputed()">
+        <div class="profile-computed" id="prof-age-display"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Health Profile</h3>
+      <div class="profile-row">
+        <label>Height (cm)</label>
+        <input type="number" id="prof-height" placeholder="e.g. 170" oninput="updateProfileComputed()">
+      </div>
+      <div class="profile-row">
+        <label>Weight (kg)</label>
+        <input type="number" id="prof-weight" placeholder="e.g. 70" oninput="updateProfileComputed()">
+      </div>
+      <div class="profile-row">
+        <label>BMI</label>
+        <div class="profile-computed" id="prof-bmi-display">—</div>
+      </div>
+      <div class="profile-row">
+        <label>Known hypertension</label>
+        <div class="profile-toggle-group">
+          <button type="button" id="prof-htn-yes" onclick="setProfileToggle('htn',true)">Yes</button>
+          <button type="button" id="prof-htn-no" onclick="setProfileToggle('htn',false)">No</button>
+        </div>
+      </div>
+      <div class="profile-row">
+        <label>On BP medication</label>
+        <div class="profile-toggle-group">
+          <button type="button" id="prof-med-yes" onclick="setProfileToggle('med',true)">Yes</button>
+          <button type="button" id="prof-med-no" onclick="setProfileToggle('med',false)">No</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Location</h3>
+      <div class="profile-row">
+        <label>City</label>
+        <input type="text" id="prof-city" placeholder="e.g. Port Harcourt">
+      </div>
+      <div class="profile-row">
+        <label>State</label>
+        <input type="text" id="prof-state" placeholder="e.g. Rivers">
+      </div>
+    </div>
+    <div class="card">
+      <h3>Emergency Contact</h3>
+      <div class="profile-row">
+        <label>Name</label>
+        <input type="text" id="prof-ec-name" placeholder="Contact's name">
+      </div>
+      <div class="profile-row">
+        <label>Phone</label>
+        <input type="text" id="prof-ec-phone" placeholder="e.g. 2348012345678">
+      </div>
+    </div>
+    <div class="card">
+      <button onclick="saveProfile()">Save Profile</button>
+      <div id="prof-saved-note" style="font-size:13px;color:#6ee7b7;margin-top:8px;min-height:16px;"></div>
+    </div>
+    <div class="card">
+      <button class="ghost" onclick="changeAccountPassword()">Change Password</button>
+      <button class="secondary" style="margin-top:10px;" onclick="logOut()">Log Out</button>
+    </div>
+  </div>
   <div id="more-sheet-backdrop" onclick="closeMoreMenu()" style="display:none;"></div>
   <div id="more-sheet" style="display:none;">
     <button onclick="showScreen('firstaid')" id="nav-firstaid"><span class="icon">🚑</span>First Aid</button>
     <button onclick="showScreen('maternal')" id="nav-maternal" style="display:none;"><span class="icon">🤰</span>Maternal &amp; Child</button>
     <button onclick="showScreen('passport')" id="nav-passport"><span class="icon">🪪</span>Passport</button>
+    <button onclick="showScreen('tips')" id="nav-tips"><span class="icon">💡</span>Tips</button>
+    <button onclick="showScreen('profile')" id="nav-profile"><span class="icon">👤</span>Profile</button>
     <button onclick="showScreen('ai')" id="nav-ai"><span class="icon">💬</span>Assistant</button>
     <div class="more-divider"></div>
     <button onclick="showScreen('articles')" id="nav-articles"><span class="icon">📰</span>Articles</button>
