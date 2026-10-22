@@ -440,6 +440,17 @@
       .catch(function(err) { console.error('Sentra-X log out error:', err.message); });
   };
 
+  // Sends a password-reset email to the signed-in account rather than
+  // handling re-authentication + a new password in-app — simpler and
+  // avoids building a custom current-password/new-password flow.
+  window.changeAccountPassword = function() {
+    const user = firebase.auth().currentUser;
+    if (!user || !user.email) { alert('Please log in first.'); return; }
+    firebase.auth().sendPasswordResetEmail(user.email)
+      .then(function() { alert('A password reset link has been sent to ' + user.email + '.'); })
+      .catch(function(err) { alert('Could not send reset email: ' + err.message); });
+  };
+
   window.loadFromFirestore = function(uid) {
     return firebase.firestore().collection('users').doc(uid).get().then(function(doc) {
       if (doc.exists) {
@@ -457,6 +468,7 @@
         if (data.cgEmail) localStorage.setItem('cgEmail', data.cgEmail);
         if (data.medHistory) localStorage.setItem('medHistory', JSON.stringify(data.medHistory));
         if (data.passport) localStorage.setItem('passport', JSON.stringify(data.passport));
+        if (data.userProfile) localStorage.setItem('userProfile', JSON.stringify(data.userProfile));
         if (data.passportPhoto) localStorage.setItem('passportPhoto', data.passportPhoto);
         if (data.maternalData) localStorage.setItem('maternalData', JSON.stringify(data.maternalData));
         if (data.maternalLog) localStorage.setItem('maternalLog', JSON.stringify(data.maternalLog));
