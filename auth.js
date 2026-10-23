@@ -468,7 +468,6 @@
         if (data.cgEmail) localStorage.setItem('cgEmail', data.cgEmail);
         if (data.medHistory) localStorage.setItem('medHistory', JSON.stringify(data.medHistory));
         if (data.passport) localStorage.setItem('passport', JSON.stringify(data.passport));
-        if (data.userProfile) localStorage.setItem('userProfile', JSON.stringify(data.userProfile));
         if (data.passportPhoto) localStorage.setItem('passportPhoto', data.passportPhoto);
         if (data.maternalData) localStorage.setItem('maternalData', JSON.stringify(data.maternalData));
         if (data.maternalLog) localStorage.setItem('maternalLog', JSON.stringify(data.maternalLog));
