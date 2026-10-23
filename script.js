@@ -448,6 +448,33 @@ function getPulseStatus(hr) {
 // Plain-language reference table shown behind "View recommended ranges".
 // Matches the thresholds already used by getRisk() above — purely a
 // restatement for the user, never a separate source of truth.
+// Reads age from the existing Passport record rather than asking for it
+// again anywhere else — Passport already owns personal/health info, so
+// this avoids a second, duplicate "age" field like the removed Profile
+// screen would have been.
+function getUserAge() {
+  const p = JSON.parse(localStorage.getItem('passport') || '{}');
+  const age = parseInt(p.age, 10);
+  return (age && age > 0 && age < 130) ? age : null;
+}
+
+// Important: the classification thresholds in getRisk() do NOT change by
+// age — the same Normal/Elevated/Stage 1/Stage 2/Crisis categories apply
+// to every adult, which matches current AHA guidance. "BP runs higher in
+// older age" is common, not a different definition of normal, so this
+// function only ever ADDS true context for a 65+ reading — it never
+// softens or reclassifies the result itself.
+function getAgeContext(age, risk) {
+  if (!age || age < 65 || risk.severity === 0) return '';
+  return 'Because you\u2019re ' + age + ': blood pressure commonly runs higher with age as arteries stiffen, but that makes this reading common, not automatically safe to ignore \u2014 it\u2019s still ' + risk.level.split(' \u2014')[0] + ', and many older adults are still advised to treat it. If you ever feel dizzy or lightheaded on standing, mention that too \u2014 it can affect which treatment is safe for you.';
+}
+
+// Shown only when Passport has no age on file, so the guidance above can
+// eventually use it. Disappears on its own once age is set — no dismiss
+// state to track.
+function getAgeNudgeHtml() {
+  return '<p class="bp-ranges-link" onclick="showScreen(\'passport\')" style="margin-top:10px;">Add your age in Passport for more relevant guidance \u2192</p>';
+}
 function getRecommendedRangesHtml() {
   return '<div class="bp-ranges-table">' +
     '<div><span>Normal</span><span>Below 120 / 80</span></div>' +
@@ -598,6 +625,8 @@ function renderBpBreakdown(sys, dia, hr, risk, pulseStatus) {
   }
 
   const guidance = getBpGuidance(risk.severity);
+  const age = getUserAge();
+  const ageNote = getAgeContext(age, risk);
 
   box.innerHTML =
     '<div class="card">' +
@@ -625,11 +654,13 @@ function renderBpBreakdown(sys, dia, hr, risk, pulseStatus) {
       '<h3>What to do next</h3>' +
       '<p class="bp-metric-text" style="color:' + risk.color + ';font-weight:700;margin-bottom:6px;">' + risk.level + '</p>' +
       '<p class="bp-metric-text">' + guidance.summary + '</p>' +
+      (ageNote ? '<p class="bp-metric-text" style="margin-top:8px;">' + ageNote + '</p>' : '') +
       '<p class="bp-why"><b>Why this matters:</b> ' + guidance.why + '</p>' +
       '<p class="bp-disclaimer">Educational guidance only \u2014 not a medical diagnosis.</p>' +
+      (age ? '' : getAgeNudgeHtml()) +
       '<button onclick="showScreen(\'tips\')">Full guidance</button>' +
     '</div>';
-      }
+}
 
 // Looks at up to the last 5 readings (not just the latest one) and says
 // whether systolic/diastolic have been trending up, down, or holding
@@ -677,6 +708,8 @@ function renderTipsScreen() {
   const guidance = getBpGuidance(risk.severity);
   const trend = latest ? getBpTrend(vitals) : null;
   const trendText = describeTrend(trend);
+  const age = getUserAge();
+  const ageNote = latest ? getAgeContext(age, risk) : '';
 
   function list(items) { return '<ul>' + items.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ul>'; }
 
@@ -689,7 +722,9 @@ function renderTipsScreen() {
         : '<p class="bp-metric-text">Log a reading to get guidance tailored to it. These are general tips for now.</p>') +
       (trendText ? '<p class="bp-metric-text" style="margin-top:6px;">' + trendText + '</p>' : '') +
       '<p class="bp-metric-text" style="margin-top:8px;">' + guidance.summary + '</p>' +
+      (ageNote ? '<p class="bp-metric-text" style="margin-top:8px;">' + ageNote + '</p>' : '') +
       '<ul><li>' + guidance.why + '</li></ul>' +
+      (age ? '' : getAgeNudgeHtml()) +
     '</div>' +
     '<div class="card tips-section">' +
       '<h4>Next 7 days</h4>' + list(guidance.next7) +
