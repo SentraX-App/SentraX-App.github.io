@@ -47,12 +47,7 @@ header img { height: 30px; width: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0
 .tips-section h4 { margin: 0 0 8px; font-size: 13px; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.3px; }
 .tips-section ul { margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 13.5px; line-height: 1.6; }
 .tips-section { margin-bottom: 16px; }
-.profile-row { margin-bottom: 14px; }
-.profile-row label { display: block; font-size: 12px; color: #93c5fd; margin-bottom: 4px; }
-.profile-computed { font-size: 13px; color: #94a3b8; margin-top: 4px; }
-.profile-toggle-group { display: flex; gap: 10px; }
-.profile-toggle-group button { flex: 1; padding: 10px; }
-.profile-toggle-group button.active { background: rgba(59,130,246,0.3); color: #93c5fd; }
+
 
 /* --- Health Articles: header, cover-banner cards, in-app reader --- */
 .articles-header {
