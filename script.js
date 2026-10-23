@@ -51,7 +51,7 @@ function showScreen(name) {
   document.querySelectorAll('#more-sheet button').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
-  if (name === 'firstaid' || name === 'maternal' || name === 'passport' || name === 'ai' || name === 'articles' || name === 'marketplace' || name === 'rewards' || name === 'tips' || name === 'profile') {
+  if (name === 'firstaid' || name === 'maternal' || name === 'passport' || name === 'ai' || name === 'articles' || name === 'marketplace' || name === 'rewards' || name === 'tips') {
   document.getElementById('nav-more').classList.add('active');
   }
   closeMoreMenu();
@@ -61,7 +61,6 @@ function showScreen(name) {
   if (name === 'passport') renderPassport();
   if (name === 'maternal') renderMaternalScreen();
   if (name === 'tips') renderTipsScreen();
-  if (name === 'profile') loadProfileScreen();
   // Only re-render (and, for an existing thread, inject a fresh spoken
   // "welcome back" line) on a genuine arrival into the AI screen. Without
   // this guard, showScreen('ai') firing again while already there — e.g. a
@@ -469,6 +468,13 @@ function toggleBpRanges() {
 // Deliberately generic/non-prescriptive — same spirit as the existing First
 // Aid "What to do" cards elsewhere in the app, not individualized medical
 // advice.
+// One guidance set PER severity level (0-4), matching getRisk()'s own 5
+// categories one-to-one. Earlier this collapsed severities 1 and 2 into a
+// single "a little higher" message — which meant an actual Stage 1
+// Hypertension reading (severity 2, e.g. a diastolic of 80+) got the same
+// mild wording as a merely Elevated one (severity 1). Each tier below now
+// has its own summary, so the text said to the user always matches the
+// actual clinical category getRisk() assigned — no silent mismatch.
 function getBpGuidance(severity) {
   const base = {
     next30: [
@@ -481,33 +487,46 @@ function getBpGuidance(severity) {
       'You experience headaches, dizziness, chest pain, or breathlessness.'
     ]
   };
-  if (severity >= 3) {
+  const sevenDayCore = [
+    'Reduce salt and salty foods.',
+    'Prioritise rest and adequate sleep.',
+    'Avoid alcohol and smoking.',
+    'Stay lightly active (e.g. walking).',
+    'Keep logging readings so you can see the trend.'
+  ];
+
+  if (severity === 4) {
     return {
-      summary: 'Your blood pressure is above the recommended range. It\u2019s important to monitor it closely and consider making lifestyle changes. A medical review may be helpful if this continues.',
-      why: 'High blood pressure often does not cause symptoms, but over time it can strain the heart and blood vessels. At this stage, careful monitoring and lifestyle changes are important.',
-      next7: [
-        'Reduce salt and salty foods immediately.',
-        'Prioritise rest and adequate sleep.',
-        'Avoid alcohol and smoking.',
-        'Reduce stress where possible.',
-        'Stay lightly active (e.g. walking).',
-        'Goal: reduce strain, not push the body.'
-      ],
-      next30: base.next30.concat('Seek medical review if readings remain high.'),
+      summary: 'This reading is in the hypertensive crisis range. This needs medical attention now, not just monitoring.',
+      why: 'A reading this high carries a real, immediate risk to the heart, brain, and blood vessels — this is not something to wait out.',
+      next7: ['Seek medical care now, especially if you also have chest pain, shortness of breath, vision changes, or confusion.'].concat(sevenDayCore),
+      next30: base.next30,
+      seekCareIf: ['Seek care immediately — do not wait for a follow-up reading.'].concat(base.seekCareIf)
+    };
+  }
+  if (severity === 3) {
+    return {
+      summary: 'Your blood pressure is in the Stage 2 Hypertension range. It\u2019s important to monitor it closely and a medical review is recommended soon.',
+      why: 'High blood pressure often causes no symptoms, but over time it strains the heart and blood vessels. At this stage, that risk is no longer small.',
+      next7: sevenDayCore.concat('Reduce stress where possible. Goal: reduce strain, not push the body.'),
+      next30: base.next30.concat('Arrange a medical review if readings stay in this range.'),
       seekCareIf: base.seekCareIf
     };
   }
-  if (severity >= 1) {
+  if (severity === 2) {
     return {
-      summary: 'Your blood pressure is a little higher than the ideal range. Small, steady changes now can help keep it from climbing further.',
+      summary: 'This reading falls in the Stage 1 Hypertension range. It\u2019s not an emergency, but it is an actual hypertension category, not just \u201ca little high\u201d \u2014 worth raising with a doctor, especially if it repeats.',
+      why: 'Stage 1 is the point where blood pressure is high enough to start raising long-term risk to the heart and blood vessels, even though it rarely causes symptoms on its own.',
+      next7: sevenDayCore,
+      next30: base.next30.concat('Mention this to a doctor if it repeats on your next few readings.'),
+      seekCareIf: base.seekCareIf
+    };
+  }
+  if (severity === 1) {
+    return {
+      summary: 'Your blood pressure is a little higher than the ideal range (Elevated). Small, steady changes now can help keep it from climbing further.',
       why: 'Blood pressure in this range isn\u2019t an emergency, but it\u2019s worth paying attention to \u2014 left unchecked over months or years, it can gradually increase your risk of heart and blood vessel problems.',
-      next7: [
-        'Cut back on salty and processed foods.',
-        'Get regular, adequate sleep.',
-        'Stay lightly active most days (e.g. walking).',
-        'Limit alcohol and avoid smoking.',
-        'Keep logging readings so you can see the trend.'
-      ],
+      next7: sevenDayCore,
       next30: base.next30,
       seekCareIf: base.seekCareIf
     };
@@ -529,6 +548,25 @@ function getBpGuidance(severity) {
   };
 }
 
+// Single source of truth for whether a systolic/diastolic number counts as
+// "ok" / "warn" / "bad" for the per-metric pill colors — built directly
+// from getRisk()'s own thresholds instead of a separate copy of them, so
+// the pills can never disagree with the overall classification the way
+// they used to (e.g. a diastolic of 80 showing "Elevated" on its pill while
+// getRisk() had already classified the reading as Stage 1 Hypertension).
+function bpMetricStatus(kind, value) {
+  if (kind === 'sys') {
+    if (value >= 180) return 'bad';
+    if (value >= 130) return 'bad';
+    if (value >= 120) return 'warn';
+    return 'ok';
+  }
+  // diastolic
+  if (value >= 120) return 'bad';
+  if (value >= 80) return 'bad';
+  return 'ok';
+  }
+
 function bpPillClass(ok) { return ok === 'ok' ? 'ok' : (ok === 'warn' ? 'warn' : 'bad'); }
 
 // Renders the per-metric breakdown + "What to do next" card shown under the
@@ -538,8 +576,8 @@ function renderBpBreakdown(sys, dia, hr, risk, pulseStatus) {
   const box = document.getElementById('bp-breakdown');
   if (!box) return;
 
-  const sysOk = sys < 120 ? 'ok' : (sys < 140 ? 'warn' : 'bad');
-  const diaOk = dia < 80 ? 'ok' : (dia < 90 ? 'warn' : 'bad');
+  const sysOk = bpMetricStatus('sys', sys);
+  const diaOk = bpMetricStatus('dia', dia);
   const sysLabel = sysOk === 'ok' ? 'Normal' : (sysOk === 'warn' ? 'Elevated' : 'High');
   const diaLabel = diaOk === 'ok' ? 'Normal' : (diaOk === 'warn' ? 'Elevated' : 'High');
 
@@ -585,30 +623,71 @@ function renderBpBreakdown(sys, dia, hr, risk, pulseStatus) {
     '</div>' +
     '<div class="card">' +
       '<h3>What to do next</h3>' +
+      '<p class="bp-metric-text" style="color:' + risk.color + ';font-weight:700;margin-bottom:6px;">' + risk.level + '</p>' +
       '<p class="bp-metric-text">' + guidance.summary + '</p>' +
       '<p class="bp-why"><b>Why this matters:</b> ' + guidance.why + '</p>' +
       '<p class="bp-disclaimer">Educational guidance only \u2014 not a medical diagnosis.</p>' +
       '<button onclick="showScreen(\'tips\')">Full guidance</button>' +
     '</div>';
+      }
+
+// Looks at up to the last 5 readings (not just the latest one) and says
+// whether systolic/diastolic have been trending up, down, or holding
+// steady. A single reading can be a one-off; a trend across several is
+// what's actually worth pointing out.
+function getBpTrend(vitals) {
+  const recent = vitals.slice(0, 5);
+  if (recent.length < 2) return null;
+  const latest = recent[0];
+  const older = recent.slice(1);
+  const avgOlderSys = older.reduce(function (a, v) { return a + v.sys; }, 0) / older.length;
+  const avgOlderDia = older.reduce(function (a, v) { return a + v.dia; }, 0) / older.length;
+  const sysDelta = latest.sys - avgOlderSys;
+  const diaDelta = latest.dia - avgOlderDia;
+  function direction(delta) { return delta >= 5 ? 'rising' : (delta <= -5 ? 'falling' : 'steady'); }
+  return {
+    count: recent.length,
+    sysDir: direction(sysDelta),
+    diaDir: direction(diaDelta)
+  };
 }
 
-// Renders the standalone Tips screen — same guidance content as the
-// breakdown card above, based on the most recent saved reading if one
-// exists, or general tips if the user hasn't logged one yet.
+function describeTrend(trend) {
+  if (!trend) return '';
+  const parts = [];
+  if (trend.sysDir === 'rising') parts.push('your systolic number has been trending upward');
+  if (trend.sysDir === 'falling') parts.push('your systolic number has been trending downward');
+  if (trend.diaDir === 'rising') parts.push('your diastolic number has been trending upward');
+  if (trend.diaDir === 'falling') parts.push('your diastolic number has been trending downward');
+  if (parts.length === 0) return 'Your last ' + trend.count + ' readings have stayed fairly steady.';
+  return 'Looking at your last ' + trend.count + ' readings, ' + parts.join(' and ') + '.';
+}
+
+// Renders the standalone Insights screen (internal screen id stays 'tips'
+// so every showScreen('tips') call elsewhere keeps working unchanged —
+// only the user-facing label changed). Unlike the quick "What to do next"
+// card shown right after logging a reading, this looks across your recent
+// history, not just the single latest number.
 function renderTipsScreen() {
   const content = document.getElementById('tips-content');
   if (!content) return;
   const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
   const latest = vitals[0];
-  const risk = latest ? getRisk(latest.sys, latest.dia) : { severity: 0 };
+  const risk = latest ? getRisk(latest.sys, latest.dia) : { severity: 0, level: '', color: '' };
   const guidance = getBpGuidance(risk.severity);
+  const trend = latest ? getBpTrend(vitals) : null;
+  const trendText = describeTrend(trend);
 
   function list(items) { return '<ul>' + items.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ul>'; }
 
   content.innerHTML =
     '<div class="card">' +
       '<h3>Your Guidance</h3>' +
-      (latest ? '<p class="bp-metric-text">Based on your latest reading (' + latest.sys + '/' + latest.dia + ').</p>' : '<p class="bp-metric-text">Log a reading to get guidance tailored to it. These are general tips for now.</p>') +
+      (latest
+        ? ('<p class="bp-metric-text">Based on your latest reading (' + latest.sys + '/' + latest.dia + ').</p>' +
+           '<p class="bp-metric-text" style="color:' + risk.color + ';font-weight:700;margin:6px 0;">' + risk.level + '</p>')
+        : '<p class="bp-metric-text">Log a reading to get guidance tailored to it. These are general tips for now.</p>') +
+      (trendText ? '<p class="bp-metric-text" style="margin-top:6px;">' + trendText + '</p>' : '') +
       '<p class="bp-metric-text" style="margin-top:8px;">' + guidance.summary + '</p>' +
       '<ul><li>' + guidance.why + '</li></ul>' +
     '</div>' +
@@ -680,7 +759,7 @@ function checkBP() {
 
   renderBpBreakdown(sys, dia, hr, risk, pulseStatus);
   renderHealthRadar();
-      }
+  }
 // --- Profile / Account screen -------------------------------------------
 // Stored separately from the existing Passport feature (which is a
 // shareable emergency card) — this is personal account/health info the
