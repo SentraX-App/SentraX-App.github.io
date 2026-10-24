@@ -743,9 +743,9 @@ function toggleSecondReading() {
   document.getElementById('bp-second-fields').style.display = on ? 'block' : 'none';
 }
 function checkBP() {
-  let sys = parseInt(document.getElementById('systolic').value);
-  let dia = parseInt(document.getElementById('diastolic').value);
-  let hr = document.getElementById('heartrate').value;
+  const sys = parseInt(document.getElementById('systolic').value);
+  const dia = parseInt(document.getElementById('diastolic').value);
+  const hr = document.getElementById('heartrate').value;
   const weight = document.getElementById('weight').value;
   const result = document.getElementById('result');
   const cgBtn = document.getElementById('alert-caregiver-btn');
