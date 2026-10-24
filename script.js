@@ -749,29 +749,43 @@ function renderTipsScreen() {
 
   function list(items) { return '<ul>' + items.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ul>'; }
 
-  // A section label matching the look of "NEXT 7 DAYS" etc. below, used to
-  // break this card into clearly separate groups instead of one unbroken
-  // block of text.
-  function sectionLabel(text) {
-    return '<p style="color:#93c5fd;font-size:12px;text-transform:uppercase;letter-spacing:0.3px;font-weight:700;margin:14px 0 4px;">' + text + '</p>';
-  }
+  // Each of these used to be a labeled sub-section stacked inside one big
+  // card — same content, but cramped with no real breathing room. Splitting
+  // them into their own cards (same pattern already used for "Next 7 days"
+  // etc. below) gives each one proper padding and spacing, with nothing
+  // about the wording or the underlying numbers changed.
+  const readingCard = latest
+    ? ('<div class="card">' +
+         '<h3>Your Reading</h3>' +
+         '<p class="bp-metric-text" style="font-size:22px;font-weight:700;color:#e5e7eb;margin:0 0 8px;">' + latest.sys + ' / ' + latest.dia + '</p>' +
+         '<span class="bp-status-pill bp-status-pill-lg ' + (risk.severity === 0 ? 'ok' : (risk.severity === 1 ? 'warn' : 'bad')) + '">' + risk.level + '</span>' +
+         (attribution ? '<p class="bp-metric-text" style="margin-top:10px;">' + attribution + '</p>' : '') +
+       '</div>')
+    : ('<div class="card">' +
+         '<h3>Your Reading</h3>' +
+         '<p class="bp-metric-text">Log a reading to get guidance tailored to it. These are general tips for now.</p>' +
+       '</div>');
 
-  content.innerHTML =
+  const trendCard = trendText
+    ? ('<div class="card">' +
+         '<h3>Recent Trend</h3>' +
+         '<p class="bp-metric-text">' + trendText + '</p>' +
+       '</div>')
+    : '';
+
+  const meaningCard =
     '<div class="card">' +
-      '<h3>Your Guidance</h3>' +
-      (latest
-        ? (sectionLabel('Your Reading') +
-           '<p class="bp-metric-text">' + latest.sys + '/' + latest.dia + '</p>' +
-           '<p class="bp-metric-text" style="color:' + risk.color + ';font-weight:700;margin:4px 0 6px;">' + risk.level + '</p>' +
-           (attribution ? '<p class="bp-metric-text">' + attribution + '</p>' : ''))
-        : '<p class="bp-metric-text">Log a reading to get guidance tailored to it. These are general tips for now.</p>') +
-      (trendText ? (sectionLabel('Recent Trend') + '<p class="bp-metric-text">' + trendText + '</p>') : '') +
-      sectionLabel('What This Means') +
+      '<h3>What This Means</h3>' +
       '<p class="bp-metric-text">' + guidance.summary + '</p>' +
       (ageNote ? '<p class="bp-metric-text" style="margin-top:8px;">' + ageNote + '</p>' : '') +
       '<p class="bp-why" style="margin-top:8px;"><b>Why this matters:</b> ' + guidance.why + '</p>' +
       (age ? '' : getAgeNudgeHtml()) +
-    '</div>' +
+    '</div>';
+
+  content.innerHTML =
+    readingCard +
+    trendCard +
+    meaningCard +
     '<div class="card tips-section">' +
       '<h4>Next 7 days</h4>' + list(guidance.next7) +
     '</div>' +
