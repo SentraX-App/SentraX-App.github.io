@@ -36,6 +36,10 @@ header img { height: 30px; width: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0
 .bp-metric-sub { color: #94a3b8; font-size: 12px; margin: 2px 0 6px; }
 .bp-metric-text { color: #cbd5e1; font-size: 13px; margin: 0; }
 .bp-status-pill { flex-shrink: 0; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+/* Same look as .bp-status-pill, but for longer text like a full risk level
+   name ("Stage 1 Hypertension — Caution") — allows wrapping instead of
+   forcing one long line that could overflow on a narrow screen. */
+.bp-status-pill-lg { display: inline-block; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: normal; }
 .bp-status-pill.ok { background: rgba(110,231,183,0.15); color: #6ee7b7; }
 .bp-status-pill.warn { background: rgba(251,191,36,0.15); color: #fbbf24; }
 .bp-status-pill.bad { background: rgba(248,113,113,0.18); color: #fca5a5; }
