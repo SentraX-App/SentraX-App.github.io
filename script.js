@@ -475,13 +475,21 @@ function getAgeContext(age, risk) {
 function getAgeNudgeHtml() {
   return '<p class="bp-ranges-link" onclick="showScreen(\'passport\')" style="margin-top:10px;">Add your age in Passport for more relevant guidance \u2192</p>';
 }
+// Previously read as "130-139 / 80-89" which, written like that, looks
+// like both systolic AND diastolic need to land in that range at once.
+// Actually it's either one alone that counts (matching getRisk()'s OR
+// logic above) — e.g. 135/70 is still Stage 1 purely from the systolic
+// side. Spelling out AND vs OR explicitly here removes that ambiguity.
 function getRecommendedRangesHtml() {
+  function row(label, value) {
+    return '<div><span class="bp-ranges-label">' + label + '</span><span class="bp-ranges-value">' + value + '</span></div>';
+  }
   return '<div class="bp-ranges-table">' +
-    '<div><span>Normal</span><span>Below 120 / 80</span></div>' +
-    '<div><span>Elevated</span><span>120–129 / below 80</span></div>' +
-    '<div><span>Stage 1 Hypertension</span><span>130–139 / 80–89</span></div>' +
-    '<div><span>Stage 2 Hypertension</span><span>140+ / 90+</span></div>' +
-    '<div><span>Hypertensive Crisis</span><span>180+ / 120+</span></div>' +
+    row('Normal', 'Systolic under 120 AND Diastolic under 80') +
+    row('Elevated', 'Systolic 120\u2013129 AND Diastolic under 80') +
+    row('Stage 1 Hypertension', 'Systolic 130\u2013139 OR Diastolic 80\u201389') +
+    row('Stage 2 Hypertension', 'Systolic 140+ OR Diastolic 90+') +
+    row('Hypertensive Crisis', 'Systolic 180+ OR Diastolic 120+') +
     '</div>';
 }
 
@@ -596,6 +604,25 @@ function bpMetricStatus(kind, value) {
 
 function bpPillClass(ok) { return ok === 'ok' ? 'ok' : (ok === 'warn' ? 'warn' : 'bad'); }
 
+// Says, in plain words, WHICH number (systolic, diastolic, or both) is
+// actually responsible for the current classification — e.g. a reading
+// like 111/80 is "Stage 1" purely because of the diastolic 80, not the
+// systolic 111, and that was never being said explicitly before, which
+// read as if the higher-looking number (systolic) was the problem.
+function getBpAttribution(sys, dia) {
+  const sysStatus = bpMetricStatus('sys', sys);
+  const diaStatus = bpMetricStatus('dia', dia);
+  if (sysStatus === 'ok' && diaStatus === 'ok') return '';
+  const describe = function (status) { return status === 'warn' ? 'Elevated' : 'high'; };
+  if (sysStatus !== 'ok' && diaStatus === 'ok') {
+    return 'This is driven by your systolic reading (' + sys + '), which is ' + describe(sysStatus) + ' \u2014 your diastolic (' + dia + ') is within the normal range on its own.';
+  }
+  if (diaStatus !== 'ok' && sysStatus === 'ok') {
+    return 'This is driven by your diastolic reading (' + dia + '), which is ' + describe(diaStatus) + ' \u2014 your systolic (' + sys + ') is within the normal range on its own.';
+  }
+  return 'Both your systolic (' + sys + ') and diastolic (' + dia + ') readings are above the ideal range.';
+}
+
 // Renders the per-metric breakdown + "What to do next" card shown under the
 // result banner after a reading is saved. Purely additive — the existing
 // #result banner above it is untouched.
@@ -627,6 +654,7 @@ function renderBpBreakdown(sys, dia, hr, risk, pulseStatus) {
   const guidance = getBpGuidance(risk.severity);
   const age = getUserAge();
   const ageNote = getAgeContext(age, risk);
+  const attribution = getBpAttribution(sys, dia);
 
   box.innerHTML =
     '<div class="card">' +
@@ -653,6 +681,7 @@ function renderBpBreakdown(sys, dia, hr, risk, pulseStatus) {
     '<div class="card">' +
       '<h3>What to do next</h3>' +
       '<p class="bp-metric-text" style="color:' + risk.color + ';font-weight:700;margin-bottom:6px;">' + risk.level + '</p>' +
+      (attribution ? '<p class="bp-metric-text" style="margin-bottom:6px;">' + attribution + '</p>' : '') +
       '<p class="bp-metric-text">' + guidance.summary + '</p>' +
       (ageNote ? '<p class="bp-metric-text" style="margin-top:8px;">' + ageNote + '</p>' : '') +
       '<p class="bp-why"><b>Why this matters:</b> ' + guidance.why + '</p>' +
@@ -673,25 +702,31 @@ function getBpTrend(vitals) {
   const older = recent.slice(1);
   const avgOlderSys = older.reduce(function (a, v) { return a + v.sys; }, 0) / older.length;
   const avgOlderDia = older.reduce(function (a, v) { return a + v.dia; }, 0) / older.length;
-  const sysDelta = latest.sys - avgOlderSys;
-  const diaDelta = latest.dia - avgOlderDia;
+  const avgAllSys = recent.reduce(function (a, v) { return a + v.sys; }, 0) / recent.length;
+  const avgAllDia = recent.reduce(function (a, v) { return a + v.dia; }, 0) / recent.length;
   function direction(delta) { return delta >= 5 ? 'rising' : (delta <= -5 ? 'falling' : 'steady'); }
   return {
     count: recent.length,
-    sysDir: direction(sysDelta),
-    diaDir: direction(diaDelta)
+    latestSys: latest.sys,
+    latestDia: latest.dia,
+    avgSys: Math.round(avgAllSys),
+    avgDia: Math.round(avgAllDia),
+    sysDir: direction(latest.sys - avgOlderSys),
+    diaDir: direction(latest.dia - avgOlderDia)
   };
 }
 
+// Shows the actual average and today's number, instead of only a direction
+// word like "trending downward" with nothing backing it up — someone
+// could otherwise check their own history and find the claim doesn't
+// obviously match what they see, which is exactly the kind of vague,
+// unverifiable statement worth avoiding here.
 function describeTrend(trend) {
   if (!trend) return '';
-  const parts = [];
-  if (trend.sysDir === 'rising') parts.push('your systolic number has been trending upward');
-  if (trend.sysDir === 'falling') parts.push('your systolic number has been trending downward');
-  if (trend.diaDir === 'rising') parts.push('your diastolic number has been trending upward');
-  if (trend.diaDir === 'falling') parts.push('your diastolic number has been trending downward');
-  if (parts.length === 0) return 'Your last ' + trend.count + ' readings have stayed fairly steady.';
-  return 'Looking at your last ' + trend.count + ' readings, ' + parts.join(' and ') + '.';
+  const dirWord = { rising: 'trending upward', falling: 'trending downward', steady: 'holding steady' };
+  return 'Over your last ' + trend.count + ' readings: systolic has averaged ' + trend.avgSys +
+    ' (today: ' + trend.latestSys + ', ' + dirWord[trend.sysDir] + '), diastolic has averaged ' + trend.avgDia +
+    ' (today: ' + trend.latestDia + ', ' + dirWord[trend.diaDir] + ').';
 }
 
 // Renders the standalone Insights screen (internal screen id stays 'tips'
@@ -710,20 +745,31 @@ function renderTipsScreen() {
   const trendText = describeTrend(trend);
   const age = getUserAge();
   const ageNote = latest ? getAgeContext(age, risk) : '';
+  const attribution = latest ? getBpAttribution(latest.sys, latest.dia) : '';
 
   function list(items) { return '<ul>' + items.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ul>'; }
+
+  // A section label matching the look of "NEXT 7 DAYS" etc. below, used to
+  // break this card into clearly separate groups instead of one unbroken
+  // block of text.
+  function sectionLabel(text) {
+    return '<p style="color:#93c5fd;font-size:12px;text-transform:uppercase;letter-spacing:0.3px;font-weight:700;margin:14px 0 4px;">' + text + '</p>';
+  }
 
   content.innerHTML =
     '<div class="card">' +
       '<h3>Your Guidance</h3>' +
       (latest
-        ? ('<p class="bp-metric-text">Based on your latest reading (' + latest.sys + '/' + latest.dia + ').</p>' +
-           '<p class="bp-metric-text" style="color:' + risk.color + ';font-weight:700;margin:6px 0;">' + risk.level + '</p>')
+        ? (sectionLabel('Your Reading') +
+           '<p class="bp-metric-text">' + latest.sys + '/' + latest.dia + '</p>' +
+           '<p class="bp-metric-text" style="color:' + risk.color + ';font-weight:700;margin:4px 0 6px;">' + risk.level + '</p>' +
+           (attribution ? '<p class="bp-metric-text">' + attribution + '</p>' : ''))
         : '<p class="bp-metric-text">Log a reading to get guidance tailored to it. These are general tips for now.</p>') +
-      (trendText ? '<p class="bp-metric-text" style="margin-top:6px;">' + trendText + '</p>' : '') +
-      '<p class="bp-metric-text" style="margin-top:8px;">' + guidance.summary + '</p>' +
+      (trendText ? (sectionLabel('Recent Trend') + '<p class="bp-metric-text">' + trendText + '</p>') : '') +
+      sectionLabel('What This Means') +
+      '<p class="bp-metric-text">' + guidance.summary + '</p>' +
       (ageNote ? '<p class="bp-metric-text" style="margin-top:8px;">' + ageNote + '</p>' : '') +
-      '<ul><li>' + guidance.why + '</li></ul>' +
+      '<p class="bp-why" style="margin-top:8px;"><b>Why this matters:</b> ' + guidance.why + '</p>' +
       (age ? '' : getAgeNudgeHtml()) +
     '</div>' +
     '<div class="card tips-section">' +
