@@ -757,23 +757,6 @@ function checkBP() {
     return;
   }
 
-  // Optional second reading: average with the first, standard practice for
-  // a more reliable BP reading. Only the averaged values get saved/shown —
-  // both raw readings aren't stored separately, keeping the history list
-  // unchanged (one entry per check, same as before this feature existed).
-  const wantsSecond = document.getElementById('bp-second-toggle') && document.getElementById('bp-second-toggle').checked;
-  if (wantsSecond) {
-    const sys2 = parseInt(document.getElementById('systolic2').value);
-    const dia2 = parseInt(document.getElementById('diastolic2').value);
-    const hr2 = document.getElementById('heartrate2').value;
-    if (sys2 && dia2) {
-      sys = Math.round((sys + sys2) / 2);
-      dia = Math.round((dia + dia2) / 2);
-      if (hr && hr2) hr = String(Math.round((parseInt(hr, 10) + parseInt(hr2, 10)) / 2));
-      else if (hr2 && !hr) hr = hr2;
-    }
-  }
-
   const risk = getRisk(sys, dia);
   const pulseStatus = getPulseStatus(hr);
   result.style.display = "block";
