@@ -249,20 +249,6 @@
         <input type="number" id="heartrate" placeholder="Heart rate (opt.)">
         <input type="number" id="weight" placeholder="Weight kg (opt.)">
       </div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#94a3b8;margin:4px 0 10px;">
-        <input type="checkbox" id="bp-second-toggle" style="width:16px;height:16px;padding:0;margin:0;accent-color:#3b82f6;" onchange="toggleSecondReading()">
-        Add second reading
-      </label>
-      <div id="bp-second-fields" style="display:none;">
-        <p style="font-size:12px;color:#64748b;margin:0 0 8px;">Wait a minute or two, then take a second reading. We'll save the average of both.</p>
-        <div class="input-row">
-          <input type="number" id="systolic2" placeholder="Systolic #2">
-          <input type="number" id="diastolic2" placeholder="Diastolic #2">
-        </div>
-        <div class="input-row">
-          <input type="number" id="heartrate2" placeholder="Heart rate #2 (opt.)">
-        </div>
-      </div>
       <button type="button" class="ghost" onclick="measureHeartRate()">📷 Check Heart Rate (Camera)</button>
       <div id="hr-measure-box" style="display:none;">
   <video id="hr-video" autoplay playsinline muted style="width:1px;height:1px;position:absolute;opacity:0;"></video>
@@ -438,7 +424,8 @@
     </div>
     <div class="card">
       <button class="ghost" onclick="changeAccountPassword()">Change Password</button>
-      <button class="secondary" style="margin-top:10px;" onclick="logOut()">Log Out</button>
+      <p style="font-size:11px;color:#64748b;margin:4px 0 10px;">Resets your account sign-in password by email. For this device's quick-unlock PIN instead, see More \u2192 Set / Change PIN.</p>
+      <button class="secondary" onclick="logOut()">Log Out</button>
     </div>
     <div style="text-align:center;padding:14px 0 4px;">
       <a href="privacy.html" style="color:#94a3b8;font-size:12.5px;text-decoration:underline;">Privacy Policy</a>
@@ -638,7 +625,7 @@
     <button onclick="showScreen('firstaid')" id="nav-firstaid"><span class="icon">🚑</span>First Aid</button>
     <button onclick="showScreen('maternal')" id="nav-maternal" style="display:none;"><span class="icon">🤰</span>Maternal &amp; Child</button>
     <button onclick="showScreen('passport')" id="nav-passport"><span class="icon">🪪</span>Passport</button>
-    <button onclick="showScreen('tips')" id="nav-tips"><span class="icon">💡</span>Insights</button>
+    <button onclick="showScreen('tips')" id="nav-tips"><span class="icon">📊</span>Health Trends</button>
     <button onclick="showScreen('ai')" id="nav-ai"><span class="icon">💬</span>Assistant</button>
     <div class="more-divider"></div>
     <button onclick="showScreen('articles')" id="nav-articles"><span class="icon">📰</span>Articles</button>
@@ -646,6 +633,7 @@
     <button onclick="showScreen('rewards')" id="nav-rewards"><span class="icon">🪙</span>Rewards</button>
     <div class="more-divider"></div>
     <button onclick="closeMoreMenu();openQuickUnlockSettings()" id="nav-pin"><span class="icon">🔐</span>Set / Change PIN</button>
+    <p style="font-size:11px;color:#64748b;margin:-6px 0 10px 36px;">Quick unlock for this device only \u2014 different from your account password (Family \u2192 Change Password).</p>
     <button onclick="openRatingOverlay()" id="nav-rate"><span class="icon">⭐</span>Rate Sentra-X</button>
     <button onclick="openWhatsAppCommunity()" id="nav-community"><span class="icon">👥</span>Sentra-X Health Community</button>
     <button onclick="closeMoreMenu();switchToCaregiverView()" id="nav-caregiver-switch" style="display:none;"><span class="icon">🔄</span>Switch to Caregiver View</button>
