@@ -738,10 +738,6 @@ function renderTipsScreen() {
     '<div class="card"><p class="bp-disclaimer" style="margin:0;">Educational guidance only \u2014 not a medical diagnosis.</p></div>';
 }
 
-function toggleSecondReading() {
-  const on = document.getElementById('bp-second-toggle').checked;
-  document.getElementById('bp-second-fields').style.display = on ? 'block' : 'none';
-}
 function checkBP() {
   const sys = parseInt(document.getElementById('systolic').value);
   const dia = parseInt(document.getElementById('diastolic').value);
