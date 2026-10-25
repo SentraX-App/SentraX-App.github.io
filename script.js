@@ -424,11 +424,20 @@ function updateStreak() {
   renderHealthScore();
 }
 
+// Uses the WHO/ISH blood pressure classification rather than the US
+// ACC/AHA 2017 thresholds this used to use. WHO's line for "hypertension"
+// sits at 140/90, not 130/80 — a reading like 111/80 that used to come
+// back "Stage 1 Hypertension" under ACC/AHA is simply Normal here, because
+// WHO's "Normal" band runs all the way up to 129/84. This is a better fit
+// for a general self-monitoring app without a clinician in the loop: it's
+// the threshold most of the world outside the US uses day to day, and it
+// avoids flagging a large share of ordinary readings as "hypertension"
+// the way the lower US threshold does.
 function getRisk(sys, dia) {
-  if (sys >= 180 || dia >= 120) return { level: "Hypertensive Crisis — seek medical care now", color: "#fca5a5", severity: 4 };
-  if (sys >= 140 || dia >= 90) return { level: "Stage 2 Hypertension — High Risk", color: "#fecaca", severity: 3 };
-  if (sys >= 130 || dia >= 80) return { level: "Stage 1 Hypertension — Caution", color: "#fed7aa", severity: 2 };
-  if (sys >= 120) return { level: "Elevated — Watch", color: "#fef08a", severity: 1 };
+  if (sys >= 180 || dia >= 110) return { level: "Grade 3 Hypertension (Severe) — seek medical care now", color: "#fca5a5", severity: 4 };
+  if (sys >= 160 || dia >= 100) return { level: "Grade 2 Hypertension (Moderate) — High Risk", color: "#fecaca", severity: 3 };
+  if (sys >= 140 || dia >= 90) return { level: "Grade 1 Hypertension (Mild) — Caution", color: "#fed7aa", severity: 2 };
+  if (sys >= 130 || dia >= 85) return { level: "High-Normal — Watch", color: "#fef08a", severity: 1 };
   return { level: "Normal", color: "#bbf7d0", severity: 0 };
 }
 
@@ -480,16 +489,18 @@ function getAgeNudgeHtml() {
 // Actually it's either one alone that counts (matching getRisk()'s OR
 // logic above) — e.g. 135/70 is still Stage 1 purely from the systolic
 // side. Spelling out AND vs OR explicitly here removes that ambiguity.
+// Matches the WHO/ISH blood pressure classification used by getRisk()
+// above (not the older ACC/AHA 2017 figures this table used to show).
 function getRecommendedRangesHtml() {
   function row(label, value) {
     return '<div><span class="bp-ranges-label">' + label + '</span><span class="bp-ranges-value">' + value + '</span></div>';
   }
   return '<div class="bp-ranges-table">' +
-    row('Normal', 'Systolic under 120 AND Diastolic under 80') +
-    row('Elevated', 'Systolic 120\u2013129 AND Diastolic under 80') +
-    row('Stage 1 Hypertension', 'Systolic 130\u2013139 OR Diastolic 80\u201389') +
-    row('Stage 2 Hypertension', 'Systolic 140+ OR Diastolic 90+') +
-    row('Hypertensive Crisis', 'Systolic 180+ OR Diastolic 120+') +
+    row('Normal', 'Systolic under 130 AND Diastolic under 85') +
+    row('High-Normal', 'Systolic 130\u2013139 OR Diastolic 85\u201389') +
+    row('Grade 1 Hypertension (Mild)', 'Systolic 140\u2013159 OR Diastolic 90\u201399') +
+    row('Grade 2 Hypertension (Moderate)', 'Systolic 160\u2013179 OR Diastolic 100\u2013109') +
+    row('Grade 3 Hypertension (Severe)', 'Systolic 180+ OR Diastolic 110+') +
     '</div>';
 }
 
@@ -541,8 +552,8 @@ function getBpGuidance(severity) {
   }
   if (severity === 3) {
     return {
-      summary: 'Your blood pressure is in the Stage 2 Hypertension range. It\u2019s important to monitor it closely and a medical review is recommended soon.',
-      why: 'High blood pressure often causes no symptoms, but over time it strains the heart and blood vessels. At this stage, that risk is no longer small.',
+      summary: 'Your blood pressure is in the Grade 2 (Moderate) Hypertension range. This is high enough that a doctor should see you soon \u2014 not an emergency by itself, but it shouldn\u2019t wait long either.',
+      why: 'High blood pressure often causes no symptoms, but over time it strains the heart and blood vessels. At this level, that risk is no longer small.',
       next7: sevenDayCore.concat('Reduce stress where possible. Goal: reduce strain, not push the body.'),
       next30: base.next30.concat('Arrange a medical review if readings stay in this range.'),
       seekCareIf: base.seekCareIf
@@ -550,17 +561,17 @@ function getBpGuidance(severity) {
   }
   if (severity === 2) {
     return {
-      summary: 'This reading falls in the Stage 1 Hypertension range. It\u2019s not an emergency, but it is an actual hypertension category, not just \u201ca little high\u201d \u2014 worth raising with a doctor, especially if it repeats.',
-      why: 'Stage 1 is the point where blood pressure is high enough to start raising long-term risk to the heart and blood vessels, even though it rarely causes symptoms on its own.',
+      summary: 'This reading falls in the Grade 1 (Mild) Hypertension range \u2014 this is true hypertension, not just a borderline number. Regular check-ups with a doctor are recommended from this point, especially if it repeats.',
+      why: 'Grade 1 is the point the WHO classification treats as established hypertension \u2014 high enough to raise long-term risk to the heart and blood vessels, even though it rarely causes symptoms on its own.',
       next7: sevenDayCore,
-      next30: base.next30.concat('Mention this to a doctor if it repeats on your next few readings.'),
+      next30: base.next30.concat('See a doctor for a check-up if this repeats on your next few readings.'),
       seekCareIf: base.seekCareIf
     };
   }
   if (severity === 1) {
     return {
-      summary: 'Your blood pressure is a little higher than the ideal range (Elevated). Small, steady changes now can help keep it from climbing further.',
-      why: 'Blood pressure in this range isn\u2019t an emergency, but it\u2019s worth paying attention to \u2014 left unchecked over months or years, it can gradually increase your risk of heart and blood vessel problems.',
+      summary: 'Your blood pressure is in the High-Normal range \u2014 not yet hypertension, but close enough that it\u2019s worth watching. Small, steady changes now can help keep it from progressing.',
+      why: 'Blood pressure in this range isn\u2019t an emergency, but it\u2019s worth paying attention to \u2014 left unchecked over months or years, it can gradually progress into hypertension.',
       next7: sevenDayCore,
       next30: base.next30,
       seekCareIf: base.seekCareIf
@@ -591,16 +602,15 @@ function getBpGuidance(severity) {
 // getRisk() had already classified the reading as Stage 1 Hypertension).
 function bpMetricStatus(kind, value) {
   if (kind === 'sys') {
-    if (value >= 180) return 'bad';
-    if (value >= 130) return 'bad';
-    if (value >= 120) return 'warn';
+    if (value >= 140) return 'bad';
+    if (value >= 130) return 'warn';
     return 'ok';
   }
   // diastolic
-  if (value >= 120) return 'bad';
-  if (value >= 80) return 'bad';
+  if (value >= 90) return 'bad';
+  if (value >= 85) return 'warn';
   return 'ok';
-  }
+}
 
 function bpPillClass(ok) { return ok === 'ok' ? 'ok' : (ok === 'warn' ? 'warn' : 'bad'); }
 
@@ -613,7 +623,7 @@ function getBpAttribution(sys, dia) {
   const sysStatus = bpMetricStatus('sys', sys);
   const diaStatus = bpMetricStatus('dia', dia);
   if (sysStatus === 'ok' && diaStatus === 'ok') return '';
-  const describe = function (status) { return status === 'warn' ? 'Elevated' : 'high'; };
+  const describe = function (status) { return status === 'warn' ? 'High-Normal' : 'high'; };
   if (sysStatus !== 'ok' && diaStatus === 'ok') {
     return 'This is driven by your systolic reading (' + sys + '), which is ' + describe(sysStatus) + ' \u2014 your diastolic (' + dia + ') is within the normal range on its own.';
   }
@@ -632,8 +642,8 @@ function renderBpBreakdown(sys, dia, hr, risk, pulseStatus) {
 
   const sysOk = bpMetricStatus('sys', sys);
   const diaOk = bpMetricStatus('dia', dia);
-  const sysLabel = sysOk === 'ok' ? 'Normal' : (sysOk === 'warn' ? 'Elevated' : 'High');
-  const diaLabel = diaOk === 'ok' ? 'Normal' : (diaOk === 'warn' ? 'Elevated' : 'High');
+  const sysLabel = sysOk === 'ok' ? 'Normal' : (sysOk === 'warn' ? 'High-Normal' : 'High');
+  const diaLabel = diaOk === 'ok' ? 'Normal' : (diaOk === 'warn' ? 'High-Normal' : 'High');
 
   let pulseRow = '';
   if (pulseStatus) {
