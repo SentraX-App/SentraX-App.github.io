@@ -3128,7 +3128,40 @@ function printPassport() {
   area.innerHTML = escapeHtml(summary).replace(/\n/g, '<br>');
   window.print();
 }
+// Each saved reading's classification (level/color/severity) was computed
+// once, at the moment it was logged, and stored as-is — it does not
+// recalculate itself when getRisk()'s thresholds change later (as they
+// just did, switching from ACC/AHA to WHO/ISH). Without this, a reading
+// logged before the switch would keep showing its old label (e.g. "Stage 1
+// Hypertension") forever, while an identical new reading shows "Normal" —
+// the exact kind of inconsistency that makes History look wrong. This
+// recomputes every stored reading's classification from its raw sys/dia
+// (the actual measurement, which never changes) using the CURRENT
+// getRisk(), so History always reflects whichever classification system
+// is active — not whichever one was active the day it was logged. It only
+// writes back (to localStorage and Firestore) if something actually
+// changed, so this is a no-op on every normal run once everything's in
+// sync.
+function migrateVitalsClassification() {
+  const vitals = JSON.parse(localStorage.getItem('vitals') || '[]');
+  if (vitals.length === 0) return;
+  let changed = false;
+  const migrated = vitals.map(function (v) {
+    const risk = getRisk(v.sys, v.dia);
+    if (v.level !== risk.level || v.severity !== risk.severity || v.color !== risk.color) {
+      changed = true;
+      return Object.assign({}, v, { level: risk.level, color: risk.color, severity: risk.severity });
+    }
+    return v;
+  });
+  if (changed) {
+    localStorage.setItem('vitals', JSON.stringify(migrated));
+    syncToFirestore({ vitals: migrated });
+  }
+}
+
 function refreshAllUI() {
+  migrateVitalsClassification();
   renderGreeting();
   renderTip();
   renderMeds();
