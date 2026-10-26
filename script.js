@@ -845,6 +845,45 @@ function checkBP() {
   renderHealthRadar();
   }
 
+// Opens WhatsApp directly to a chat (if a phone number is given) or its
+// share sheet (if not) — trying the actual app first, and only falling
+// back to WhatsApp's web landing page if the app doesn't open. A plain
+// wa.me link alone is unreliable here: the same link sometimes launches
+// the app and sometimes just shows WhatsApp's own "Open app" web page
+// instead, with no way to predict which one a given tap will get — this
+// is exactly the issue reported with the caregiver alert. The fix is the
+// standard one for this problem: attempt the native whatsapp:// scheme
+// first, synchronously, in the same tick as the call (Android's app
+// hand-off is most reliable that way); if the app actually opens, this
+// page gets backgrounded within a second or two and the fallback below
+// never fires. If it's still in the foreground after that window — app
+// not installed, or the scheme wasn't handled — fall back to the wa.me
+// web link, so something always opens either way.
+function openWhatsApp(phone, message) {
+  const text = encodeURIComponent(message);
+  const nativeUrl = phone ? ('whatsapp://send?phone=' + phone + '&text=' + text) : ('whatsapp://send?text=' + text);
+  const webUrl = phone ? ('https://wa.me/' + phone + '?text=' + text) : ('https://wa.me/?text=' + text);
+
+  let appOpened = false;
+  function onVisibilityChange() {
+    if (document.hidden) appOpened = true;
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  window.location.href = nativeUrl;
+
+  setTimeout(function () {
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    if (!appOpened && !document.hidden) {
+      // location.href, not window.open() — a window.open() called here,
+      // 1.5s after the original tap, falls outside that tap's user-gesture
+      // context and some browsers silently block it as a popup.
+      // location.href always navigates regardless.
+      window.location.href = webUrl;
+    }
+  }, 1500);
+}
+
 function alertCaregiverNow(sys, dia, level) {
   const name = localStorage.getItem('userName') || 'A Sentra-X user';
   // WhatsApp-only button — a wa.me link can only target one chat, so this
@@ -854,13 +893,10 @@ function alertCaregiverNow(sys, dia, level) {
   const primary = caregivers.find(function (c) { return c.isPrimary; }) || caregivers[0];
   const cgPhone = primary ? normalizeNigerianPhone(primary.phone) : '';
   const msg = '\u26A0\uFE0F Sentra-X Alert: ' + name + "'s blood pressure just read " + sys + '/' + dia + ' (' + level + '). Please check on them.';
-  const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
-  // window.open() stays synchronous, immediately after the tap — WhatsApp
-  // only reliably auto-launches (instead of showing its own fallback page)
-  // when the navigation happens in the same tick as the user's tap. The
-  // connectivity check below runs in parallel afterward, never gating or
-  // delaying this call.
-  window.open(url, '_blank');
+  // openWhatsApp() fires immediately, synchronously, right here — the
+  // connectivity check below runs in parallel afterward and never gates
+  // or delays it.
+  openWhatsApp(cgPhone, msg);
   isReallyOffline().then(function (offline) {
     if (offline) alert('⚠️ You appear to be offline — this alert may not have sent. Please confirm your caregiver received it, or call them directly.');
   });
@@ -1985,8 +2021,7 @@ function shareToFamily() {
   const latest = vitals[0];
   let msg = 'Hi! This is ' + name + "'s Sentra-X health update. Current streak: " + streak + ' days. ';
   msg += latest ? ('Latest reading: ' + latest.sys + '/' + latest.dia + ' (' + latest.level + ').') : 'No readings logged yet.';
-  const url = cgPhone ? ('https://wa.me/' + cgPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
-  window.open(url, '_blank');
+  openWhatsApp(cgPhone, msg);
 }
 
 function callEmergency() {
@@ -2298,12 +2333,12 @@ async function triggerSOS() {
       }
     }
 
-    // 2. WhatsApp — primary caregiver only. Plain wa.me web link, opened
-    // directly — the original, simplest approach. Sometimes shows
-    // WhatsApp's own fallback page on a first attempt, but reliably
-    // auto-opens the app itself on a retry.
-    const url = primaryPhone ? ('https://wa.me/' + primaryPhone + '?text=' + encodeURIComponent(caregiverMsgWhatsApp)) : ('https://wa.me/?text=' + encodeURIComponent(caregiverMsgWhatsApp));
-    window.open(url, '_blank');
+    // 2. WhatsApp — primary caregiver only. Tries the app directly first
+    // (see openWhatsApp() above), falling back to the web link only if the
+    // app genuinely doesn't open — not the old approach of a plain wa.me
+    // link that would sometimes show WhatsApp's fallback page even when
+    // the app itself was available.
+    openWhatsApp(primaryPhone, caregiverMsgWhatsApp);
   }
 
   function useCachedLocationOrGiveUp() {
@@ -2327,9 +2362,11 @@ async function triggerSOS() {
 
     // 15s budget: samples every fix GPS produces in that window (not just
     // the first) and keeps the tightest one — see getBestLocationFix above.
+    // Tightened from 50m to 10m: a looser fix is now refused rather than
+    // sent, matching getBestLocationFix's own early-exit threshold below.
     getBestLocationFix(15000).then(function (pos) {
       if (!pos) { useCachedLocationOrGiveUp(); return; }
-      if (pos.coords.accuracy > 50) { useCachedLocationOrGiveUp(); return; }
+      if (pos.coords.accuracy > 10) { useCachedLocationOrGiveUp(); return; }
       const link = 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
       sendAlert('Live location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link);
     });
