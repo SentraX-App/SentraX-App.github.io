@@ -861,9 +861,30 @@ function checkBP() {
 // web link, so something always opens either way.
 function openWhatsApp(phone, message) {
   const text = encodeURIComponent(message);
-  const nativeUrl = phone ? ('whatsapp://send?phone=' + phone + '&text=' + text) : ('whatsapp://send?text=' + text);
   const webUrl = phone ? ('https://wa.me/' + phone + '?text=' + text) : ('https://wa.me/?text=' + text);
+  const isAndroid = /Android/i.test(navigator.userAgent);
 
+  if (isAndroid) {
+    // Android's intent:// scheme is the OS's own purpose-built mechanism
+    // for "launch this app, or fall back to this URL if it isn't
+    // installed" — Chrome/Android resolves that decision itself. This
+    // replaces an earlier attempt that tried the bare whatsapp:// scheme
+    // via location.href with a JS timer deciding whether to fall back:
+    // that approach doesn't reliably resolve from inside an installed
+    // PWA's own sandboxed context, so it was silently failing and always
+    // landing on the web fallback page — never actually a true fallback,
+    // just the only path that ever worked. intent:// hands that decision
+    // to the OS instead of guessing with a timer, which is reliable here.
+    const path = phone ? ('send?phone=' + phone + '&text=' + text) : ('send?text=' + text);
+    window.location.href = 'intent://' + path +
+      '#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=' + encodeURIComponent(webUrl) + ';end';
+    return;
+  }
+
+  // iOS / desktop: intent:// isn't supported there, so fall back to the
+  // app-scheme-attempt-with-timer approach, which works adequately in a
+  // normal (non-PWA-sandboxed) browser context on those platforms.
+  const nativeUrl = phone ? ('whatsapp://send?phone=' + phone + '&text=' + text) : ('whatsapp://send?text=' + text);
   let appOpened = false;
   function onVisibilityChange() {
     if (document.hidden) appOpened = true;
@@ -875,10 +896,6 @@ function openWhatsApp(phone, message) {
   setTimeout(function () {
     document.removeEventListener('visibilitychange', onVisibilityChange);
     if (!appOpened && !document.hidden) {
-      // location.href, not window.open() — a window.open() called here,
-      // 1.5s after the original tap, falls outside that tap's user-gesture
-      // context and some browsers silently block it as a popup.
-      // location.href always navigates regardless.
       window.location.href = webUrl;
     }
   }, 1500);
