@@ -23,7 +23,9 @@
 </script>
 <script src="https://js.sentry-cdn.com/610f527fbbea6d7402d8bc9cec492ad5.min.js" crossorigin="anonymous"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Sentra-X</title>
+<title>Sentra-X — Blood Pressure, Medication &amp; Caregiver Health App</title>
+<meta name="description" content="Sentra-X helps you track blood pressure, stay on schedule with medication, and keep a caregiver informed. Free health articles available without signing in.">
+<meta name="google-adsense-account" content="ca-pub-5333717271762861">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
 <link rel="stylesheet" href="style.css">
@@ -34,6 +36,13 @@
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5333717271762861" crossorigin="anonymous"></script>
 </head>
 <body>
+<noscript>
+  <main style="max-width:560px;margin:0 auto;padding:24px 16px;font-family:sans-serif;color:#e2e8f0;background:#0f172a;">
+    <h1>Sentra-X</h1>
+    <p>Sentra-X is a family health protection app. It helps people living with conditions like hypertension and diabetes log blood pressure readings, keep medication on schedule, and let a trusted caregiver check in without daily phone calls.</p>
+    <p>Sentra-X needs JavaScript to run the app. You can still read our <a href="articles-public.html">free health articles</a>, learn how to <a href="download.html">download the Android app</a>, or review our <a href="privacy.html">privacy policy</a>.</p>
+  </main>
+</noscript>
 <!-- App-wide offline warning — shown whenever the device has no network,
      regardless of which screen is open. Specifically calls out Emergency
      SOS, since that's the one thing caching the app shell can never fix:
@@ -630,6 +639,8 @@
     <button onclick="showScreen('articles')" id="nav-articles"><span class="icon">📰</span>Articles</button>
     <button onclick="showScreen('marketplace')" id="nav-marketplace"><span class="icon">🛍️</span>Marketplace</button>
     <button onclick="showScreen('rewards')" id="nav-rewards"><span class="icon">🪙</span>Rewards</button>
+    <button onclick="closeMoreMenu();window.open('exergame.html','_blank')" id="nav-quest"><span class="icon">🎮</span>Sentra Quest (Exercise Game)</button>
+    <button onclick="closeMoreMenu();window.open('dance.html','_blank')" id="nav-dance"><span class="icon">💃</span>Sentra Flow Dance</button>
     <div class="more-divider"></div>
     <button onclick="closeMoreMenu();openQuickUnlockSettings()" id="nav-pin"><span class="icon">🔐</span>Set / Change PIN</button>
     <button onclick="openRatingOverlay()" id="nav-rate"><span class="icon">⭐</span>Rate Sentra-X</button>
