@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentra Flow Dance — Camera Dance &amp; Circulation Game | Sentra-X</title>
+<meta name="description" content="Dance along to the beat while your phone camera watches your movement and coaches you live. Free, no sign-up, seated option. Video stays on your device.">
+<meta name="google-adsense-account" content="ca-pub-5333717271762861">
+<meta name="theme-color" content="#0f172a">
+<link rel="canonical" href="https://sentra-x.app/dance.html">
+<link rel="icon" href="icon-192-1.png">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="library.css">
+<style>
+  .d-wrap{max-width:520px;margin:0 auto;padding:16px 16px 40px;}
+  .d-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:20px;padding:16px 18px;margin:14px 0;}
+  .d-h{font-size:13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#c4b5fd;margin:0 0 8px;}
+  .d-big{font-size:26px;font-weight:800;color:#fff;margin:0;}
+  .d-sub{font-size:14px;line-height:1.6;color:#94a3b8;margin:4px 0 0;}
+  .d-btn{width:100%;display:block;padding:16px;border:0;border-radius:16px;font-size:17px;font-weight:800;cursor:pointer;margin:10px 0 0;}
+  .d-btn.go{background:linear-gradient(135deg,#a78bfa,#6366f1);color:#fff;}
+  .d-btn.alt{background:rgba(255,255,255,.08);color:#e2e8f0;border:1px solid rgba(255,255,255,.14);font-size:15px;}
+  .d-btn.stop{background:rgba(248,113,113,.15);color:#fca5a5;border:1px solid rgba(248,113,113,.4);font-size:15px;}
+  .d-row{display:flex;gap:10px;}.d-row>*{flex:1;}
+  .d-seg{display:flex;gap:8px;margin-top:10px;}
+  .d-seg button{flex:1;margin:0;width:auto;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#cbd5e1;font-weight:700;font-size:14px;cursor:pointer;}
+  .d-seg button[aria-pressed="true"]{background:#6366f1;border-color:#6366f1;color:#fff;}
+  .d-check{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;line-height:1.55;color:#cbd5e1;margin:10px 0;}
+  .d-check input{width:22px;height:22px;margin-top:2px;flex:0 0 auto;}
+  .d-stage{position:relative;border-radius:20px;overflow:hidden;background:#0b1120;border:1px solid rgba(255,255,255,.12);aspect-ratio:4/3;}
+  .d-stage video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block;}
+  .d-stage .nocam{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#94a3b8;font-size:14px;}
+  .d-ring{position:absolute;right:12px;top:12px;width:52px;height:52px;border-radius:50%;border:4px solid #a78bfa;box-shadow:0 0 22px rgba(167,139,250,.7);animation:dpulse var(--beat,0.6s) ease-in-out infinite;}
+  .d-time{position:absolute;left:12px;top:12px;background:rgba(2,6,23,.65);border-radius:12px;padding:6px 12px;font-size:22px;font-weight:800;color:#fff;}
+  .d-coach{position:absolute;left:0;right:0;bottom:0;padding:12px 14px;background:linear-gradient(transparent,rgba(2,6,23,.92));text-align:center;}
+  .d-coach b{display:block;font-size:20px;color:#fff;}
+  .d-coach span{font-size:14px;color:#e9d5ff;}
+  @keyframes dpulse{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.22);opacity:1}}
+  @media (prefers-reduced-motion:reduce){.d-ring{animation:none;}}
+  .d-meters{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+  .d-meter{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:10px;text-align:center;}
+  .d-meter small{display:block;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+  .d-meter .bar{height:8px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;}
+  .d-meter .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#a78bfa);transition:width .25s;}
+  .d-fb{margin-top:12px;min-height:48px;padding:12px 14px;border-radius:14px;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.4);color:#ede9fe;font-weight:700;text-align:center;}
+  .d-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0;}
+  .d-stat{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:16px;padding:12px 6px;text-align:center;}
+  .d-stat b{display:block;font-size:24px;color:#fff;}.d-stat span{font-size:11.5px;color:#94a3b8;text-transform:uppercase;}
+  .d-toggle{display:flex;align-items:center;gap:10px;font-size:14px;color:#cbd5e1;margin:8px 0;}.d-toggle input{width:20px;height:20px;}
+  [hidden]{display:none !important;}
+</style>
+</head>
+<body class="lib">
+<div class="lib-bar"><a class="back" href="exergame.html">← Sentra Quest</a><img src="logo-header.png" alt="Sentra-X"></div>
+<main class="d-wrap">
+
+  <section id="s-safe" hidden>
+    <h1 class="d-big">Before you dance</h1>
+    <p class="d-sub">Sentra Flow Dance is gentle, rhythmic movement to get your blood flowing.</p>
+    <div class="d-card">
+      <p class="d-sub" style="margin:0 0 8px;"><b>Space and support:</b> clear the area around you and keep a sturdy chair or wall nearby. Choose <b>Seated</b> if balance is a worry.</p>
+      <p class="d-sub" style="margin:0 0 8px;"><b>Stop</b> if you feel dizzy, short of breath, or have chest pain or any pain. If you have a heart condition or high blood pressure, check with your doctor first.</p>
+      <p class="d-sub" style="margin:0 0 8px;"><b>Your privacy:</b> the camera is analysed only on your phone, in real time. Nothing is recorded, saved or uploaded. You can also play without the camera.</p>
+      <label class="d-check"><input type="checkbox" id="ok"><span>I feel well enough to move today and I'll stop if I feel unwell.</span></label>
+    </div>
+    <button class="d-btn go" id="ok-go" disabled style="opacity:.5">Continue</button>
+  </section>
+
+  <section id="s-setup" hidden>
+    <h1 class="d-big" style="margin-top:6px;">Sentra Flow Dance</h1>
+    <p class="d-sub">Follow the beat. The camera watches your movement and coaches you live, with tips on rhythm, range and balance. Free, no sign-up.</p>
+    <div class="d-stats"><div class="d-stat"><b id="st-n">0</b><span>Sessions</span></div><div class="d-stat"><b id="st-best">0</b><span>Best score</span></div><div class="d-stat"><b id="st-last">0</b><span>Last score</span></div></div>
+    <div class="d-card">
+      <p class="d-h">Choose your flow</p>
+      <div class="d-seg" id="seg-mode"><button data-v="stand" aria-pressed="true">Standing groove</button><button data-v="seat" aria-pressed="false">Seated flow</button></div>
+      <div class="d-seg" id="seg-tempo"><button data-v="slow" aria-pressed="true">Easy tempo</button><button data-v="med" aria-pressed="false">Lively tempo</button></div>
+      <label class="d-toggle"><input type="checkbox" id="o-cam" checked> Use camera for live coaching</label>
+      <label class="d-toggle"><input type="checkbox" id="o-music" checked> Play beat music</label>
+      <button class="d-btn go" id="start">Start dancing</button>
+      <p class="d-sub" id="setup-msg" style="margin-top:8px;" role="status"></p>
+    </div>
+    <div class="d-card"><p class="d-h">Why rhythmic movement?</p>
+      <p class="d-sub">Rhythmic movement of the legs and arms makes your muscles squeeze blood back toward the heart, and regular activity supports healthy blood pressure. Dance-based exercise has also been studied for balance and fitness in older adults. This is a fun way to move, not a medical treatment.</p></div>
+  </section>
+
+  <section id="s-play" hidden>
+    <div class="d-stage" id="stage">
+      <video id="vid" playsinline muted></video>
+      <div class="nocam" id="nocam" hidden>Camera is off. Follow the coach and the beat.</div>
+      <div class="d-time" id="p-time">0</div><div class="d-ring" id="ring"></div>
+      <div class="d-coach"><b id="p-move"></b><span id="p-tip"></span></div>
+    </div>
+    <div class="d-meters">
+      <div class="d-meter"><small>Movement</small><div class="bar"><i id="m-e"></i></div></div>
+      <div class="d-meter"><small>Rhythm</small><div class="bar"><i id="m-r"></i></div></div>
+      <div class="d-meter"><small>Both sides</small><div class="bar"><i id="m-b"></i></div></div>
+    </div>
+    <div class="d-fb" id="fb" role="status" aria-live="polite">Get ready…</div>
+    <div class="d-row"><button class="d-btn alt" id="pause">Pause</button><button class="d-btn stop" id="stop">Finish</button></div>
+  </section>
+
+  <section id="s-done" hidden>
+    <h1 class="d-big" style="margin-top:6px;" id="r-title">Great flow!</h1>
+    <div class="d-stats"><div class="d-stat"><b id="r-score">0</b><span>Score</span></div><div class="d-stat"><b id="r-rhythm">0</b><span>Rhythm</span></div><div class="d-stat"><b id="r-min">0</b><span>Minutes</span></div></div>
+    <div class="d-card"><p class="d-h">Your coach says</p><div id="r-tips"></div></div>
+    <div class="d-card"><p class="d-h">Cool down</p><p class="d-sub">Sip water, breathe slowly for a minute and rest.</p></div>
+    <a class="d-btn go" href="index.html" style="text-align:center;text-decoration:none;box-sizing:border-box;">Open Sentra-X</a>
+    <button class="d-btn alt" id="again">Dance again</button>
+    <a class="d-btn alt" href="exergame.html" style="text-align:center;text-decoration:none;box-sizing:border-box;">Back to Sentra Quest</a>
+  </section>
+
+  <p class="lib-disc" style="text-align:center;">General fitness guidance, not medical advice. Camera feedback is an approximate movement estimate. <a href="privacy.html" style="color:#60a5fa;">Privacy</a></p>
+</main>
+
+<canvas id="cv" width="64" height="48" hidden></canvas>
+<script>
+(function () {
+  'use strict';
+  var FAST = /[?&]fast=1/.test(location.search), KEY = 'sentra_dance_v1';
+  var st = { safe: false, mode: 'stand', tempo: 'slow', cam: true, music: true, n: 0, best: 0, last: 0 };
+  try { var r = localStorage.getItem(KEY); if (r) { var o = JSON.parse(r); for (var k in o) st[k] = o[k]; } } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function $(id) { return document.getElementById(id); }
+  function show(id) { ['s-safe', 's-setup', 's-play', 's-done'].forEach(function (s) { $(s).hidden = s !== id; }); window.scrollTo(0, 0); }
+
+  // focus: arms | legs | full — which body area the move is mainly about
+  var MOVES = {
+    stand: [
+      ['Step-touch and sway', 'Step side to side on the beat, swing your arms gently.', 'full'],
+      ['Shoulder rolls and arm sweeps', 'Roll your shoulders, then sweep both arms wide.', 'arms'],
+      ['Knee lifts', 'Lift each knee in turn to the beat. Hold the wall if you need.', 'legs'],
+      ['Side reach', 'Reach one arm up and over, then the other. Keep your hips steady.', 'arms'],
+      ['Heel-toe taps', 'Tap heel forward, then toe back, alternating feet.', 'legs'],
+      ['Easy groove', 'Move any way that feels good. Keep it smooth.', 'full']
+    ],
+    seat: [
+      ['Seated march', 'Sit tall and lift your knees one at a time to the beat.', 'legs'],
+      ['Foot pumps and ankle circles', 'Point and flex your feet, then circle your ankles.', 'legs'],
+      ['Arm sweeps', 'Sweep both arms out wide and back in with the beat.', 'arms'],
+      ['Seated side reach', 'Reach one arm up and over, then the other.', 'arms'],
+      ['Shoulder rolls and claps', 'Roll your shoulders, then clap to the beat.', 'arms'],
+      ['Seated groove', 'Move arms and legs together in whatever way feels good.', 'full']
+    ]
+  };
+  var BPM = { slow: 96, med: 116 };
+
+  /* ---------- music (generated here, so no copyright) ---------- */
+  var ac = null, sched = null, nextT = 0, stepI = 0, master = null, bpm = 96, musicOn = false;
+  var SCALE = [0, 3, 5, 7, 10, 7, 5, 3]; // minor pentatonic pattern
+  function noiseBuf() { var b = ac.createBuffer(1, ac.sampleRate * 0.05, ac.sampleRate), d = b.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; }
+  var nb = null;
+  function env(g, t, a, d, v) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
+  function kick(t) { var o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.14); env(g, t, 0.005, 0.2, 0.9); o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.25); }
+  function hat(t) { var s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = nb; f.type = 'highpass'; f.frequency.value = 7000; env(g, t, 0.002, 0.05, 0.25); s.connect(f); f.connect(g); g.connect(master); s.start(t); }
+  function note(t, semi, dur, v, type) { var o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = 110 * Math.pow(2, semi / 12); env(g, t, 0.01, dur, v); o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.1); }
+  function playStep(i, t) {
+    if (i % 2 === 0) { kick(t); note(t, SCALE[(i / 2) % SCALE.length] - 12, 0.3, 0.22, 'triangle'); } else hat(t);
+    if (i % 8 === 4) note(t, SCALE[(i / 2) % SCALE.length] + 12, 0.35, 0.09, 'sine');
+  }
+  function startMusic() {
+    if (!st.music) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume();
+      master = ac.createGain(); master.gain.value = 0.55; master.connect(ac.destination); nb = noiseBuf();
+      nextT = ac.currentTime + 0.1; stepI = 0; musicOn = true;
+      sched = setInterval(function () { var sb = 60 / bpm / 2; while (nextT < ac.currentTime + 0.25) { playStep(stepI, nextT); nextT += sb; stepI++; } }, 50);
+    } catch (e) { musicOn = false; }
+  }
+  function stopMusic() { clearInterval(sched); sched = null; try { if (master) { master.disconnect(); master = null; } } catch (e) {} musicOn = false; }
+
+  /* ---------- camera movement analysis (on-device) ---------- */
+  var vid = $('vid'), cv = $('cv'), cx = cv.getContext('2d', { willReadFrequently: true }), stream = null, camOn = false, an = null;
+  var W = 64, H = 48, prev = null;
+  var E = 0, R = 0, BAL = 0, eHist = [], regs = { l: 0, r: 0, t: 0, b: 0 }, FRAME_MS = 70, lastAn = 0;
+  function startCam() {
+    if (!st.cam || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(false);
+    return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } }, audio: false })
+      .then(function (s) { stream = s; vid.srcObject = s; return vid.play().catch(function () {}); }).then(function () { camOn = true; return true; })
+      .catch(function () { camOn = false; return false; });
+  }
+  function stopCam() { camOn = false; try { if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} stream = null; vid.srcObject = null; prev = null; }
+  function analyse(now) {
+    if (!camOn || now - lastAn < FRAME_MS || vid.readyState < 2) return; lastAn = now;
+    cx.drawImage(vid, 0, 0, W, H);
+    var d = cx.getImageData(0, 0, W, H).data, g = new Uint8Array(W * H), i;
+    for (i = 0; i < g.length; i++) g[i] = (d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11) | 0;
+    if (prev) {
+      var tot = 0, l = 0, r = 0, t = 0, b = 0, x, y;
+      for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+        if (Math.abs(g[y * W + x] - prev[y * W + x]) > 22) { tot++; if (x < W / 2) l++; else r++; if (y < H * 0.45) t++; else if (y > H * 0.55) b++; }
+      }
+      var n = W * H, e = Math.min(1, (tot / n) * 6);      // 0..1 movement amount
+      E = E * 0.7 + e * 0.3;
+      regs.l = regs.l * 0.7 + (l / n) * 0.3; regs.r = regs.r * 0.7 + (r / n) * 0.3; regs.t = regs.t * 0.7 + (t / n) * 0.3; regs.b = regs.b * 0.7 + (b / n) * 0.3;
+      var lo = Math.min(regs.l, regs.r), hi = Math.max(regs.l, regs.r) || 1e-6; BAL = E > 0.05 ? lo / hi : 0;
+      eHist.push(E); if (eHist.length > 90) eHist.shift();
+      // rhythm: how steadily movement repeats at the beat period (autocorrelation at 1-beat and 2-beat lags)
+      var lag = Math.round((60000 / bpm) / FRAME_MS), mean = 0, k, s0 = 0, s1 = 0;
+      if (eHist.length > lag * 3) {
+        for (k = 0; k < eHist.length; k++) mean += eHist[k]; mean /= eHist.length;
+        for (k = 0; k < eHist.length; k++) s0 += (eHist[k] - mean) * (eHist[k] - mean);
+        var best = 0, L;
+        [lag, lag * 2].forEach(function (LL) { var s = 0; for (k = LL; k < eHist.length; k++) s += (eHist[k] - mean) * (eHist[k - LL] - mean); if (s0 > 1e-6) best = Math.max(best, s / s0); });
+        R = R * 0.8 + Math.max(0, Math.min(1, best * 1.6)) * 0.2;
+      }
+    }
+    prev = g;
+  }
+
+  /* ---------- session ---------- */
+  var plan, idx, tEnd, tLeft, paused, timer, raf, pts, maxPts, rhySum, rhyN, tally, startedAt, moveSecs;
+  var WORK = FAST ? 3 : 40, GAP = FAST ? 1 : 5;
+  function setBar(id, v) { $(id).style.width = Math.round(Math.max(0, Math.min(1, v)) * 100) + '%'; }
+  function begin() {
+    if (!st.safe) { show('s-safe'); return; }
+    bpm = BPM[st.tempo] || 96; $('ring').style.setProperty('--beat', (60 / bpm) + 's');
+    var list = MOVES[st.mode]; plan = [];
+    list.forEach(function (m, i) { plan.push({ n: m[0], tip: m[1], f: m[2], d: WORK }); });
+    plan.push({ n: 'Cool-down sway', tip: 'Slow down. Breathe in and out slowly.', f: 'cool', d: FAST ? 2 : 20 });
+    idx = 0; paused = false; pts = 0; maxPts = 0; rhySum = 0; rhyN = 0; moveSecs = 0; tally = { arms: 0, legs: 0, bal: 0, low: 0, calm: 0, rhy: 0, total: 0 };
+    $('setup-msg').textContent = 'Starting…';
+    startCam().then(function (ok) {
+      $('setup-msg').textContent = '';
+      $('nocam').hidden = ok; vid.style.display = ok ? '' : 'none';
+      if (st.cam && !ok) $('nocam').textContent = 'Camera unavailable, so you will dance with the coach and the beat only.';
+      show('s-play'); startMusic(); startedAt = Date.now(); runMove(); loop();
+    });
+  }
+  function runMove() {
+    var m = plan[idx]; $('p-move').textContent = m.n; $('p-tip').textContent = m.tip;
+    tLeft = m.d * 1000; tEnd = Date.now() + tLeft; $('fb').textContent = 'Move: ' + m.n;
+    clearInterval(timer); timer = setInterval(tick, 250); tick();
+  }
+  function tick() {
+    if (paused) return;
+    tLeft = Math.max(0, tEnd - Date.now()); $('p-time').textContent = Math.ceil(tLeft / 1000);
+    if (tLeft <= 0) { idx++; if (idx >= plan.length) { finish(true); return; } runMove(); }
+  }
+  var lastScore = 0, lastCoach = 0;
+  function loop() {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(function f(now) {
+      if (!$('s-play').hidden) { if (!paused) { analyse(now); coachStep(now); } raf = requestAnimationFrame(f); }
+    });
+  }
+  function coachStep(now) {
+    var m = plan[idx]; if (!m) return;
+    setBar('m-e', Math.min(1, E * 2)); setBar('m-r', R); setBar('m-b', BAL);
+    if (now - lastScore < 1000) return; lastScore = now;
+    if (!camOn) { return; }
+    var moving = E > 0.08; tally.total++; maxPts += 3;
+    if (moving) { pts += 1; moveSecs++; }
+    if (R > 0.3 && moving) { pts += 1; tally.rhy++; }
+    if (BAL > 0.4 && moving) { pts += 1; }
+    rhySum += R; rhyN++;
+    if (now - lastCoach < 3500) return;
+    var msg = null;
+    if (m.f === 'cool') msg = E > 0.3 ? 'Slow it down and breathe.' : 'Lovely and slow. Breathe out.';
+    else if (!moving) { msg = 'Let\'s move! Follow the beat.'; tally.low++; }
+    else if (E > 0.7) { msg = 'Smooth and controlled is better than fast.'; tally.calm++; }
+    else if (m.f === 'arms' && regs.t < regs.b * 0.8) { msg = 'Lift your arms higher.'; tally.arms++; }
+    else if (m.f === 'legs' && regs.b < regs.t * 0.8) { msg = 'Add more leg movement.'; tally.legs++; }
+    else if (BAL < 0.25) { msg = 'Use both sides evenly.'; tally.bal++; }
+    else if (R > 0.45) msg = 'Great rhythm! Keep it going.';
+    else msg = 'Nice! Try to move with the beat.';
+    $('fb').textContent = msg; lastCoach = now;
+  }
+  function finish(full) {
+    clearInterval(timer); cancelAnimationFrame(raf); stopMusic(); stopCam();
+    var score = camOn === false && maxPts === 0 ? 0 : (maxPts ? Math.round(pts / maxPts * 100) : 0);
+    var usedCam = maxPts > 0, mins = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
+    if (FAST) mins = 1;
+    st.n++; if (usedCam) { st.last = score; st.best = Math.max(st.best, score); } save();
+    $('r-title').textContent = full ? 'Great flow!' : 'Nice effort!';
+    $('r-score').textContent = usedCam ? score : '–'; $('r-rhythm').textContent = usedCam && rhyN ? Math.round(rhySum / rhyN * 100) + '%' : '–'; $('r-min').textContent = mins;
+    var tips = [], T = $('r-tips'); T.innerHTML = '';
+    if (!usedCam) tips.push('You danced without the camera. Turn it on next time for live coaching.');
+    else {
+      if (tally.arms > 2) tips.push('Try lifting your arms higher in the arm moves.');
+      if (tally.legs > 2) tips.push('Add more leg movement in the leg moves. Your legs do most of the work of pumping blood back to the heart.');
+      if (tally.bal > 2) tips.push('Use both sides evenly for balanced movement.');
+      if (tally.low > 3) tips.push('There were quiet moments. Even small steady movements count.');
+      if (tally.calm > 2) tips.push('Some moves were very fast. Smooth, controlled movement is easier on your body.');
+      if (!tips.length) tips.push('Well done! Your movement was active and steady. Try the lively tempo next time.');
+    }
+    tips.forEach(function (t) { var p = document.createElement('p'); p.className = 'd-sub'; p.textContent = '• ' + t; T.appendChild(p); });
+    show('s-done');
+  }
+
+  /* ---------- wiring ---------- */
+  function seg(id, key) {
+    [].forEach.call(document.querySelectorAll('#' + id + ' button'), function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-v') === st[key] ? 'true' : 'false');
+      b.addEventListener('click', function () { st[key] = b.getAttribute('data-v'); save(); [].forEach.call(document.querySelectorAll('#' + id + ' button'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); });
+    });
+  }
+  function setup() { $('st-n').textContent = st.n; $('st-best').textContent = st.best; $('st-last').textContent = st.last; $('o-cam').checked = !!st.cam; $('o-music').checked = !!st.music; show('s-setup'); }
+  $('ok').addEventListener('change', function () { $('ok-go').disabled = !this.checked; $('ok-go').style.opacity = this.checked ? 1 : .5; });
+  $('ok-go').addEventListener('click', function () { st.safe = true; save(); setup(); });
+  seg('seg-mode', 'mode'); seg('seg-tempo', 'tempo');
+  $('o-cam').addEventListener('change', function () { st.cam = this.checked; save(); });
+  $('o-music').addEventListener('change', function () { st.music = this.checked; save(); });
+  $('start').addEventListener('click', begin);
+  $('pause').addEventListener('click', function () {
+    if (!paused) { paused = true; tLeft = Math.max(0, tEnd - Date.now()); $('pause').textContent = 'Resume'; if (ac) ac.suspend(); }
+    else { paused = false; tEnd = Date.now() + tLeft; $('pause').textContent = 'Pause'; if (ac) ac.resume(); }
+  });
+  $('stop').addEventListener('click', function () { finish(false); });
+  $('again').addEventListener('click', setup);
+  window.addEventListener('pagehide', function () { stopCam(); stopMusic(); });
+  if (st.safe) setup(); else show('s-safe');
+})();
+</script>
+</body>
+</html>
