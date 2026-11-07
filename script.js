@@ -2194,10 +2194,37 @@ function getBestLocationFix(budgetMs) {
     );
   });
     }
+// Full-screen emergency prompt with one big WhatsApp button. Tapping it is
+// a fresh user gesture, so Android/iOS allow the WhatsApp hand-off — unlike
+// the automatic call made after the (slow) GPS fix, which browsers block.
+function showWhatsAppSOSButton(phone, message) {
+  try {
+    const old = document.getElementById('sos-wa-overlay');
+    if (old) old.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'sos-wa-overlay';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,0.92);display:flex;align-items:center;justify-content:center;padding:20px;';
+    wrap.innerHTML =
+      '<div style="max-width:360px;width:100%;text-align:center;font-family:inherit;">' +
+        '<div style="font-size:44px;">🆘</div>' +
+        '<div style="color:#fff;font-size:18px;font-weight:800;margin:8px 0;">SOS sent by SMS &amp; email</div>' +
+        '<div style="color:#cbd5e1;font-size:14px;margin-bottom:16px;">Tap below to also message your primary caregiver on WhatsApp. Your emergency message and location are already filled in — just press Send.</div>' +
+        '<button id="sos-wa-btn" style="width:100%;background:#25D366;color:#04140c;font-weight:800;font-size:17px;padding:16px;border:0;border-radius:14px;">📲 Send WhatsApp Emergency Message</button>' +
+        '<button id="sos-wa-close" style="margin-top:12px;background:transparent;color:#94a3b8;border:0;font-size:14px;padding:8px;">Close</button>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    document.getElementById('sos-wa-btn').onclick = function () { openWhatsApp(phone, message); };
+    document.getElementById('sos-wa-close').onclick = function () { wrap.remove(); };
+  } catch (e) {
+    // Last resort so WhatsApp is never lost entirely.
+    openWhatsApp(phone, message);
+  }
+}
+
 async function triggerSOS() {
   const isOffline = await isReallyOffline();
   const confirmMsg = (isOffline ? '⚠️ You appear to be offline — SMS, email, and WhatsApp may not send until you have signal. If possible, move toward network coverage or call for help directly.\n\n' : '') +
-    'This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also open WhatsApp for your primary caregiver' +
+    'This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also prepare a WhatsApp message for your primary caregiver (one tap to send)' +
     (SOS_SEND_TO_STATE_LINE ? ', and notify the Bayelsa State emergency line' : '') +
     '. Continue?';
   const confirmed = confirm(confirmMsg);
@@ -2355,7 +2382,19 @@ async function triggerSOS() {
     // app genuinely doesn't open — not the old approach of a plain wa.me
     // link that would sometimes show WhatsApp's fallback page even when
     // the app itself was available.
-    openWhatsApp(primaryPhone, caregiverMsgWhatsApp);
+    // The location fix above can take up to ~15s, by which point the
+    // browser has expired the tap that started the SOS. Android/Chrome
+    // then silently blocks app hand-offs like intent:// and whatsapp://
+    // that aren't triggered by a live tap, which is why WhatsApp used to
+    // not open here. So: auto-open only if the tap is still "active", and
+    // ALWAYS show a big one-tap button as a guaranteed path (a fresh tap
+    // is allowed to open WhatsApp).
+    try {
+      if (navigator.userActivation && navigator.userActivation.isActive) {
+        openWhatsApp(primaryPhone, caregiverMsgWhatsApp);
+      }
+    } catch (_e) { /* the button below still works */ }
+    showWhatsAppSOSButton(primaryPhone, caregiverMsgWhatsApp);
   }
 
   function useCachedLocationOrGiveUp() {
