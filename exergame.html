@@ -58,6 +58,13 @@
   .q-tabs{position:sticky;top:50px;z-index:15;display:flex;gap:6px;padding:8px;margin:12px 0;border-radius:18px;background:rgba(15,23,42,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.10);}
   .q-tabs button{flex:1;margin:0;width:auto;padding:10px 4px;border-radius:12px;border:0;background:transparent;color:#94a3b8;font-weight:700;font-size:13.5px;cursor:pointer;}
   .q-tabs button[aria-selected="true"]{background:#3b82f6;color:#fff;}
+  #h-avatar svg{width:64px;height:64px;}
+  body.embed .lib-bar{display:none;}
+  .q-more{margin:14px 0;}
+  .q-more summary{cursor:pointer;list-style:none;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:700;font-size:15px;}
+  .q-more summary::-webkit-details-marker{display:none;}
+  .q-more summary::after{content:' +';float:right;color:#93c5fd;}
+  .q-more[open] summary::after{content:' −';}
   #h-avatar svg{animation:qbob 2.4s ease-in-out infinite;}
   @keyframes qbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
   #h-map svg{width:100%;height:auto;display:block;border-radius:16px;}
@@ -85,7 +92,7 @@
     <!-- HOME -->
     <section id="s-home" hidden>
       <h1 class="q-big" style="margin-top:6px;">Sentra Quest</h1>
-      <p class="q-sub">Move for a few minutes, earn XP, and walk across Nigeria. Free, no sign-up. Your progress saves on this device.</p>
+      <p class="q-sub">Move, earn XP, walk across Nigeria. Free, no sign-up.</p>
 
 
       <div class="q-tabs" id="q-tabs" role="tablist">
@@ -96,19 +103,24 @@
       </div>
 
       <div class="q-pane" data-pane="play">
-      <div class="q-card" style="display:flex;gap:14px;align-items:center;">
-        <div id="h-avatar"></div>
-        <div><p class="q-h" id="h-tier" style="margin:0 0 4px;"></p><p class="q-sub" id="h-story" style="margin:0;"></p></div>
-      </div>
-
-      <div class="q-stats">
-        <div class="q-stat"><b id="h-level">1</b><span>Level</span></div>
-        <div class="q-stat"><b id="h-xp">0</b><span>XP</span></div>
-        <div class="q-stat"><b id="h-streak">0</b><span>Day streak</span></div>
+      <div class="q-card" style="padding:14px;">
+        <div style="display:flex;gap:12px;align-items:center;">
+          <div id="h-avatar" style="flex:0 0 auto;"></div>
+          <div style="flex:1;min-width:0;">
+            <p class="q-h" id="h-tier" style="margin:0 0 8px;"></p>
+            <div class="q-bar" style="margin:0;"><i id="h-lvbar"></i></div>
+            <p class="q-sub" id="h-lvtxt" style="margin:6px 0 0;font-size:13px;"></p>
+          </div>
+        </div>
+        <div class="q-stats" style="margin:12px 0 0;gap:8px;">
+          <div class="q-stat" style="padding:8px 4px;"><b id="h-level" style="font-size:20px;">1</b><span>Level</span></div>
+          <div class="q-stat" style="padding:8px 4px;"><b id="h-xp" style="font-size:20px;">0</b><span>XP</span></div>
+          <div class="q-stat" style="padding:8px 4px;"><b id="h-streak" style="font-size:20px;">0</b><span>Day streak</span></div>
+        </div>
       </div>
 
       <div class="q-card">
-        <p class="q-h">Choose your style</p>
+        <p class="q-h">Start a quest</p>
         <div class="q-seg" id="mode-seg">
           <button data-mode="stand" aria-pressed="true">Standing</button>
           <button data-mode="seat" aria-pressed="false">Seated (low impact)</button>
@@ -119,22 +131,28 @@
         </div>
         <label class="q-toggle"><input type="checkbox" id="opt-motion"> Count my moves with phone motion (optional, gives bonus XP)</label>
         <label class="q-toggle"><input type="checkbox" id="opt-sound" checked> Sound cues and beat music</label>
+        <div class="q-row" style="margin:6px 0 0;">
+          <button class="q-btn alt" id="mu-pick" style="margin:0;font-size:14px;padding:12px;">Use my music</button>
+          <button class="q-btn alt" id="mu-clear" style="margin:0;font-size:14px;padding:12px;" hidden>Remove my music</button>
+        </div>
+        <input type="file" id="mu-file" accept="audio/*" multiple hidden>
+        <p class="q-sub" id="mu-msg" style="margin-top:6px;" role="status">Pick songs from your phone. They stay on your device. Using Spotify or YouTube Music? Untick the beat, start your music app first, then open the game.</p>
         <button class="q-btn go" id="btn-start">Start today's quest</button>
         <p class="q-sub" id="h-rest" style="margin-top:10px;"></p>
       </div>
 
-      <div class="q-card">
-        <p class="q-h">Next level</p>
-        <div class="q-bar"><i id="h-lvbar"></i></div>
-        <p class="q-sub" id="h-lvtxt"></p>
-      </div>
-
+      <details class="q-more">
+        <summary>More ways to move</summary>
       <div class="q-card">
         <p class="q-h">Walk mode</p>
         <p class="q-sub">Going for a walk? Keep your phone in your pocket or hand. Steps are estimated from phone motion and earn XP on the same journey.</p>
         <p class="q-big" style="font-size:22px;margin-top:6px;"><span id="wk-steps">0</span> <span style="font-size:14px;font-weight:600;color:#94a3b8;">steps</span></p>
         <button class="q-btn alt" id="wk-btn">Start a walk</button>
         <p class="q-sub" id="wk-msg" style="margin-top:8px;" role="status"></p>
+        <div id="wk-fb" hidden>
+          <p class="q-sub" style="margin:6px 0;">How was the step count?</p>
+          <div class="q-seg"><button data-f="many">Too many</button><button data-f="ok">About right</button><button data-f="few">Too few</button></div>
+        </div>
       </div>
 
       <div class="q-card">
@@ -143,11 +161,15 @@
         <a class="q-btn alt" href="dance.html" style="text-align:center;text-decoration:none;box-sizing:border-box;">Try the dance studio</a>
       </div>
       </div>
+      </details>
+
+      </div>
 
       <div class="q-pane" data-pane="journey" hidden>
       <div class="q-card">
         <p class="q-h">Your journey across Nigeria</p>
-        <p class="q-sub" id="h-where" style="margin:0 0 8px;"></p>
+        <p class="q-sub" id="h-where" style="margin:0 0 4px;"></p>
+        <p class="q-sub" id="h-story" style="margin:0 0 8px;font-style:italic;"></p>
         <div id="h-map"></div>
         <div class="q-bar"><i id="h-jbar"></i></div>
         <div class="q-path" id="h-path" hidden></div>
@@ -240,7 +262,7 @@
       <button class="q-btn alt" id="btn-home">Back to my quest</button>
     </section>
 
-    <p class="lib-disc" style="text-align:center;">Sentra Quest is general fitness guidance and not medical advice. Always listen to your body. <a href="privacy.html" style="color:#60a5fa;">Privacy</a> · <a href="articles-public.html" style="color:#60a5fa;">Health Library</a></p>
+    <p class="lib-disc" style="text-align:center;">Sentra Quest is general fitness guidance and not medical advice. Always listen to your body. <a href="privacy.html" style="color:#60a5fa;">Privacy</a> · © 2026 Sentra-X Forte Limited (RC 9718956). Third-party names are trademarks of their owners. · <a href="articles-public.html" style="color:#60a5fa;">Health Library</a></p>
   </main>
 
 <script>
@@ -250,11 +272,45 @@
   var KEY = 'sentra_quest_v1';
 
   /* ---------- storage (safe) ---------- */
-  var state = { xp: 0, sessions: 0, days: [], safe: false, mode: 'stand', len: 5, motion: false, sound: true, badges: [], blocks: 0, log: [], coins: 0, theme: 0, owned: [0], fam: {}, name: '', lastDay: 0, chestDay: 0 };
+  var state = { xp: 0, sessions: 0, days: [], safe: false, mode: 'stand', len: 5, motion: false, sound: true, badges: [], blocks: 0, log: [], coins: 0, theme: 0, stepT: 1.6, ts: 0, owned: [0], fam: {}, name: '', lastDay: 0, chestDay: 0 };
   function load() {
     try { var r = localStorage.getItem(KEY); if (r) { var o = JSON.parse(r); for (var k in o) state[k] = o[k]; } } catch (e) {}
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  var EMBED = window.parent !== window && /[?&]embed=1/.test(location.search), syncT = null;
+  if (EMBED) document.body.classList.add('embed');
+  function save(noSync) { state.ts = noSync === true ? state.ts : Date.now(); try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} if (noSync !== true) queueSync(); }
+  /* ---- account sync bridge (only active when opened inside the Sentra-X app) ---- */
+  function payload() { return { xp: state.xp, sessions: state.sessions, blocks: state.blocks, days: state.days.slice(-120), log: (state.log || []).slice(-120), badges: state.badges, coins: state.coins, theme: state.theme, owned: state.owned, name: state.name || '', ts: state.ts || 0 }; }
+  function queueSync() { if (!EMBED) return; clearTimeout(syncT); syncT = setTimeout(function () { try { parent.postMessage({ type: 'sq-save', data: payload() }, location.origin); } catch (e) {} }, 1500); }
+  function cleanCloud(c) {
+    if (!c || typeof c !== 'object') return null;
+    function ni(n, max) { return Number.isInteger(n) && n >= 0 && n <= max; }
+    function arr(a, max, f) { return Array.isArray(a) && a.length <= max && a.every(f); }
+    if (!ni(c.xp, 1000000) || !ni(c.sessions, 100000) || !ni(c.blocks, 100000)) return null;
+    if (!arr(c.days, 500, function (n) { return ni(n, 100000); })) return null;
+    if (!arr(c.log, 500, function (e) { return Array.isArray(e) && ni(e[0], 100000) && ni(e[1], 7200); })) return null;
+    return { xp: c.xp, sessions: c.sessions, blocks: c.blocks, days: c.days, log: c.log,
+      badges: (Array.isArray(c.badges) ? c.badges : []).filter(function (b) { return typeof b === 'string' && b.length < 20; }).slice(0, 30),
+      owned: (Array.isArray(c.owned) ? c.owned : [0]).filter(function (n) { return ni(n, 3); }),
+      coins: ni(c.coins, 100000) ? c.coins : 0, theme: ni(c.theme, 3) ? c.theme : 0,
+      name: typeof c.name === 'string' ? c.name.replace(/[^A-Za-z0-9 ]/g, '').slice(0, 20) : '', ts: ni(c.ts, 9e15) ? c.ts : 0 };
+  }
+  function mergeCloud(c) { // never lose progress made on either device
+    state.xp = Math.max(state.xp, c.xp); state.sessions = Math.max(state.sessions, c.sessions); state.blocks = Math.max(state.blocks, c.blocks);
+    var d = {}; state.days.concat(c.days).forEach(function (n) { d[n] = 1; }); state.days = Object.keys(d).map(Number).sort(function (a, b) { return a - b; }).slice(-400);
+    var seen = {}, lg = []; (state.log || []).concat(c.log).forEach(function (e) { var k = e[0] + '_' + e[1]; if (!seen[k]) { seen[k] = 1; lg.push(e); } }); state.log = lg.slice(-300);
+    var bs = {}; state.badges.concat(c.badges).forEach(function (b) { bs[b] = 1; }); state.badges = Object.keys(bs);
+    var ow = {}; state.owned.concat(c.owned).forEach(function (n) { ow[n] = 1; }); state.owned = Object.keys(ow).map(Number);
+    if (c.ts > (state.ts || 0)) { state.coins = c.coins; state.theme = c.theme; if (c.name) state.name = c.name; }
+    BADGES.forEach(function (b) { if (state.badges.indexOf(b.id) < 0 && b.ok(state)) state.badges.push(b.id); });
+    state.ts = Math.max(state.ts || 0, c.ts); save();
+  }
+  window.addEventListener('message', function (e) {
+    if (!EMBED || e.origin !== location.origin || e.source !== window.parent) return;
+    var m = e.data; if (!m || m.type !== 'sq-load') return; var c = cleanCloud(m.data); if (!c) return;
+    mergeCloud(c); try { renderHome(); } catch (x) {}
+  });
+  document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('a'); if (EMBED && a && /^index\.html/.test(a.getAttribute('href') || '')) { e.preventDefault(); try { parent.postMessage({ type: 'sq-close' }, location.origin); } catch (x) {} } });
 
   /* ---------- helpers ---------- */
   function $(id) { return document.getElementById(id); }
@@ -401,7 +457,8 @@
     $('opt-motion').checked = !!state.motion; $('opt-sound').checked = !!state.sound;
     // hero, story, coins, boss, shop
     var tr = tierOf(li.level), th = THEMES[state.theme] || THEMES[0];
-    $('h-avatar').innerHTML = avatarSVG(tr, th.c);
+    if (HERO_ART) { $('h-avatar').innerHTML = '<img src="images/hero/tier' + tr + '.png" width="64" height="64" alt="" style="border-radius:50%;object-fit:cover;" onerror="this.onerror=null;this.src=\'images/hero/tier0.png\'">'; }
+    else $('h-avatar').innerHTML = avatarSVG(tr, th.c);
     $('h-tier').textContent = TIERS[tr][0] + ' · Level ' + li.level;
     $('h-story').textContent = STOPS[idx].st;
     $('s-coins').textContent = state.coins;
@@ -564,6 +621,7 @@
   $('w-pause').addEventListener('click', function () {
     if (!paused) { paused = true; tLeft = Math.max(0, tEnd - Date.now()); $('w-pause').textContent = 'Resume'; }
     else { paused = false; tEnd = Date.now() + tLeft; $('w-pause').textContent = 'Pause'; }
+    if (pl.length) { if (paused) au.pause(); else au.play().catch(function () {}); }
   });
   $('w-stop').addEventListener('click', function () { finish(false); });
   $('btn-home').addEventListener('click', function () { renderHome(); show('s-home'); });
@@ -586,15 +644,28 @@
       o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + 0.2);
     } catch (e) {}
   }
-  function startBeat() { stopBeat(); if (!state.sound) return; beatT = setInterval(function () { if (paused) return; hit('k'); setTimeout(function () { hit('h'); }, 300); }, 600); }
-  function stopBeat() { clearInterval(beatT); beatT = null; }
+  var pl = [], pi = 0, au = new Audio(); au.preload = 'auto';
+  au.addEventListener('ended', function () { if (pl.length) { pi = (pi + 1) % pl.length; au.src = pl[pi].u; au.play().catch(function () {}); } });
+  function clearMusic() { au.pause(); pl.forEach(function (x) { URL.revokeObjectURL(x.u); }); pl = []; pi = 0; $('mu-clear').hidden = true; $('mu-msg').textContent = 'Pick songs from your phone. They stay on your device. Using Spotify or YouTube Music? Untick the beat, start your music app first, then open the game.'; }
+  $('mu-pick').addEventListener('click', function () { $('mu-file').click(); });
+  $('mu-clear').addEventListener('click', clearMusic);
+  $('mu-file').addEventListener('change', function () {
+    var f = [].slice.call(this.files || []).filter(function (x) { return (x.type || '').indexOf('audio') === 0 || /\.(mp3|m4a|wav|ogg|aac|flac|opus)$/i.test(x.name); }).slice(0, 40);
+    this.value = ''; if (!f.length) { $('mu-msg').textContent = 'No audio files found. Try mp3, m4a or wav files.'; return; }
+    clearMusic(); pl = f.map(function (x) { return { n: x.name.replace(/\.[^.]+$/, ''), u: URL.createObjectURL(x) }; });
+    $('mu-clear').hidden = false; $('mu-msg').textContent = pl.length + ' song' + (pl.length > 1 ? 's' : '') + ' ready. They play during your quest. Not uploaded anywhere.';
+  });
+  function startBeat() { stopBeat(); if (pl.length) { au.src = pl[pi].u; au.play().catch(function () {}); return; } if (!state.sound) return; beatT = setInterval(function () { if (paused) return; hit('k'); setTimeout(function () { hit('h'); }, 300); }, 600); }
+  function stopBeat() { clearInterval(beatT); beatT = null; try { au.pause(); } catch (e) {} }
+
+  var HERO_ART = false; (function () { var im = new Image(); im.onload = function () { HERO_ART = true; try { renderHome(); } catch (e) {} }; im.src = 'images/hero/tier0.png'; })();
 
   /* ---------- walk mode (step estimate from phone motion) ---------- */
   var walk = { on: false, steps: 0, t0: 0, last: 0, base: 9.8 };
   function onWalk(e) {
     var a = e.accelerationIncludingGravity; if (!a || a.x == null) return;
     var m = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z); walk.base = walk.base * 0.92 + m * 0.08;
-    var n = Date.now(); if (m - walk.base > 1.6 && n - walk.last > 330) { walk.last = n; walk.steps++; $('wk-steps').textContent = walk.steps; }
+    var n = Date.now(); if (m - walk.base > (state.stepT || 1.6) && n - walk.last > 330) { walk.last = n; walk.steps++; $('wk-steps').textContent = walk.steps; }
   }
   function beginWalk() {
     if (!('DeviceMotionEvent' in window)) { $('wk-msg').textContent = 'This phone does not share motion data with the browser.'; return; }
@@ -608,9 +679,18 @@
     var prev = state.xp; state.xp += xp; state.coins += Math.floor(xp / 10); state.days.push(dayNum()); state.lastDay = dayNum();
     state.log = state.log || []; state.log.push([dayNum(), secs]);
     BADGES.forEach(function (b) { if (state.badges.indexOf(b.id) < 0 && b.ok(state)) state.badges.push(b.id); });
+    $('wk-fb').hidden = false;
     save(); renderHome(); $('wk-msg').textContent = 'Walk saved: about ' + walk.steps + ' steps, +' + xp + ' XP. Steps are an estimate.';
   }
-  $('wk-btn').addEventListener('click', function () { if (walk.on) endWalk(); else beginWalk(); });
+  $('wk-btn').addEventListener('click', function () { if (walk.on) endWalk(); else { $('wk-fb').hidden = true; beginWalk(); } });
+  [].forEach.call(document.querySelectorAll('#wk-fb button'), function (b) {
+    b.addEventListener('click', function () {
+      var f = b.getAttribute('data-f'), t = state.stepT || 1.6;
+      if (f === 'many') t = Math.min(3, t + 0.3); else if (f === 'few') t = Math.max(0.8, t - 0.3);
+      state.stepT = Math.round(t * 10) / 10; save(); $('wk-fb').hidden = true;
+      $('wk-msg').textContent = f === 'ok' ? 'Great, thanks! Keeping the settings.' : 'Thanks! Step counting adjusted for your phone. Try another walk.';
+    });
+  });
 
   /* ---------- family boss (shared by link, no account needed) ---------- */
   function invite() {
@@ -675,6 +755,7 @@
     });
   });
   if (state.safe === true) { renderHome(); show('s-home'); } else { show('s-safety'); }
+  if (EMBED) { try { parent.postMessage({ type: 'sq-ready' }, location.origin); } catch (e) {} }
 })();
 </script>
 </body>

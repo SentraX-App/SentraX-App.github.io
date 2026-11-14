@@ -29,6 +29,7 @@
   .d-check input{width:22px;height:22px;margin-top:2px;flex:0 0 auto;}
   .d-stage{position:relative;border-radius:20px;overflow:hidden;background:#0b1120;border:1px solid rgba(255,255,255,.12);aspect-ratio:4/3;}
   .d-stage video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block;}
+  .d-ov{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);pointer-events:none;}
   .d-stage .nocam{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#94a3b8;font-size:14px;}
   .d-ring{position:absolute;right:12px;top:12px;width:52px;height:52px;border-radius:50%;border:4px solid #a78bfa;box-shadow:0 0 22px rgba(167,139,250,.7);animation:dpulse var(--beat,0.6s) ease-in-out infinite;}
   .d-time{position:absolute;left:12px;top:12px;background:rgba(2,6,23,.65);border-radius:12px;padding:6px 12px;font-size:22px;font-weight:800;color:#fff;}
@@ -75,7 +76,14 @@
       <div class="d-seg" id="seg-mode"><button data-v="stand" aria-pressed="true">Standing groove</button><button data-v="seat" aria-pressed="false">Seated flow</button></div>
       <div class="d-seg" id="seg-tempo"><button data-v="slow" aria-pressed="true">Easy tempo</button><button data-v="med" aria-pressed="false">Lively tempo</button></div>
       <label class="d-toggle"><input type="checkbox" id="o-cam" checked> Use camera for live coaching</label>
+      <label class="d-toggle"><input type="checkbox" id="o-pose"> Body tracking (beta): joint-by-joint form tips. Downloads about 10 MB the first time.</label>
       <label class="d-toggle"><input type="checkbox" id="o-music" checked> Play beat music</label>
+      <div class="d-row" style="margin-top:6px;">
+        <button class="d-btn alt" id="mu-pick" style="margin:0;font-size:14px;padding:12px;">Use my music</button>
+        <button class="d-btn alt" id="mu-clear" style="margin:0;font-size:14px;padding:12px;" hidden>Remove my music</button>
+      </div>
+      <input type="file" id="mu-file" accept="audio/*" multiple hidden>
+      <p class="d-sub" id="mu-msg" style="margin-top:6px;" role="status">Pick songs from your phone. They stay on your device. Using Spotify or YouTube Music? Untick the beat, start your music app first, then open this page.</p>
       <button class="d-btn go" id="start">Start dancing</button>
       <p class="d-sub" id="setup-msg" style="margin-top:8px;" role="status"></p>
     </div>
@@ -86,6 +94,7 @@
   <section id="s-play" hidden>
     <div class="d-stage" id="stage">
       <video id="vid" playsinline muted></video>
+      <canvas id="ov" class="d-ov"></canvas>
       <div class="nocam" id="nocam" hidden>Camera is off. Follow the coach and the beat.</div>
       <div class="d-time" id="p-time">0</div><div class="d-ring" id="ring"></div>
       <div class="d-coach"><b id="p-move"></b><span id="p-tip"></span></div>
@@ -103,13 +112,14 @@
     <h1 class="d-big" style="margin-top:6px;" id="r-title">Great flow!</h1>
     <div class="d-stats"><div class="d-stat"><b id="r-score">0</b><span>Score</span></div><div class="d-stat"><b id="r-rhythm">0</b><span>Rhythm</span></div><div class="d-stat"><b id="r-min">0</b><span>Minutes</span></div></div>
     <div class="d-card"><p class="d-h">Your coach says</p><div id="r-tips"></div></div>
+    <div class="d-card" id="r-fbcard"><p class="d-h">How did the camera coaching feel?</p><div class="d-seg" id="r-fb"><button data-f="hi">Too sensitive</button><button data-f="ok">About right</button><button data-f="lo">Not sensitive enough</button></div><p class="d-sub" id="r-fbmsg" role="status"></p></div>
     <div class="d-card"><p class="d-h">Cool down</p><p class="d-sub">Sip water, breathe slowly for a minute and rest.</p></div>
     <a class="d-btn go" href="index.html" style="text-align:center;text-decoration:none;box-sizing:border-box;">Open Sentra-X</a>
     <button class="d-btn alt" id="again">Dance again</button>
     <a class="d-btn alt" href="exergame.html" style="text-align:center;text-decoration:none;box-sizing:border-box;">Back to Sentra Quest</a>
   </section>
 
-  <p class="lib-disc" style="text-align:center;">General fitness guidance, not medical advice. Camera feedback is an approximate movement estimate. <a href="privacy.html" style="color:#60a5fa;">Privacy</a></p>
+  <p class="lib-disc" style="text-align:center;">General fitness guidance, not medical advice. Camera feedback is an approximate movement estimate. Optional body tracking uses TensorFlow.js and Google MoveNet (Apache 2.0 licence). <a href="privacy.html" style="color:#60a5fa;">Privacy</a> · © 2026 Sentra-X Forte Limited (RC 9718956). Third-party names are trademarks of their owners.</p>
 </main>
 
 <canvas id="cv" width="64" height="48" hidden></canvas>
@@ -117,7 +127,7 @@
 (function () {
   'use strict';
   var FAST = /[?&]fast=1/.test(location.search), KEY = 'sentra_dance_v1';
-  var st = { safe: false, mode: 'stand', tempo: 'slow', cam: true, music: true, n: 0, best: 0, last: 0 };
+  var st = { safe: false, mode: 'stand', tempo: 'slow', cam: true, music: true, n: 0, best: 0, last: 0, sens: 1, pose: false };
   try { var r = localStorage.getItem(KEY); if (r) { var o = JSON.parse(r); for (var k in o) st[k] = o[k]; } } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
   function $(id) { return document.getElementById(id); }
@@ -157,7 +167,19 @@
     if (i % 2 === 0) { kick(t); note(t, SCALE[(i / 2) % SCALE.length] - 12, 0.3, 0.22, 'triangle'); } else hat(t);
     if (i % 8 === 4) note(t, SCALE[(i / 2) % SCALE.length] + 12, 0.35, 0.09, 'sine');
   }
+  var pl = [], pi = 0, au = new Audio(); au.preload = 'auto';
+  au.addEventListener('ended', function () { if (pl.length) { pi = (pi + 1) % pl.length; au.src = pl[pi].u; au.play().catch(function () {}); } });
+  function clearMusic() { au.pause(); pl.forEach(function (x) { URL.revokeObjectURL(x.u); }); pl = []; pi = 0; $('mu-clear').hidden = true; $('mu-msg').textContent = 'Pick songs from your phone. They stay on your device. Using Spotify or YouTube Music? Untick the beat, start your music app first, then open this page.'; }
+  $('mu-pick').addEventListener('click', function () { $('mu-file').click(); });
+  $('mu-clear').addEventListener('click', clearMusic);
+  $('mu-file').addEventListener('change', function () {
+    var f = [].slice.call(this.files || []).filter(function (x) { return (x.type || '').indexOf('audio') === 0 || /\.(mp3|m4a|wav|ogg|aac|flac|opus)$/i.test(x.name); }).slice(0, 40);
+    this.value = ''; if (!f.length) { $('mu-msg').textContent = 'No audio files found. Try mp3, m4a or wav files.'; return; }
+    clearMusic(); pl = f.map(function (x) { return { n: x.name.replace(/\.[^.]+$/, ''), u: URL.createObjectURL(x) }; });
+    $('mu-clear').hidden = false; $('mu-msg').textContent = pl.length + ' song' + (pl.length > 1 ? 's' : '') + ' ready. Rhythm coaching will follow your own tempo. Not uploaded anywhere.';
+  });
   function startMusic() {
+    if (pl.length) { au.src = pl[pi].u; au.play().catch(function () {}); return; }
     if (!st.music) return;
     try {
       ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume();
@@ -166,7 +188,7 @@
       sched = setInterval(function () { var sb = 60 / bpm / 2; while (nextT < ac.currentTime + 0.25) { playStep(stepI, nextT); nextT += sb; stepI++; } }, 50);
     } catch (e) { musicOn = false; }
   }
-  function stopMusic() { clearInterval(sched); sched = null; try { if (master) { master.disconnect(); master = null; } } catch (e) {} musicOn = false; }
+  function stopMusic() { try { au.pause(); } catch (e) {} clearInterval(sched); sched = null; try { if (master) { master.disconnect(); master = null; } } catch (e) {} musicOn = false; }
 
   /* ---------- camera movement analysis (on-device) ---------- */
   var vid = $('vid'), cv = $('cv'), cx = cv.getContext('2d', { willReadFrequently: true }), stream = null, camOn = false, an = null;
@@ -189,22 +211,84 @@
       for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
         if (Math.abs(g[y * W + x] - prev[y * W + x]) > 22) { tot++; if (x < W / 2) l++; else r++; if (y < H * 0.45) t++; else if (y > H * 0.55) b++; }
       }
-      var n = W * H, e = Math.min(1, (tot / n) * 6);      // 0..1 movement amount
+      var n = W * H, e = Math.min(1, (tot / n) * 6 * (st.sens || 1));      // 0..1 movement amount
       E = E * 0.7 + e * 0.3;
       regs.l = regs.l * 0.7 + (l / n) * 0.3; regs.r = regs.r * 0.7 + (r / n) * 0.3; regs.t = regs.t * 0.7 + (t / n) * 0.3; regs.b = regs.b * 0.7 + (b / n) * 0.3;
       var lo = Math.min(regs.l, regs.r), hi = Math.max(regs.l, regs.r) || 1e-6; BAL = E > 0.05 ? lo / hi : 0;
       eHist.push(E); if (eHist.length > 90) eHist.shift();
       // rhythm: how steadily movement repeats at the beat period (autocorrelation at 1-beat and 2-beat lags)
       var lag = Math.round((60000 / bpm) / FRAME_MS), mean = 0, k, s0 = 0, s1 = 0;
-      if (eHist.length > lag * 3) {
+      if (eHist.length > (pl.length ? 14 : lag) * 3) {
         for (k = 0; k < eHist.length; k++) mean += eHist[k]; mean /= eHist.length;
         for (k = 0; k < eHist.length; k++) s0 += (eHist[k] - mean) * (eHist[k] - mean);
         var best = 0, L;
-        [lag, lag * 2].forEach(function (LL) { var s = 0; for (k = LL; k < eHist.length; k++) s += (eHist[k] - mean) * (eHist[k - LL] - mean); if (s0 > 1e-6) best = Math.max(best, s / s0); });
+        (pl.length ? [6, 7, 8, 9, 10, 11, 12, 13, 14] : [lag, lag * 2]).forEach(function (LL) { var s = 0; for (k = LL; k < eHist.length; k++) s += (eHist[k] - mean) * (eHist[k - LL] - mean); if (s0 > 1e-6) best = Math.max(best, s / s0); });
         R = R * 0.8 + Math.max(0, Math.min(1, best * 1.6)) * 0.2;
       }
     }
     prev = g;
+  }
+
+  /* ---------- optional body tracking (beta): MoveNet via TensorFlow.js ---------- */
+  var poseOn = false, detector = null, poseBusy = false, poseHist = [], poseMsg = null, sessionId = 0, ov = $('ov'), ovx = ov.getContext('2d');
+  var TF_URL = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
+  var PD_URL = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js';
+  function loadScript(src) { return new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = src; sc.async = true; sc.onload = res; sc.onerror = function () { rej(new Error('load failed')); }; document.head.appendChild(sc); }); }
+  function loadPose() {
+    if (window.SQ_TEST_DETECTOR) { detector = { estimatePoses: function () { return Promise.resolve(window.SQ_TEST_DETECTOR()); } }; return Promise.resolve(true); }
+    return (window.tf ? Promise.resolve() : loadScript(TF_URL)).then(function () { return window.poseDetection ? null : loadScript(PD_URL); })
+      .then(function () { return window.tf.ready(); })
+      .then(function () {
+        var m = window.poseDetection.SupportedModels.MoveNet, cfg = { modelType: window.poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING };
+        return window.poseDetection.createDetector(m, cfg).catch(function () {
+          cfg.modelUrl = 'https://www.kaggle.com/models/google/movenet/tfJs/singlepose-lightning/4'; return window.poseDetection.createDetector(m, cfg);
+        });
+      }).then(function (d) { detector = d; return true; }).catch(function () { return false; });
+  }
+  var EDGES = [['left_shoulder', 'right_shoulder'], ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'], ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'], ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'], ['left_hip', 'right_hip'], ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'], ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']];
+  function kp(p, n) { for (var i = 0; i < p.keypoints.length; i++) if (p.keypoints[i].name === n && p.keypoints[i].score > 0.3) return p.keypoints[i]; return null; }
+  function drawPose(p) {
+    var w = vid.videoWidth || 320, h = vid.videoHeight || 240; if (ov.width !== w) { ov.width = w; ov.height = h; }
+    ovx.clearRect(0, 0, w, h); ovx.lineWidth = 3; ovx.strokeStyle = 'rgba(167,139,250,.95)'; ovx.fillStyle = '#22d3ee';
+    EDGES.forEach(function (e) { var a = kp(p, e[0]), b = kp(p, e[1]); if (a && b) { ovx.beginPath(); ovx.moveTo(a.x, a.y); ovx.lineTo(b.x, b.y); ovx.stroke(); } });
+    p.keypoints.forEach(function (k) { if (k.score > 0.3) { ovx.beginPath(); ovx.arc(k.x, k.y, 4, 0, 6.283); ovx.fill(); } });
+  }
+  function formTips(p, focus) { // returns a tip string, "ok", or null when not enough information yet
+    var ls = kp(p, 'left_shoulder'), rs = kp(p, 'right_shoulder'); if (!ls || !rs) return 'Step back so your upper body is in view.';
+    var lh = kp(p, 'left_hip'), rh = kp(p, 'right_hip'), sm = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
+    var T = (lh && rh) ? Math.hypot(sm.x - (lh.x + rh.x) / 2, sm.y - (lh.y + rh.y) / 2) : Math.abs(ls.x - rs.x) * 1.4; if (T < 5) return null;
+    var arm = -9, knee = 9, lean = 0;
+    [['left_wrist', ls], ['right_wrist', rs]].forEach(function (a) { var w = kp(p, a[0]); if (w) arm = Math.max(arm, (a[1].y - w.y) / T); });
+    if (lh && rh) { lean = Math.abs(sm.x - (lh.x + rh.x) / 2) / T;
+      [['left_knee', lh], ['right_knee', rh]].forEach(function (a) { var k = kp(p, a[0]); if (k) knee = Math.min(knee, (k.y - a[1].y) / T); }); }
+    var now = Date.now(); poseHist.push({ t: now, arm: arm, knee: knee, lean: lean });
+    poseHist = poseHist.filter(function (h) { return now - h.t < 3000; }); if (poseHist.length < 8) return null;
+    var mArm = -9, mKnee = 9, aLean = 0; poseHist.forEach(function (h) { mArm = Math.max(mArm, h.arm); mKnee = Math.min(mKnee, h.knee); aLean += h.lean; }); aLean /= poseHist.length;
+    if (aLean > 0.3) return 'Keep your back straight: shoulders over hips.';
+    if (focus === 'arms' && mArm > -9 && mArm < 0) return 'Lift your arms above your shoulders.';
+    if (focus === 'legs' && st.mode === 'stand' && mKnee < 9 && mKnee > 0.65) return 'Lift your knees higher.';
+    return 'ok';
+  }
+  function handlePose(p) {
+    if (!p || !p.keypoints) return; drawPose(p);
+    var m = plan && plan[idx]; if (!m) return; var t = formTips(p, m.f);
+    if (t === 'ok') poseMsg = { text: 'Great form! Nice and tall.', t: Date.now(), good: true }; else if (t) poseMsg = { text: t, t: Date.now() };
+  }
+  function poseLoop() {
+    if (!poseOn || $('s-play').hidden) return;
+    if (!paused && !poseBusy && detector && camOn && vid.readyState >= 2) {
+      poseBusy = true;
+      detector.estimatePoses(vid).then(function (r) { poseBusy = false; handlePose(r && r[0]); }).catch(function () { poseBusy = false; });
+    }
+    setTimeout(poseLoop, 90);
+  }
+  function startPose(id) {
+    $('fb').textContent = 'Loading body tracking (first time only)…';
+    loadPose().then(function (ok) {
+      if (id !== sessionId || $('s-play').hidden) return;
+      if (!ok) { $('fb').textContent = 'Body tracking could not load, so we are using movement coaching.'; return; }
+      poseOn = true; poseHist = []; poseMsg = null; $('fb').textContent = 'Body tracking is on.'; poseLoop();
+    });
   }
 
   /* ---------- session ---------- */
@@ -217,13 +301,13 @@
     var list = MOVES[st.mode]; plan = [];
     list.forEach(function (m, i) { plan.push({ n: m[0], tip: m[1], f: m[2], d: WORK }); });
     plan.push({ n: 'Cool-down sway', tip: 'Slow down. Breathe in and out slowly.', f: 'cool', d: FAST ? 2 : 20 });
-    idx = 0; paused = false; pts = 0; maxPts = 0; rhySum = 0; rhyN = 0; moveSecs = 0; tally = { arms: 0, legs: 0, bal: 0, low: 0, calm: 0, rhy: 0, total: 0 };
+    idx = 0; paused = false; pts = 0; maxPts = 0; rhySum = 0; rhyN = 0; moveSecs = 0; tally = { pose: 0, arms: 0, legs: 0, bal: 0, low: 0, calm: 0, rhy: 0, total: 0 };
     $('setup-msg').textContent = 'Starting…';
     startCam().then(function (ok) {
       $('setup-msg').textContent = '';
       $('nocam').hidden = ok; vid.style.display = ok ? '' : 'none';
       if (st.cam && !ok) $('nocam').textContent = 'Camera unavailable, so you will dance with the coach and the beat only.';
-      show('s-play'); startMusic(); startedAt = Date.now(); runMove(); loop();
+      show('s-play'); startMusic(); startedAt = Date.now(); sessionId++; poseOn = false; runMove(); loop(); if (st.pose && ok) startPose(sessionId);
     });
   }
   function runMove() {
@@ -258,6 +342,7 @@
     if (m.f === 'cool') msg = E > 0.3 ? 'Slow it down and breathe.' : 'Lovely and slow. Breathe out.';
     else if (!moving) { msg = 'Let\'s move! Follow the beat.'; tally.low++; }
     else if (E > 0.7) { msg = 'Smooth and controlled is better than fast.'; tally.calm++; }
+    else if (poseOn && poseMsg && now - poseMsg.t < 4000 && !poseMsg.good) { msg = poseMsg.text; tally.pose = (tally.pose || 0) + 1; }
     else if (m.f === 'arms' && regs.t < regs.b * 0.8) { msg = 'Lift your arms higher.'; tally.arms++; }
     else if (m.f === 'legs' && regs.b < regs.t * 0.8) { msg = 'Add more leg movement.'; tally.legs++; }
     else if (BAL < 0.25) { msg = 'Use both sides evenly.'; tally.bal++; }
@@ -266,7 +351,7 @@
     $('fb').textContent = msg; lastCoach = now;
   }
   function finish(full) {
-    clearInterval(timer); cancelAnimationFrame(raf); stopMusic(); stopCam();
+    clearInterval(timer); cancelAnimationFrame(raf); stopMusic(); stopCam(); poseOn = false; sessionId++; try { ovx.clearRect(0, 0, ov.width, ov.height); } catch (e) {}
     var score = camOn === false && maxPts === 0 ? 0 : (maxPts ? Math.round(pts / maxPts * 100) : 0);
     var usedCam = maxPts > 0, mins = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
     if (FAST) mins = 1;
@@ -276,6 +361,7 @@
     var tips = [], T = $('r-tips'); T.innerHTML = '';
     if (!usedCam) tips.push('You danced without the camera. Turn it on next time for live coaching.');
     else {
+      if (tally.pose > 1) tips.push('Body tracking spotted some form tips. Watch the messages about arms, knees and posture next time.');
       if (tally.arms > 2) tips.push('Try lifting your arms higher in the arm moves.');
       if (tally.legs > 2) tips.push('Add more leg movement in the leg moves. Your legs do most of the work of pumping blood back to the heart.');
       if (tally.bal > 2) tips.push('Use both sides evenly for balanced movement.');
@@ -284,6 +370,7 @@
       if (!tips.length) tips.push('Well done! Your movement was active and steady. Try the lively tempo next time.');
     }
     tips.forEach(function (t) { var p = document.createElement('p'); p.className = 'd-sub'; p.textContent = '• ' + t; T.appendChild(p); });
+    $('r-fbcard').hidden = !usedCam; $('r-fbmsg').textContent = '';
     show('s-done');
   }
 
@@ -294,19 +381,28 @@
       b.addEventListener('click', function () { st[key] = b.getAttribute('data-v'); save(); [].forEach.call(document.querySelectorAll('#' + id + ' button'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); });
     });
   }
-  function setup() { $('st-n').textContent = st.n; $('st-best').textContent = st.best; $('st-last').textContent = st.last; $('o-cam').checked = !!st.cam; $('o-music').checked = !!st.music; show('s-setup'); }
+  function setup() { $('st-n').textContent = st.n; $('st-best').textContent = st.best; $('st-last').textContent = st.last; $('o-cam').checked = !!st.cam; $('o-pose').checked = !!st.pose; $('o-music').checked = !!st.music; show('s-setup'); }
   $('ok').addEventListener('change', function () { $('ok-go').disabled = !this.checked; $('ok-go').style.opacity = this.checked ? 1 : .5; });
   $('ok-go').addEventListener('click', function () { st.safe = true; save(); setup(); });
   seg('seg-mode', 'mode'); seg('seg-tempo', 'tempo');
   $('o-cam').addEventListener('change', function () { st.cam = this.checked; save(); });
   $('o-music').addEventListener('change', function () { st.music = this.checked; save(); });
+  $('o-pose').addEventListener('change', function () { st.pose = this.checked; save(); });
   $('start').addEventListener('click', begin);
   $('pause').addEventListener('click', function () {
-    if (!paused) { paused = true; tLeft = Math.max(0, tEnd - Date.now()); $('pause').textContent = 'Resume'; if (ac) ac.suspend(); }
-    else { paused = false; tEnd = Date.now() + tLeft; $('pause').textContent = 'Pause'; if (ac) ac.resume(); }
+    if (!paused) { paused = true; tLeft = Math.max(0, tEnd - Date.now()); $('pause').textContent = 'Resume'; if (ac) ac.suspend(); if (pl.length) au.pause(); }
+    else { paused = false; tEnd = Date.now() + tLeft; $('pause').textContent = 'Pause'; if (ac) ac.resume(); if (pl.length) au.play().catch(function () {}); }
   });
   $('stop').addEventListener('click', function () { finish(false); });
   $('again').addEventListener('click', setup);
+  [].forEach.call(document.querySelectorAll('#r-fb button'), function (b) {
+    b.addEventListener('click', function () {
+      var f = b.getAttribute('data-f'), v = st.sens || 1;
+      if (f === 'hi') v = Math.max(0.5, v * 0.8); else if (f === 'lo') v = Math.min(2, v * 1.25);
+      st.sens = Math.round(v * 100) / 100; save();
+      $('r-fbmsg').textContent = f === 'ok' ? 'Great, thanks!' : 'Thanks! Camera sensitivity adjusted for your phone. Try again.';
+    });
+  });
   window.addEventListener('pagehide', function () { stopCam(); stopMusic(); });
   if (st.safe) setup(); else show('s-safe');
 })();

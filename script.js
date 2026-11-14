@@ -3550,7 +3550,7 @@ function sendAiMessage() {
   const controller = new AbortController();
   const timeoutId = setTimeout(function() { controller.abort(); }, 30000);
 
-  const SENTRAX_IDENTITY = 'You are the Sentra-X Health Assistant, built and provided by Sentra-X (SentraX Forte Limited). If asked who made you, what AI or model you are, or who owns/built you, always answer that you are Sentra-X\'s in-app health assistant — never name any other company, AI lab, or underlying model/technology.';
+  const SENTRAX_IDENTITY = 'You are the Sentra-X Health Assistant, built and provided by Sentra-X (Sentra-X Forte Limited). If asked who made you, what AI or model you are, or who owns/built you, always answer that you are Sentra-X\'s in-app health assistant — never name any other company, AI lab, or underlying model/technology.';
   const healthContext = buildAiHealthContext();
   const systemMessages = [{ role: 'system', content: SENTRAX_IDENTITY }];
   if (healthContext) systemMessages.push({ role: 'system', content: healthContext });

@@ -639,8 +639,7 @@
     <button onclick="showScreen('articles')" id="nav-articles"><span class="icon">📰</span>Articles</button>
     <button onclick="showScreen('marketplace')" id="nav-marketplace"><span class="icon">🛍️</span>Marketplace</button>
     <button onclick="showScreen('rewards')" id="nav-rewards"><span class="icon">🪙</span>Rewards</button>
-    <button onclick="closeMoreMenu();window.open('exergame.html','_blank')" id="nav-quest"><span class="icon">🎮</span>Sentra Quest (Exercise Game)</button>
-    <button onclick="closeMoreMenu();window.open('dance.html','_blank')" id="nav-dance"><span class="icon">💃</span>Sentra Flow Dance</button>
+    <button onclick="closeMoreMenu();(window.openQuest?openQuest():window.open('exergame.html','_blank'))" id="nav-quest"><span class="icon">🎮</span>Move &amp; Play (Games)</button>
     <div class="more-divider"></div>
     <button onclick="closeMoreMenu();openQuickUnlockSettings()" id="nav-pin"><span class="icon">🔐</span>Set / Change PIN</button>
     <button onclick="openRatingOverlay()" id="nav-rate"><span class="icon">⭐</span>Rate Sentra-X</button>
@@ -682,6 +681,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <div id="passport-print-area" class="print-only"></div>
   <script src="script.js"></script>
+  <script src="quest-sync.js"></script>
   <script src="https://js.paystack.co/v2/inline.js"></script>
   <script src="ads.js"></script>
   <script src="articles.js"></script>

@@ -188,6 +188,14 @@
     'back-pain': 'https://commons.wikimedia.org/wiki/Special:FilePath/Lower%20back%20pain.jpg?width=500'
   };
 
+  // Wikimedia images are CC BY / CC BY-SA, which require crediting the actual
+  // author and license. The Commons file page lists both, so the credit tag
+  // links there (same approach store.js already uses for marketplace images).
+  function wmFilePage(url) {
+    var m = String(url).match(/Special:FilePath\/([^?]+)/);
+    return m ? 'https://commons.wikimedia.org/wiki/File:' + m[1] : 'https://commons.wikimedia.org/';
+  }
+
   function coverHtml(tag, photoUrl, sizeStyle, altIndex) {
     // Every call site now always provides a real, pre-assigned photoUrl
     // (see the global-pool, no-duplicates assignment in loadMedLibrary()
@@ -198,7 +206,7 @@
     return '<div class="art-cover art-cover-photo' + altClass + '" data-tag="' + tag + '"' + (sizeStyle ? ' style="' + sizeStyle + '"' : '') + '>' +
       '<img src="' + photoUrl + '" alt="" loading="lazy" onerror="var el=this.parentElement;el.classList.add(\'art-cover-fallback\');var cr=el.querySelector(\'.img-credit\');if(cr)cr.remove();this.remove();">' +
       '<span class="art-tag">' + tag + '</span>' +
-      '<span class="img-credit">Wikimedia Commons</span>' +
+      '<a class="img-credit" href="' + wmFilePage(photoUrl) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();">Image: Wikimedia Commons (author &amp; license)</a>' +
       '</div>';
   }
 
