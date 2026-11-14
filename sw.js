@@ -9,6 +9,7 @@ const CORE_ASSETS = [
   'privacy.html',
   'exergame.html',
   'quest-sync.js',
+  'med-final-warning.js',
   'dance.html',
   'articles-public.html',
   'library.css',
