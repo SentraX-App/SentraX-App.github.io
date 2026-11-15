@@ -2042,7 +2042,8 @@ function shareToFamily() {
 }
 
 function callEmergency() {
-  window.location.href = 'tel:' + BAYELSA_EMERGENCY_PHONE;
+  // Bayelsa number only when the person is in Bayelsa; 112 works everywhere else.
+  window.location.href = 'tel:' + getEmergencyTarget(null).dial;
 }
 function callNationalEmergency() {
   window.location.href = 'tel:112';
@@ -2062,6 +2063,182 @@ const BAYELSA_EMERGENCY_EMAIL = ''; // fill in once Ministry confirms a monitore
 // doesn't match this confirmation once tested live, flip back to false
 // and treat the earlier toll-free caution as the working assumption again.
 const SOS_SEND_TO_STATE_LINE = true;
+
+// --- User's state: chosen once, saved on the device and on their account ----
+const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT (Abuja)','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara','Outside Nigeria'];
+function getUserState() {
+  try {
+    const v = localStorage.getItem('userState');
+    return NIGERIAN_STATES.indexOf(v) !== -1 ? v : '';
+  } catch (_e) { return ''; }
+}
+function setUserState(v) {
+  if (v && NIGERIAN_STATES.indexOf(v) === -1) return;
+  try {
+    if (v) localStorage.setItem('userState', v); else localStorage.removeItem('userState');
+  } catch (_e) { /* best effort */ }
+  try { syncToFirestore({ userState: v || '' }); } catch (_e) { /* offline or signed out: device copy still saved */ }
+  refreshEmergencyButtons();
+  document.querySelectorAll('select.sx-state-select').forEach(function (sel) { sel.value = v || ''; });
+}
+
+// --- Region check: only notify the Bayelsa line for people in Bayelsa ----
+// The Bayelsa State line can only dispatch help inside Bayelsa. Without this
+// check, every user's SOS anywhere (Lagos, Abuja, abroad) was also sent to it.
+// This is a rough latitude/longitude box, not an exact boundary: near the
+// edges it can include small slices of neighbouring Rivers and Delta states.
+const BAYELSA_BOUNDS = { latMin: 4.2, latMax: 5.4, lngMin: 5.3, lngMax: 6.7 };
+function coordsInBayelsa(lat, lng) {
+  lat = Number(lat); lng = Number(lng);
+  if (!isFinite(lat) || !isFinite(lng)) return null;
+  return lat >= BAYELSA_BOUNDS.latMin && lat <= BAYELSA_BOUNDS.latMax &&
+         lng >= BAYELSA_BOUNDS.lngMin && lng <= BAYELSA_BOUNDS.lngMax;
+}
+// --- Local emergency numbers abroad --------------------------------------
+// Only countries whose number is well established are listed. Anywhere else
+// the app falls back to 112 (which most mobile networks route to local
+// emergency services) and says "or the local number". Review this list from
+// time to time: emergency numbers do change.
+const EMERGENCY_DIAL_BY_COUNTRY = {
+  US:'911', CA:'911', MX:'911', GB:'999', IE:'112', AU:'000', NZ:'111', ZA:'112', IN:'112', GH:'112', KE:'999',
+  HK:'999', QA:'999', RU:'112', CN:'120', DE:'112', FR:'112', ES:'112', IT:'112', NL:'112', BE:'112', PT:'112',
+  AT:'112', CH:'112', SE:'112', NO:'112', DK:'112', FI:'112', PL:'112', GR:'112', CZ:'112', HU:'112', RO:'112'
+};
+const EMERGENCY_TEXT_OVERRIDE = { CN: '120 (ambulance) or 110 (police)' };
+// Device time zone -> country, for the countries above. A phone that is set to
+// update its time zone automatically follows the traveller. Nigeria is a single
+// zone (Africa/Lagos), so a clearly foreign zone means the person is abroad.
+const TZ_COUNTRY_GROUPS = {
+  US:['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Phoenix','America/Anchorage','America/Detroit','America/Boise','America/Indiana/Indianapolis','America/Kentucky/Louisville','Pacific/Honolulu','America/Adak'],
+  CA:['America/Toronto','America/Vancouver','America/Edmonton','America/Winnipeg','America/Halifax','America/St_Johns','America/Regina','America/Moncton','America/Montreal','America/Calgary'],
+  MX:['America/Mexico_City','America/Tijuana','America/Cancun','America/Monterrey','America/Merida'],
+  GB:['Europe/London'], IE:['Europe/Dublin'],
+  AU:['Australia/Sydney','Australia/Melbourne','Australia/Brisbane','Australia/Perth','Australia/Adelaide','Australia/Darwin','Australia/Hobart','Australia/Canberra'],
+  NZ:['Pacific/Auckland'], ZA:['Africa/Johannesburg'], IN:['Asia/Kolkata','Asia/Calcutta'], GH:['Africa/Accra'], KE:['Africa/Nairobi'],
+  HK:['Asia/Hong_Kong'], QA:['Asia/Qatar'], RU:['Europe/Moscow'], CN:['Asia/Shanghai'],
+  DE:['Europe/Berlin'], FR:['Europe/Paris'], ES:['Europe/Madrid'], IT:['Europe/Rome'], NL:['Europe/Amsterdam'], BE:['Europe/Brussels'],
+  PT:['Europe/Lisbon'], AT:['Europe/Vienna'], CH:['Europe/Zurich'], SE:['Europe/Stockholm'], NO:['Europe/Oslo'], DK:['Europe/Copenhagen'],
+  FI:['Europe/Helsinki'], PL:['Europe/Warsaw'], GR:['Europe/Athens'], CZ:['Europe/Prague'], HU:['Europe/Budapest'], RO:['Europe/Bucharest']
+};
+const TZ_TO_COUNTRY = {};
+Object.keys(TZ_COUNTRY_GROUPS).forEach(function (cc) { TZ_COUNTRY_GROUPS[cc].forEach(function (z) { TZ_TO_COUNTRY[z] = cc; }); });
+function deviceTimezone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_e) { return ''; }
+}
+function countryFromTimezone(tz) { return TZ_TO_COUNTRY[tz] || null; }
+// Rough box around Nigeria, used only to double-check a time zone that looks foreign.
+const NIGERIA_BOUNDS = { latMin: 4.2, latMax: 13.9, lngMin: 2.6, lngMax: 14.7 };
+function gpsInsideNigeria(coords) {
+  try {
+    let lat = null, lng = null;
+    if (coords && coords.latitude != null) { lat = Number(coords.latitude); lng = Number(coords.longitude); }
+    else {
+      const at = Number(localStorage.getItem('lastKnownLocationAt'));
+      if (at && Date.now() - at < 3 * 24 * 60 * 60 * 1000) { lat = Number(localStorage.getItem('lastKnownLat')); lng = Number(localStorage.getItem('lastKnownLng')); }
+    }
+    if (lat === null || !isFinite(lat) || !isFinite(lng)) return null;
+    return lat >= NIGERIA_BOUNDS.latMin && lat <= NIGERIA_BOUNDS.latMax && lng >= NIGERIA_BOUNDS.lngMin && lng <= NIGERIA_BOUNDS.lngMax;
+  } catch (_e) { return null; }
+}
+// Works out whether the person is abroad. A GPS point inside Nigeria always
+// overrides a time zone that looks foreign (a wrongly set phone clock must never
+// send someone in Nigeria to a foreign number).
+function getEmergencyArea(coords) {
+  const inNg = gpsInsideNigeria(coords);
+  const tzCountry = countryFromTimezone(deviceTimezone());
+  if (tzCountry && inNg !== true) return { abroad: true, country: tzCountry };
+  if (getUserState() === 'Outside Nigeria' && inNg !== true) return { abroad: true, country: null };
+  return { abroad: false, country: null };
+}
+// The one place that decides which number to show, dial and put in messages.
+function getEmergencyTarget(coords) {
+  const area = getEmergencyArea(coords);
+  if (area.abroad) {
+    if (area.country) {
+      const dial = EMERGENCY_DIAL_BY_COUNTRY[area.country] || '112';
+      const text = EMERGENCY_TEXT_OVERRIDE[area.country] || dial;
+      return { abroad: true, bayelsa: false, dial: dial, label: text, message: text + ' (their local emergency number)' };
+    }
+    return { abroad: true, bayelsa: false, dial: '112', label: '112 or local number', message: '112 or the local emergency number in their country' };
+  }
+  if (isInBayelsa(coords)) return { abroad: false, bayelsa: true, dial: BAYELSA_EMERGENCY_PHONE, label: '0800 220 0223', message: '0800 220 0223' };
+  return { abroad: false, bayelsa: false, dial: '112', label: '112', message: '112' };
+}
+
+// Decides whether this person should be linked to the Bayelsa line.
+//  0. The state the person chose (saved) wins.
+//  1. A fresh GPS fix (coords).
+//  2. Otherwise the last GPS point cached on the device, if under 3 days old.
+//  3. With no location at all, keep the previous behaviour (true), so a
+//     real Bayelsa emergency is never silently dropped.
+function isInBayelsa(coords) {
+  // Abroad, the Bayelsa line cannot dispatch help.
+  if (getEmergencyArea(coords).abroad) return false;
+  // A state the person chose themselves always wins over any guess.
+  const chosen = getUserState();
+  if (chosen) return chosen === 'Bayelsa';
+  try {
+    if (coords && coords.latitude != null) {
+      const r = coordsInBayelsa(coords.latitude, coords.longitude);
+      if (r !== null) return r;
+    }
+    const at = Number(localStorage.getItem('lastKnownLocationAt'));
+    if (at && Date.now() - at < 3 * 24 * 60 * 60 * 1000) {
+      const r = coordsInBayelsa(localStorage.getItem('lastKnownLat'), localStorage.getItem('lastKnownLng'));
+      if (r !== null) return r;
+    }
+  } catch (_e) { /* fall through */ }
+  return true;
+}
+// Keeps the dashboard call buttons honest: Bayelsa number in Bayelsa, 112 elsewhere.
+function refreshEmergencyButtons() {
+  try {
+    const label = 'Call Emergency Line (' + getEmergencyTarget(null).label + ')';
+    document.querySelectorAll('button.call').forEach(function (b) {
+      if (b.getAttribute('onclick') === 'callEmergency()') b.textContent = '\u{1F4DE} ' + label;
+    });
+    const saved = getUserState();
+    document.querySelectorAll('select.sx-state-select').forEach(function (sel) {
+      if (sel.value !== saved) sel.value = saved;
+    });
+  } catch (_e) { /* cosmetic only */ }
+}
+refreshEmergencyButtons();
+setInterval(refreshEmergencyButtons, 60 * 1000);
+
+// Adds a "Your state" picker above each Call Emergency Line button. Built here
+// (not in index.html) so no existing markup is touched. Uses the app's normal
+// select styling.
+function injectStatePicker() {
+  try {
+    document.querySelectorAll('button.call').forEach(function (btn) {
+      if (btn.getAttribute('onclick') !== 'callEmergency()') return;
+      if (btn.previousElementSibling && btn.previousElementSibling.classList.contains('sx-state-row')) return;
+      const row = document.createElement('div');
+      row.className = 'sx-state-row';
+      row.style.cssText = 'margin:10px 0 2px;';
+      const label = document.createElement('label');
+      label.textContent = 'Your state (sends emergency alerts to the right place)';
+      label.style.cssText = 'display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;';
+      const sel = document.createElement('select');
+      sel.className = 'sx-state-select';
+      sel.setAttribute('aria-label', 'Your state');
+      const first = document.createElement('option');
+      first.value = ''; first.textContent = 'Select your state...';
+      sel.appendChild(first);
+      NIGERIAN_STATES.forEach(function (st) {
+        const o = document.createElement('option');
+        o.value = st; o.textContent = st;
+        sel.appendChild(o);
+      });
+      sel.value = getUserState();
+      sel.addEventListener('change', function () { setUserState(sel.value); });
+      row.appendChild(label); row.appendChild(sel);
+      btn.parentNode.insertBefore(row, btn);
+    });
+  } catch (_e) { /* the Emergency card still works without the picker */ }
+}
+injectStatePicker();
 
 function toggleFirstAid(id) {
   const body = document.getElementById('fa-body-' + id);
@@ -2225,7 +2402,7 @@ async function triggerSOS() {
   const isOffline = await isReallyOffline();
   const confirmMsg = (isOffline ? '⚠️ You appear to be offline — SMS, email, and WhatsApp may not send until you have signal. If possible, move toward network coverage or call for help directly.\n\n' : '') +
     'This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also prepare a WhatsApp message for your primary caregiver (one tap to send)' +
-    (SOS_SEND_TO_STATE_LINE ? ', and notify the Bayelsa State emergency line' : '') +
+    (SOS_SEND_TO_STATE_LINE && isInBayelsa(null) ? ', and notify the Bayelsa State emergency line' : '') +
     '. Continue?';
   const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
@@ -2246,12 +2423,15 @@ async function triggerSOS() {
   // a duplicate SOS if the browser is just slow rather than truly hung.
   let alertAlreadySent = false;
 
-  function sendAlert(locationText) {
+  function sendAlert(locationText, coords) {
     // Guards against this running twice (e.g. the geolocation callback and
     // the hard safety-net timeout below both firing) — a real emergency
     // alert should never be silently duplicated to caregivers.
     if (alertAlreadySent) return;
     alertAlreadySent = true;
+    const notifyStateLine = SOS_SEND_TO_STATE_LINE && isInBayelsa(coords);
+    // Abroad, 112 still connects on most mobile networks, but the local number is the safe one to name.
+    const callLineText = getEmergencyTarget(coords).message;
 
     // Caregiver message explicitly asks them to also call emergency services
     // themselves — the SMS/email/WhatsApp alert is not a substitute for a
@@ -2269,9 +2449,9 @@ async function triggerSOS() {
     // go through this worker, kept working). Reverted back to a single
     // shared field to restore delivery.
     const caregiverMsgWhatsApp = '\u{1F198} EMERGENCY: ' + name + ' needs help right now.\n\n\u{1F4CD} ' + locationText +
-  '\n\n\u260E\uFE0F Please call them now, and also call the emergency line: 0800 220 0223';
+  '\n\n\u260E\uFE0F Please call them now, and also call the emergency line: ' + callLineText;
     const caregiverMsgPlain = 'EMERGENCY: ' + name + ' needs help right now.\n\n' + locationText +
-  '\n\nPlease call them now. If you can\'t reach them, call emergency services immediately on 0800 220 0223.';
+  '\n\nPlease call them now. If you can\'t reach them, call emergency services immediately on ' + callLineText + '.';
     // Separate message for the Ministry/state emergency line — this
     // recipient IS the emergency service, so telling them to "call
     // emergency services" makes no sense; theirs is a dispatch-style alert
@@ -2342,7 +2522,7 @@ async function triggerSOS() {
       // confirmed this line accepts SMS. Kept as a separate block from the
       // caregiver loop above so it can never affect caregiver delivery even
       // if this call fails.
-      if (SOS_SEND_TO_STATE_LINE && (BAYELSA_EMERGENCY_PHONE || BAYELSA_EMERGENCY_EMAIL)) {
+      if (notifyStateLine && (BAYELSA_EMERGENCY_PHONE || BAYELSA_EMERGENCY_EMAIL)) {
         fetch(SOS_SMS_WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Sentra-Secret': SOS_WORKER_SHARED_SECRET },
@@ -2424,7 +2604,7 @@ async function triggerSOS() {
       if (!pos) { useCachedLocationOrGiveUp(); return; }
       if (pos.coords.accuracy > 10) { useCachedLocationOrGiveUp(); return; }
       const link = 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
-      sendAlert('Live location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link);
+      sendAlert('Live location (±' + Math.round(pos.coords.accuracy) + 'm): ' + link, pos.coords);
     });
   } else {
     useCachedLocationOrGiveUp();

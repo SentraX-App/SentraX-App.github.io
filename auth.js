@@ -456,6 +456,10 @@
       if (doc.exists) {
         const data = doc.data();
         if (data.userName) localStorage.setItem('userName', data.userName);
+        // Per-account: an account with no saved state must not inherit the previous
+        // person's choice on a shared phone.
+        if (data.userState) localStorage.setItem('userState', data.userState); else localStorage.removeItem('userState');
+        try { if (typeof refreshEmergencyButtons === 'function') refreshEmergencyButtons(); } catch (_e) { /* cosmetic */ }
         if (data.userCondition) localStorage.setItem('userCondition', data.userCondition);
         if (data.meds) localStorage.setItem('meds', JSON.stringify(data.meds));
         if (data.medLogs) localStorage.setItem('medLogs', JSON.stringify(data.medLogs));
