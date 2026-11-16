@@ -2067,10 +2067,8 @@ const SOS_SEND_TO_STATE_LINE = true;
 // --- User's state: chosen once, saved on the device and on their account ----
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT (Abuja)','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara','Outside Nigeria'];
 function getUserState() {
-  try {
-    const v = localStorage.getItem('userState');
-    return NIGERIAN_STATES.indexOf(v) !== -1 ? v : '';
-  } catch (_e) { return ''; }
+  // No manual state picker: the area is detected automatically (GPS + time zone).
+  return '';
 }
 function setUserState(v) {
   if (v && NIGERIAN_STATES.indexOf(v) === -1) return;
@@ -2194,6 +2192,12 @@ function isInBayelsa(coords) {
 function refreshEmergencyButtons() {
   try {
     const label = 'Call Emergency Line (' + getEmergencyTarget(null).label + ')';
+    const tgt = getEmergencyTarget(null);
+    document.querySelectorAll('.sx-emerg-num').forEach(function (el) { el.textContent = tgt.label; });
+    document.querySelectorAll('.sx-emerg-alt').forEach(function (el) { el.style.display = tgt.bayelsa ? '' : 'none'; });
+    document.querySelectorAll('a[onclick*="callNationalEmergency"]').forEach(function (a) {
+      if (a.parentNode) a.parentNode.style.display = tgt.bayelsa ? '' : 'none';
+    });
     document.querySelectorAll('button.call').forEach(function (b) {
       if (b.getAttribute('onclick') === 'callEmergency()') b.textContent = '\u{1F4DE} ' + label;
     });
@@ -2206,39 +2210,6 @@ function refreshEmergencyButtons() {
 refreshEmergencyButtons();
 setInterval(refreshEmergencyButtons, 60 * 1000);
 
-// Adds a "Your state" picker above each Call Emergency Line button. Built here
-// (not in index.html) so no existing markup is touched. Uses the app's normal
-// select styling.
-function injectStatePicker() {
-  try {
-    document.querySelectorAll('button.call').forEach(function (btn) {
-      if (btn.getAttribute('onclick') !== 'callEmergency()') return;
-      if (btn.previousElementSibling && btn.previousElementSibling.classList.contains('sx-state-row')) return;
-      const row = document.createElement('div');
-      row.className = 'sx-state-row';
-      row.style.cssText = 'margin:10px 0 2px;';
-      const label = document.createElement('label');
-      label.textContent = 'Your state (sends emergency alerts to the right place)';
-      label.style.cssText = 'display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;';
-      const sel = document.createElement('select');
-      sel.className = 'sx-state-select';
-      sel.setAttribute('aria-label', 'Your state');
-      const first = document.createElement('option');
-      first.value = ''; first.textContent = 'Select your state...';
-      sel.appendChild(first);
-      NIGERIAN_STATES.forEach(function (st) {
-        const o = document.createElement('option');
-        o.value = st; o.textContent = st;
-        sel.appendChild(o);
-      });
-      sel.value = getUserState();
-      sel.addEventListener('change', function () { setUserState(sel.value); });
-      row.appendChild(label); row.appendChild(sel);
-      btn.parentNode.insertBefore(row, btn);
-    });
-  } catch (_e) { /* the Emergency card still works without the picker */ }
-}
-injectStatePicker();
 
 function toggleFirstAid(id) {
   const body = document.getElementById('fa-body-' + id);
@@ -3302,7 +3273,7 @@ function renderMaternalCheckin() {
   const warningBox = document.getElementById('mat-checkin-warning');
   if (warningBox) {
     warningBox.innerHTML = todayVal === 'yes'
-      ? '<div class="alert-banner" style="margin-top:12px;margin-bottom:0;">This may need urgent care \u2014 please use Emergency SOS or call 0800 220 0223 now.</div>'
+      ? '<div class="alert-banner" style="margin-top:12px;margin-bottom:0;">This may need urgent care \u2014 please use Emergency SOS or call ' + getEmergencyTarget(null).label + ' now.</div>'
       : '';
   }
 
