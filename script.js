@@ -2345,6 +2345,64 @@ function getBestLocationFix(budgetMs) {
 // Full-screen emergency prompt with one big WhatsApp button. Tapping it is
 // a fresh user gesture, so Android/iOS allow the WhatsApp hand-off — unlike
 // the automatic call made after the (slow) GPS fix, which browsers block.
+// --- SOS delivery status -------------------------------------------------
+// The SMS/email requests run in the background. This tracks what the alert
+// service actually answered, and tells the person on screen. Before this, the
+// SOS screen always said "SOS sent by SMS & email" even when it had not.
+function createSOSTracker(total) {
+  const results = [];
+  let finished = false;
+  let timer = null;
+  function setTitle(text, warn) {
+    const t = document.getElementById('sos-wa-title');
+    if (!t) return false;
+    t.textContent = text;
+    t.style.color = warn ? '#fbbf24' : '#fff';
+    return true;
+  }
+  function toast(text, warn) {
+    try {
+      const old = document.getElementById('sos-status-toast');
+      if (old) old.remove();
+      const d = document.createElement('div');
+      d.id = 'sos-status-toast';
+      d.setAttribute('role', 'alert');
+      d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:100000;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.4;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.45);background:' + (warn ? '#92400e' : '#065f46') + ';';
+      d.textContent = text;
+      d.addEventListener('click', function () { d.remove(); });
+      document.body.appendChild(d);
+      if (!warn) setTimeout(function () { if (d.parentNode) d.remove(); }, 12000);
+    } catch (_e) { /* cosmetic */ }
+  }
+  function show(text, warn) { if (!setTitle(text, warn)) toast(text, warn); }
+  function finish(timedOut) {
+    if (finished) return;
+    finished = true;
+    if (timer) clearTimeout(timer);
+    if (total === 0) { show('No caregiver with a phone or email is saved. Add one under Family.', true); return; }
+    const failedNames = [];
+    let smsOk = false, emailOk = false;
+    results.forEach(function (r) {
+      const bad = r.httpOk === false || r.smsOk === false || r.emailOk === false;
+      if (bad) failedNames.push(r.name || 'a caregiver');
+      if (r.smsOk === true) smsOk = true;
+      if (r.emailOk === true) emailOk = true;
+    });
+    const missing = total - results.length;
+    if (timedOut && missing > 0) failedNames.push(missing + ' other caregiver' + (missing > 1 ? 's' : ''));
+    if (failedNames.length) {
+      const uniq = failedNames.filter(function (n, i) { return failedNames.indexOf(n) === i; });
+      show('Could not confirm SMS/email to ' + uniq.join(', ') + '. Please call or WhatsApp them now.', true);
+    } else {
+      const ch = []; if (smsOk) ch.push('SMS'); if (emailOk) ch.push('email');
+      show('SOS sent by ' + (ch.length ? ch.join(' & ') : 'SMS & email'), false);
+    }
+  }
+  if (total === 0) setTimeout(function () { finish(false); }, 50);
+  else timer = setTimeout(function () { finish(true); }, 25000);
+  return { record: function (r) { if (finished) return; results.push(r); if (results.length >= total) finish(false); } };
+}
+
 function showWhatsAppSOSButton(phone, message) {
   try {
     const old = document.getElementById('sos-wa-overlay');
@@ -2355,7 +2413,7 @@ function showWhatsAppSOSButton(phone, message) {
     wrap.innerHTML =
       '<div style="max-width:360px;width:100%;text-align:center;font-family:inherit;">' +
         '<div style="font-size:44px;">🆘</div>' +
-        '<div style="color:#fff;font-size:18px;font-weight:800;margin:8px 0;">SOS sent by SMS &amp; email</div>' +
+        '<div style="color:#fff;font-size:18px;font-weight:800;margin:8px 0;" id="sos-wa-title">Sending your SOS alert\u2026</div>' +
         '<div style="color:#cbd5e1;font-size:14px;margin-bottom:16px;">Tap below to also message your primary caregiver on WhatsApp. Your emergency message and location are already filled in — just press Send.</div>' +
         '<button id="sos-wa-btn" style="width:100%;background:#25D366;color:#04140c;font-weight:800;font-size:17px;padding:16px;border:0;border-radius:14px;">📲 Send WhatsApp Emergency Message</button>' +
         '<button id="sos-wa-close" style="margin-top:12px;background:transparent;color:#94a3b8;border:0;font-size:14px;padding:8px;">Close</button>' +
@@ -2445,6 +2503,7 @@ async function triggerSOS() {
     // the worker has the request, the send completes independently of
     // whatever happens to the tab afterward.
     if (SOS_SMS_WORKER_URL) {
+      const sosTracker = createSOSTracker(caregivers.filter(function (c) { return normalizeNigerianPhone(c.phone) || c.email; }).length);
       caregivers.forEach(function (cg) {
         const phone = normalizeNigerianPhone(cg.phone);
         const email = cg.email || '';
@@ -2475,8 +2534,12 @@ async function triggerSOS() {
                 } catch (_ignored) { /* best effort */ }
               }
             }
+            try {
+              sosTracker.record({ name: cg.name, httpOk: res.ok, smsOk: phone ? !smsFailed : null, emailOk: email ? !emailFailed : null });
+            } catch (_e) { /* status display only */ }
           });
         }).catch(function (err) {
+          try { sosTracker.record({ name: cg.name, httpOk: false }); } catch (_e) { /* status display only */ }
           // Worker unreachable entirely (offline, DNS, CORS) — WhatsApp below
           // is still independent, but this should be visible too, not silent.
           console.error('Sentra-X SOS: worker request failed for caregiver', cg.id, err && err.message);
@@ -3892,6 +3955,7 @@ function measureHeartRate() {
   box.style.display = 'block';
   status.textContent = 'Starting camera…';
   hrSamples = [];
+  hrGoodFrames = 0; hrTotalFrames = 0; hrGuideLast = 0;
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
 
@@ -3921,6 +3985,27 @@ function measureHeartRate() {
     });
   }
 
+// Live finger-placement guidance. Reads the same camera frames as the
+// measurement; it only changes the on-screen message and never the result.
+let hrGuideLast = 0, hrGoodFrames = 0, hrTotalFrames = 0;
+function hrUpdateGuidance(r, g, b, elapsed) {
+  hrTotalFrames++;
+  const covered = r > 60 && r > g * 1.3 && r > b * 1.3;
+  const saturated = r >= 250;
+  if (covered && !saturated) hrGoodFrames++;
+  const now = Date.now();
+  if (now - hrGuideLast < 400) return;
+  hrGuideLast = now;
+  const status = document.getElementById('hr-status');
+  if (!status) return;
+  const left = Math.max(0, Math.ceil((HR_DURATION_MS - elapsed) / 1000));
+  let msg;
+  if (!covered) msg = 'Cover the camera lens and flash fully with your fingertip pad';
+  else if (saturated) msg = 'Press a little lighter and keep your finger still';
+  else msg = 'Good signal. Hold still';
+  status.textContent = msg + ' (' + left + 's)';
+}
+
 function hrTick() {
   
   const video = document.getElementById('hr-video');
@@ -3933,12 +4018,14 @@ function hrTick() {
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const frame = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-  let sum = 0;
-  for (let i = 0; i < frame.length; i += 4) { sum += frame[i]; }
-  const avgRed = sum / (frame.length / 4);
+  let sum = 0, sumG = 0, sumB = 0;
+  for (let i = 0; i < frame.length; i += 4) { sum += frame[i]; sumG += frame[i + 1]; sumB += frame[i + 2]; }
+  const px = frame.length / 4;
+  const avgRed = sum / px;
   hrSamples.push({ t: Date.now(), v: avgRed });
 
   const elapsed = Date.now() - hrStartTime;
+  hrUpdateGuidance(avgRed, sumG / px, sumB / px, elapsed);
   if (elapsed < HR_DURATION_MS) {
     hrRafId = requestAnimationFrame(hrTick);
   } else {
@@ -3957,7 +4044,8 @@ function finishHeartRateMeasure() {
   let patternAbnormal = false;
   if (reading) {
     document.getElementById('heartrate').value = reading.bpm;
-    status.textContent = 'Estimated heart rate: ' + reading.bpm + ' bpm (added below)';
+    status.textContent = 'Estimated heart rate: ' + reading.bpm + ' bpm (added below)' +
+      ((hrTotalFrames > 0 && hrGoodFrames / hrTotalFrames < 0.6) ? '. Signal was weak, so this may be less accurate. Try again with your fingertip covering the lens and flash.' : '');
 
     const pattern = analyzeHeartRatePattern(reading.bpm, reading.peakTimes);
     patternAbnormal = pattern.abnormal;

@@ -992,3 +992,8 @@ nav button.active .icon { filter: none; }
   padding: 10px 14px; font-size: 12.5px; border-radius: 10px;
 }
 #med-photo-pending-note { padding: 2px 0; }
+
+
+/* Release 1 polish: small, additive tweaks only */
+#vitals-screen input::placeholder { font-size: 14px; }
+.emergency-card button.call { font-size: 15px; }
