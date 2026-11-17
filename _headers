@@ -13,3 +13,14 @@
 
 /.well-known/assetlinks.json
   Content-Type: application/json; charset=utf-8
+
+# Security headers (added 16 Nov 2026). The Content-Security-Policy is in
+# Report-Only mode: it reports problems in the browser console but blocks
+# nothing, so it cannot break the app. Review the console, then tighten it.
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=(self), interest-cohort=()
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://cdnjs.cloudflare.com https://js.paystack.co https://js.sentry-cdn.com https://cdn.jsdelivr.net https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' blob:; connect-src 'self' https: wss:; frame-src https://js.paystack.co https://checkout.paystack.com https://*.google.com https://*.doubleclick.net https://*.googlesyndication.com; worker-src 'self'; object-src 'none'; base-uri 'self'
