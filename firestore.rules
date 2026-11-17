@@ -45,22 +45,30 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.patientUid;
 
-      // Any signed-in user can read an invite by its code (needed to check
-      // validity before claiming). Codes are random 6-character strings, so
-      // this isn't practically guessable/enumerable.
-      allow read: if request.auth != null;
+      // A signed-in user can read ONE invite if they already know its code
+      // (needed to check validity before claiming). Listing/querying the
+      // collection is NOT allowed for strangers: it used to be, which let any
+      // account list every open invite and claim one. The patient can list
+      // only their own invites (used when deleting an account).
+      allow get: if request.auth != null;
+      allow list: if request.auth != null
+                  && resource.data.patientUid == request.auth.uid;
+      allow delete: if request.auth != null
+                    && resource.data.patientUid == request.auth.uid;
 
       // Claiming: can only move usedBy from empty to your own uid - nothing
       // else on the invite can be changed, and it can't be re-claimed.
+      // Expiry is now enforced here too, not only in the app.
       allow update: if request.auth != null
                     && resource.data.usedBy == null
+                    && request.time.toMillis() < resource.data.get('expiresAt', 0)
                     && request.resource.data.usedBy == request.auth.uid
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy']);
     }
 
     match /medPhotos/{photoId} {
       // Doc ID convention (patientUid_medId_date) is for readability/
-      // uniqueness only â€” the actual permission check below is always on
+      // uniqueness only — the actual permission check below is always on
       // the patientUid FIELD inside the document, never parsed from the ID.
       allow create: if request.auth != null
                     && request.resource.data.patientUid == request.auth.uid
@@ -68,12 +76,16 @@ service cloud.firestore {
                     && request.resource.data.photoBase64 is string;
 
       // Owner, or a caregiver this patient's own users/{uid} doc already
-      // lists in caregiverUids â€” the same access gate the main patient
+      // lists in caregiverUids — the same access gate the main patient
       // record itself uses, so a photo is never readable by anyone who
       // couldn't already read the rest of this patient's data.
       allow read: if request.auth != null
                   && (resource.data.patientUid == request.auth.uid
                       || request.auth.uid in get(/databases/$(database)/documents/users/$(resource.data.patientUid)).data.get('caregiverUids', []));
+
+      // The patient can delete their own photos (account/data deletion).
+      allow delete: if request.auth != null
+                    && resource.data.patientUid == request.auth.uid;
     }
 
     match /caregiverLinks/{linkId} {
@@ -84,7 +96,9 @@ service cloud.firestore {
       // Reads are checked per document, so a query for your own links only
       // ever returns docs that pass this check.
       allow read: if request.auth != null
-                  && (linkId == request.auth.uid || resource.data.caregiverUid == request.auth.uid);
+                  && (linkId == request.auth.uid
+                      || resource.data.caregiverUid == request.auth.uid
+                      || resource.data.get('patientUid', '') == request.auth.uid);
 
       // Can only create a link that names YOU as the caregiver, and only if
       // it points at the patient whose invite you just successfully claimed.
@@ -96,10 +110,14 @@ service cloud.firestore {
                     && get(/databases/$(database)/documents/invites/$(request.resource.data.claimCode)).data.usedBy == request.auth.uid
                     && get(/databases/$(database)/documents/invites/$(request.resource.data.claimCode)).data.patientUid == request.resource.data.patientUid;
 
-      // A caregiver may remove ONLY their own links, opting themselves out.
-      // There is deliberately no path for a patient to delete these.
+      // A caregiver may remove their own links, opting themselves out.
+      // A patient may remove links that point at THEM, which is only used
+      // when they delete their account (access is already controlled by the
+      // caregiverUids list on their own record).
       allow delete: if request.auth != null
-                    && (linkId == request.auth.uid || resource.data.caregiverUid == request.auth.uid);
+                    && (linkId == request.auth.uid
+                        || resource.data.caregiverUid == request.auth.uid
+                        || resource.data.get('patientUid', '') == request.auth.uid);
     }
   }
 }
