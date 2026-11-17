@@ -132,6 +132,16 @@
     const file = input.files && input.files[0];
     if (!file) return;
     fileToResizedJpegBase64(file).then(function (dataUrl) {
+      // The photo is only sent after the person has agreed to AI processing.
+      if (window.sxAiConsentOk && !window.sxAiConsentOk() && window.sxShowAiConsent) {
+        return new Promise(function (resolve) {
+          window.sxShowAiConsent('scan', function () { resolve(true); }, function () { resolve(false); });
+        }).then(function (agreed) {
+          if (!agreed) { renderErrorStep('Document scanning needs your consent to AI processing. Nothing was sent.'); return null; }
+          renderScanningStep(dataUrl);
+          return callScanWorker(dataUrl);
+        });
+      }
       renderScanningStep(dataUrl);
       return callScanWorker(dataUrl);
     }).then(function (result) {
@@ -156,7 +166,7 @@
   }
 
   function callScanWorker(dataUrl) {
-    return fetch(SCAN_WORKER_URL, {
+    return (window.sxWorkerFetch || fetch)((window.SX_GATEWAY_URL ? window.SX_GATEWAY_URL + '/scan' : SCAN_WORKER_URL), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: dataUrl })

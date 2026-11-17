@@ -1825,7 +1825,13 @@ function generateInviteCode() {
       alert('You can link up to ' + MAX_CAREGIVERS + ' caregivers. Remove one before inviting another.');
       return;
     }
-    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    // 10 characters from an unambiguous alphabet, using the browser's secure random source
+    // (the old 6-character Math.random code was guessable).
+    const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const rnd = new Uint8Array(10);
+    (window.crypto || window.msCrypto).getRandomValues(rnd);
+    let code = '';
+    for (let i = 0; i < rnd.length; i++) code += CODE_CHARS.charAt(rnd[i] % CODE_CHARS.length);
     const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
     firebase.firestore().collection('invites').doc(code).set({
       patientUid: user.uid,
@@ -2226,7 +2232,12 @@ function toggleFirstAid(id) {
 // approval still being pending never blocks the email half. Leave this
 // blank and the worker call is skipped automatically (WhatsApp still works
 // either way).
-const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/';
+// Gateway: set this to your gateway Worker address (no trailing slash), for example
+// 'https://sentrax-gateway.yourname.workers.dev', to send SOS, AI and scanner calls through it.
+// Leave it empty to keep using the direct Worker addresses below.
+const SX_GATEWAY_URL = '';
+window.SX_GATEWAY_URL = SX_GATEWAY_URL;
+const SOS_SMS_WORKER_URL = SX_GATEWAY_URL ? SX_GATEWAY_URL + '/sos' : 'https://sentrax-sos-sms.alecedoh1994.workers.dev/';
 // Shared secret sent with every SOS worker request, checked against
 // env.SOS_SHARED_SECRET on the Worker side (see setup notes given
 // alongside this change). This is NOT airtight — a pure client-side app
@@ -2236,7 +2247,7 @@ const SOS_SMS_WORKER_URL = 'https://sentrax-sos-sms.alecedoh1994.workers.dev/';
 // automated scanner hitting exposed Worker URLs, without needing to dig
 // through app source at all. Real protection against a targeted attacker
 // would need a server-side component this app doesn't have.
-const SOS_WORKER_SHARED_SECRET = '9b2130862489d515ded40ad792739e4df2db09a4db6383c8';
+const SOS_WORKER_SHARED_SECRET = SX_GATEWAY_URL ? '' : '9b2130862489d515ded40ad792739e4df2db09a4db6383c8';
 
 // navigator.onLine alone is known to be unreliable inside PWA/TWA app
 // wrappers (like the PWABuilder-generated APK this runs as) — it can
@@ -2508,7 +2519,7 @@ async function triggerSOS() {
         const phone = normalizeNigerianPhone(cg.phone);
         const email = cg.email || '';
         if (!phone && !email) return;
-        fetch(SOS_SMS_WORKER_URL, {
+        sxWorkerFetch(SOS_SMS_WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Sentra-Secret': SOS_WORKER_SHARED_SECRET },
           body: JSON.stringify({ phone: phone, email: email, name: name, message: caregiverMsgPlain })
@@ -2557,7 +2568,7 @@ async function triggerSOS() {
       // caregiver loop above so it can never affect caregiver delivery even
       // if this call fails.
       if (notifyStateLine && (BAYELSA_EMERGENCY_PHONE || BAYELSA_EMERGENCY_EMAIL)) {
-        fetch(SOS_SMS_WORKER_URL, {
+        sxWorkerFetch(SOS_SMS_WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Sentra-Secret': SOS_WORKER_SHARED_SECRET },
           body: JSON.stringify({ phone: normalizeNigerianPhone(BAYELSA_EMERGENCY_PHONE), email: BAYELSA_EMERGENCY_EMAIL, name: name, message: stateMsg })
@@ -3530,7 +3541,7 @@ function registerMedBackgroundSync() {
   }).catch(function () {});
 }
 registerMedBackgroundSync();
-const AI_WORKER_URL = 'https://sentrax-ai.alecedoh1994.workers.dev/';
+const AI_WORKER_URL = SX_GATEWAY_URL ? SX_GATEWAY_URL + '/ai' : 'https://sentrax-ai.alecedoh1994.workers.dev/';
 const AI_MAX_THREADS = 20;
 const AI_MAX_MESSAGES_PER_THREAD = 40;
 
@@ -3714,6 +3725,7 @@ function appendAiMessage(role, text) {
 // answers grounded in their real situation instead of purely generic advice.
 // Kept short and label:value style (not prose) to stay cheap on tokens.
 function buildAiHealthContext() {
+  if (!sxAiShareHealthOn()) return ''; // opt-in only: nothing about the person's health is sent unless they chose it
   const parts = [];
   const condition = localStorage.getItem('userCondition');
   if (condition) parts.push('Known condition: ' + condition);
@@ -3741,6 +3753,7 @@ function buildAiHealthContext() {
 
 function sendAiMessage() {
   if (aiSendInFlight) return; // a reply is already being generated — ignore extra taps/enters/voice-sends until it lands
+  if (!sxAiConsentOk()) { sxShowAiConsent('chat', function () { sendAiMessage(); }, function () {}); return; } // first use: ask for consent
   const input = document.getElementById('ai-chat-input');
   const text = input.value.trim();
   if (!text) return;
@@ -3768,7 +3781,7 @@ function sendAiMessage() {
   const healthContext = buildAiHealthContext();
   const systemMessages = [{ role: 'system', content: SENTRAX_IDENTITY }];
   if (healthContext) systemMessages.push({ role: 'system', content: healthContext });
-  fetch(AI_WORKER_URL, {
+  sxWorkerFetch(AI_WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages: systemMessages.concat(thread.messages.slice(-24)) }),
@@ -4213,3 +4226,241 @@ function cancelHeartRateMeasure() {
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
       } 
+
+
+// =====================================================================
+// Privacy features: consent, data deletion, data download, token for workers
+// (added 16 Nov 2026). Everything here is new and self-contained.
+// =====================================================================
+const SX_POLICY_VERSION = '2026-11-16';
+
+// Sends the user's Firebase ID token inside the JSON body so a Worker can verify
+// who is calling. It is added only when a token is available within 1.5 s, so an
+// SOS is never held up for long, and the request is otherwise unchanged.
+function sxWorkerFetch(url, opts) {
+  let user = null;
+  try { user = (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) || null; } catch (_e) { user = null; }
+  if (!user || typeof user.getIdToken !== 'function') return fetch(url, opts);
+  const tok = Promise.race([
+    user.getIdToken(),
+    new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 1500); })
+  ]).catch(function () { return null; });
+  return tok.then(function (t) {
+    if (!t) return fetch(url, opts);
+    try {
+      const o = Object.assign({}, opts);
+      const b = JSON.parse(o.body);
+      b.idToken = t;
+      o.body = JSON.stringify(b);
+      return fetch(url, o);
+    } catch (_e) { return fetch(url, opts); }
+  });
+}
+window.sxWorkerFetch = sxWorkerFetch;
+window.sxIdToken = function () {
+  try {
+    const u = firebase.auth().currentUser;
+    if (!u) return Promise.resolve(null);
+    return Promise.race([u.getIdToken(), new Promise(function (r) { setTimeout(function () { r(null); }, 1500); })]).catch(function () { return null; });
+  } catch (_e) { return Promise.resolve(null); }
+};
+
+// ---- a small modal builder (DOM only, text set with textContent) ----
+function sxModal(titleText, paragraphs, extraEl, buttons) {
+  const old = document.getElementById('sx-modal');
+  if (old) old.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'sx-modal';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(2,6,23,0.82);display:flex;align-items:center;justify-content:center;padding:18px;';
+  const card = document.createElement('div');
+  card.style.cssText = 'background:#0f172a;border:1px solid rgba(148,163,184,0.3);border-radius:18px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow:auto;color:#e2e8f0;box-sizing:border-box;';
+  const h = document.createElement('h3');
+  h.textContent = titleText;
+  h.style.cssText = 'margin:0 0 10px;font-size:18px;color:#fff;';
+  card.appendChild(h);
+  paragraphs.forEach(function (t) {
+    const p = document.createElement('p');
+    p.textContent = t;
+    p.style.cssText = 'margin:0 0 10px;font-size:14px;line-height:1.5;color:#cbd5e1;';
+    card.appendChild(p);
+  });
+  if (extraEl) card.appendChild(extraEl);
+  buttons.forEach(function (b) {
+    const btn = document.createElement('button');
+    btn.textContent = b.label;
+    btn.style.cssText = 'width:100%;margin-top:10px;padding:13px;border-radius:12px;border:0;font-size:15px;font-weight:600;cursor:pointer;' +
+      (b.kind === 'danger' ? 'background:#b91c1c;color:#fff;' : b.kind === 'primary' ? 'background:#2563eb;color:#fff;' : 'background:rgba(255,255,255,0.1);color:#e2e8f0;');
+    btn.addEventListener('click', function () { b.onClick(wrap); });
+    card.appendChild(btn);
+  });
+  wrap.appendChild(card);
+  document.body.appendChild(wrap);
+  return wrap;
+}
+function sxLink(text, href) {
+  const a = document.createElement('a');
+  a.textContent = text; a.href = href; a.target = '_blank'; a.rel = 'noopener';
+  a.style.cssText = 'display:block;margin:4px 0 6px;font-size:13px;color:#60a5fa;';
+  return a;
+}
+
+// ---- AI assistant and document scanner consent ----
+function sxAiConsentOk() { try { return localStorage.getItem('aiConsentV1') === 'yes'; } catch (_e) { return false; } }
+function sxAiShareHealthOn() { try { return localStorage.getItem('aiShareHealth') === 'yes'; } catch (_e) { return false; } }
+function sxSaveAiConsent(share) {
+  try {
+    localStorage.setItem('aiConsentV1', 'yes');
+    localStorage.setItem('aiShareHealth', share ? 'yes' : 'no');
+  } catch (_e) { /* best effort */ }
+  try { syncToFirestore({ consents: { ai: { version: SX_POLICY_VERSION, at: Date.now(), shareHealth: !!share } } }); } catch (_e) { /* device copy kept */ }
+}
+function sxShowAiConsent(kind, onYes, onNo) {
+  const scan = kind === 'scan';
+  const paras = scan
+    ? ['The photo you choose is sent to an AI service that reads the text on it. It may be processed outside Nigeria.',
+       'Please avoid photos that show your face, ID numbers or other people. AI results are general information, not medical advice. You can withdraw consent any time in the Family tab, under Your data and privacy.']
+    : ['Your questions are sent to an AI service that writes the replies. It may be processed outside Nigeria. Please do not type your full name, address or ID numbers.',
+       'AI replies are general information, not medical advice. You can withdraw consent any time in the Family tab, under Your data and privacy.'];
+  let extra = null, cb = null;
+  if (!scan) {
+    extra = document.createElement('label');
+    extra.style.cssText = 'display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#cbd5e1;margin:6px 0;';
+    cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.style.cssText = 'width:18px;height:18px;margin-top:2px;flex-shrink:0;';
+    const sp = document.createElement('span');
+    sp.textContent = 'Also include my latest readings, medicines and condition, so answers are more personal.';
+    extra.appendChild(cb); extra.appendChild(sp);
+  }
+  const wrapEl = document.createElement('div');
+  if (extra) wrapEl.appendChild(extra);
+  wrapEl.appendChild(sxLink('How we handle AI and your data', 'privacy.html#ai'));
+  sxModal(scan ? 'Before you scan a document' : 'Before you use the AI assistant', paras, wrapEl, [
+    { label: 'I agree', kind: 'primary', onClick: function (w) {
+        const keep = sxAiShareHealthOn();
+        sxSaveAiConsent(cb ? cb.checked : keep);
+        w.remove(); if (onYes) onYes();
+    } },
+    { label: 'Not now', kind: 'secondary', onClick: function (w) { w.remove(); if (onNo) onNo(); } }
+  ]);
+}
+window.sxAiConsentOk = sxAiConsentOk;
+window.sxShowAiConsent = sxShowAiConsent;
+function sxOpenAiSettings() {
+  const extra = document.createElement('div');
+  const label = document.createElement('label');
+  label.style.cssText = 'display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#cbd5e1;margin:6px 0;';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.checked = sxAiShareHealthOn(); cb.style.cssText = 'width:18px;height:18px;margin-top:2px;flex-shrink:0;';
+  const sp = document.createElement('span');
+  sp.textContent = 'Include my latest readings, medicines and condition in AI answers.';
+  label.appendChild(cb); label.appendChild(sp); extra.appendChild(label);
+  extra.appendChild(sxLink('How we handle AI and your data', 'privacy.html#ai'));
+  sxModal('AI privacy settings', [sxAiConsentOk() ? 'AI features are switched on for this account.' : 'AI features are switched off until you agree on first use.'], extra, [
+    { label: 'Save', kind: 'primary', onClick: function (w) {
+        if (sxAiConsentOk()) sxSaveAiConsent(cb.checked);
+        w.remove();
+    } },
+    { label: 'Withdraw AI consent', kind: 'danger', onClick: function (w) {
+        try { localStorage.removeItem('aiConsentV1'); localStorage.setItem('aiShareHealth', 'no'); } catch (_e) {}
+        try { syncToFirestore({ consents: { ai: { version: SX_POLICY_VERSION, at: Date.now(), withdrawn: true } } }); } catch (_e) {}
+        w.remove();
+    } },
+    { label: 'Close', kind: 'secondary', onClick: function (w) { w.remove(); } }
+  ]);
+}
+window.sxOpenAiSettings = sxOpenAiSettings;
+
+// ---- Download my data ----
+function downloadMyData() {
+  const user = firebase.auth().currentUser;
+  if (!user) { alert('Please log in first.'); return; }
+  firebase.firestore().collection('users').doc(user.uid).get().then(function (snap) {
+    const data = snap.exists ? snap.data() : {};
+    delete data.pushSubscription; // a technical token, not personal content
+    let contacts = [];
+    try { contacts = JSON.parse(localStorage.getItem('caregivers') || '[]'); } catch (_e) { contacts = []; }
+    const out = { exportedAt: new Date().toISOString(), account: { email: user.email, uid: user.uid }, cloudData: data, caregiverContactsOnThisPhone: contacts };
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sentrax-my-data.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }).catch(function () { alert('Could not prepare your data right now. Please check your connection and try again.'); });
+}
+window.downloadMyData = downloadMyData;
+
+// ---- Delete my account and data ----
+function sxDeleteWhere(colRef, field, value) {
+  return colRef.where(field, '==', value).get().then(function (snap) {
+    return Promise.all(snap.docs.map(function (d) { return d.ref.delete(); }));
+  });
+}
+function deleteMyAccount() {
+  const user = firebase.auth().currentUser;
+  if (!user) { alert('Please log in first.'); return; }
+  if (!navigator.onLine) { alert('You need an internet connection to delete your account.'); return; }
+  const pw = document.createElement('input');
+  pw.type = 'password'; pw.placeholder = 'Your password'; pw.autocomplete = 'current-password';
+  pw.style.cssText = 'width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:16px;margin-top:6px;';
+  const msg = document.createElement('div');
+  msg.style.cssText = 'min-height:18px;margin-top:8px;font-size:13px;color:#fca5a5;';
+  const wrapEl = document.createElement('div');
+  wrapEl.appendChild(pw); wrapEl.appendChild(msg);
+  sxModal('Delete your account?', [
+    'This permanently deletes your Sentra-X account, readings, medicines, photos and invites, and removes caregivers\' access. It cannot be undone.',
+    'Messages already sent by SMS or email, and records kept by our service providers for a short time, are outside our control. Enter your password to confirm.'
+  ], wrapEl, [
+    { label: 'Delete my account', kind: 'danger', onClick: function (w) {
+        if (!pw.value) { msg.textContent = 'Please enter your password.'; return; }
+        msg.style.color = '#cbd5e1'; msg.textContent = 'Deleting... please wait.';
+        const db = firebase.firestore(), uid = user.uid;
+        const cred = firebase.auth.EmailAuthProvider.credential(user.email, pw.value);
+        user.reauthenticateWithCredential(cred)
+          .then(function () { return sxDeleteWhere(db.collection('invites'), 'patientUid', uid); })
+          .then(function () { return sxDeleteWhere(db.collection('medPhotos'), 'patientUid', uid); })
+          .then(function () { return sxDeleteWhere(db.collection('caregiverLinks'), 'patientUid', uid); })
+          .then(function () {
+            // If this person is also a caregiver for others, step off their access lists first.
+            return db.collection('caregiverLinks').where('caregiverUid', '==', uid).get().then(function (snap) {
+              return Promise.all(snap.docs.map(function (d) {
+                const pu = d.data().patientUid;
+                const step = pu ? db.collection('users').doc(pu).update({
+                  caregiverUids: firebase.firestore.FieldValue.arrayRemove(uid),
+                  ['caregiverInfo.' + uid]: firebase.firestore.FieldValue.delete()
+                }).catch(function () { /* best effort */ }) : Promise.resolve();
+                return step.then(function () { return d.ref.delete(); });
+              }));
+            });
+          })
+          .then(function () { return db.collection('caregiverLinks').doc(uid).delete().catch(function () { /* legacy link may not exist */ }); })
+          .then(function () { return db.collection('users').doc(uid).delete(); })
+          .then(function () { return user.delete(); })
+          .then(function () {
+            try { localStorage.clear(); sessionStorage.clear(); } catch (_e) {}
+            alert('Your account and data have been deleted.');
+            window.location.href = '/';
+          })
+          .catch(function (e) {
+            msg.style.color = '#fca5a5';
+            msg.textContent = (e && (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials'))
+              ? 'That password is not correct.'
+              : (e && e.code === 'auth/too-many-requests') ? 'Too many attempts. Please wait a few minutes and try again.'
+              : 'Could not finish deleting. Some data may already be removed. Please try again, or email sentraxforteltd@gmail.com.';
+            console.error('Sentra-X: account deletion failed:', e && e.code, e && e.message);
+          });
+    } },
+    { label: 'Cancel', kind: 'secondary', onClick: function (w) { w.remove(); } }
+  ]);
+}
+window.deleteMyAccount = deleteMyAccount;
+
+// ---- Log out and wipe this phone ----
+function logOutAndWipe() {
+  if (!confirm('Log out and erase the Sentra-X data saved on THIS phone? Your cloud account is not deleted. Caregiver contacts saved only on this phone will be removed.')) return;
+  const done = function () { try { localStorage.clear(); sessionStorage.clear(); } catch (_e) {} window.location.href = '/'; };
+  try { firebase.auth().signOut().then(done, done); } catch (_e) { done(); }
+}
+window.logOutAndWipe = logOutAndWipe;
