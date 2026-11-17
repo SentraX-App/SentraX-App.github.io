@@ -123,7 +123,7 @@
       <input type="password" id="auth-password" placeholder="Password">
       <label id="auth-consent-row" style="display:none;align-items:flex-start;gap:8px;font-size:12.5px;color:#94a3b8;margin:10px 0;text-align:left;width:100%;box-sizing:border-box;">
         <input type="checkbox" id="auth-consent" style="width:16px;height:16px;padding:0;margin:3px 0 0;flex-shrink:0;accent-color:#3b82f6;">
-        <span style="flex:1;">I consent to Sentra-X collecting and processing my health data as described in the <a href="privacy.html" target="_blank" style="color:#60a5fa;">Privacy Policy</a>, in line with the Nigeria Data Protection Act.</span>
+        <span style="flex:1;">I am 18 or over (or a parent or guardian), and I consent to Sentra-X collecting and processing my health data as described in the <a href="privacy.html" target="_blank" style="color:#60a5fa;">Privacy Policy</a>, in line with the Nigeria Data Protection Act.</span>
       </label>
       <div class="error" id="auth-error"></div>
       <button id="auth-submit-btn" onclick="submitAuth()">Log In</button>
@@ -435,8 +435,17 @@
       <button class="ghost" onclick="changeAccountPassword()">Change Password</button>
       <button class="secondary" style="margin-top:10px;" onclick="logOut()">Log Out</button>
     </div>
+    <div class="card">
+      <h3>Your data and privacy</h3>
+      <button class="ghost" onclick="downloadMyData()">Download my data</button>
+      <button class="ghost" style="margin-top:10px;" onclick="sxOpenAiSettings()">AI privacy settings</button>
+      <button class="ghost" style="margin-top:10px;" onclick="logOutAndWipe()">Log out and erase data on this phone</button>
+      <button class="ghost" style="margin-top:10px;color:#fca5a5;" onclick="deleteMyAccount()">Delete my account</button>
+    </div>
     <div style="text-align:center;padding:14px 0 4px;">
       <a href="privacy.html" style="color:#94a3b8;font-size:12.5px;text-decoration:underline;">Privacy Policy</a>
+      <span style="color:#64748b;"> · </span>
+      <a href="delete-account.html" style="color:#94a3b8;font-size:12.5px;text-decoration:underline;">Delete account</a>
     </div>
   </div>
   <div class="screen" id="firstaid-screen">

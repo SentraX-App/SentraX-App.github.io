@@ -87,6 +87,8 @@
     firebase.auth().createUserWithEmailAndPassword(email, password)
       .then(function() {
         console.log('Sentra-X: sign up successful.');
+        // Keep a dated record of what the person agreed to (version of the policy and when).
+        try { if (typeof syncToFirestore === 'function') syncToFirestore({ consents: { privacy: { version: '2026-11-16', at: Date.now(), ageConfirmed: true } } }); } catch (_e) { /* not critical */ }
       })
       .catch(function(err) {
         console.error('Sentra-X sign up error:', err.code, err.message);
