@@ -3968,7 +3968,7 @@ function measureHeartRate() {
   box.style.display = 'block';
   status.textContent = 'Starting camera…';
   hrSamples = [];
-  hrGoodFrames = 0; hrTotalFrames = 0; hrGuideLast = 0;
+  hrGoodFrames = 0; hrTotalFrames = 0; hrSatFrames = 0; hrGuideLast = 0;
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
 
@@ -4000,23 +4000,108 @@ function measureHeartRate() {
 
 // Live finger-placement guidance. Reads the same camera frames as the
 // measurement; it only changes the on-screen message and never the result.
-let hrGuideLast = 0, hrGoodFrames = 0, hrTotalFrames = 0;
+let hrGuideLast = 0, hrGoodFrames = 0, hrTotalFrames = 0, hrSatFrames = 0, hrRejectReason = '';
+// Visual signal indicator: finger icon + 5 bars + label (green good, amber weak, red no finger).
+// Built here so no page markup has to change. It reads the same frames as the measurement.
+function hrPulseStrength() {
+  const n = hrSamples.length;
+  if (n < 20) return null;
+  const w = hrSamples.slice(Math.max(0, n - 45)).map(function (x) { return x.v; });
+  const mean = w.reduce(function (a, b) { return a + b; }, 0) / w.length;
+  const sd = Math.sqrt(w.reduce(function (a, b) { return a + Math.pow(b - mean, 2); }, 0) / w.length);
+  return mean > 0 ? sd / mean : 0;
+}
+function hrSignalState(covered, saturated) {
+  if (!covered) return { level: 0, color: '#ef4444', label: 'No finger detected' };
+  if (saturated) return { level: 2, color: '#f59e0b', label: 'Pressing too hard' };
+  const pi = hrPulseStrength();
+  if (pi === null) return { level: 1, color: '#f59e0b', label: 'Checking signal' };
+  if (pi >= 0.004) return { level: 5, color: '#22c55e', label: 'Good signal' };
+  if (pi >= 0.0015) return { level: 3, color: '#f59e0b', label: 'Weak signal' };
+  return { level: 1, color: '#ef4444', label: 'Very weak signal' };
+}
+function hrRenderSignal(st) {
+  try {
+    const status = document.getElementById('hr-status');
+    if (!status) return;
+    let box = document.getElementById('hr-signal');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'hr-signal';
+      box.setAttribute('aria-live', 'polite');
+      box.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 0 4px;';
+      const icon = document.createElement('span');
+      icon.id = 'hr-signal-icon'; icon.textContent = '\u261D\uFE0F'; icon.style.cssText = 'font-size:30px;line-height:1;';
+      const bars = document.createElement('span');
+      bars.id = 'hr-signal-bars'; bars.style.cssText = 'display:flex;gap:4px;align-items:flex-end;height:24px;';
+      for (let i = 1; i <= 5; i++) {
+        const b = document.createElement('span');
+        b.style.cssText = 'width:7px;border-radius:2px;background:rgba(148,163,184,0.35);height:' + (6 + i * 4) + 'px;transition:background .25s;';
+        bars.appendChild(b);
+      }
+      const label = document.createElement('span');
+      label.id = 'hr-signal-label'; label.style.cssText = 'font-size:15px;font-weight:700;min-width:140px;';
+      box.appendChild(icon); box.appendChild(bars); box.appendChild(label);
+      status.parentNode.insertBefore(box, status);
+    }
+    box.style.display = 'flex';
+    const bars = document.getElementById('hr-signal-bars').children;
+    for (let i = 0; i < bars.length; i++) bars[i].style.background = i < st.level ? st.color : 'rgba(148,163,184,0.35)';
+    const label = document.getElementById('hr-signal-label');
+    label.textContent = st.label; label.style.color = st.color;
+  } catch (_e) { /* cosmetic only */ }
+}
+function hrHideSignal() { try { const b = document.getElementById('hr-signal'); if (b) b.style.display = 'none'; } catch (_e) {} }
+
 function hrUpdateGuidance(r, g, b, elapsed) {
   hrTotalFrames++;
   const covered = r > 60 && r > g * 1.3 && r > b * 1.3;
   const saturated = r >= 250;
   if (covered && !saturated) hrGoodFrames++;
+  if (saturated) hrSatFrames++;
   const now = Date.now();
   if (now - hrGuideLast < 400) return;
   hrGuideLast = now;
+  const sig = hrSignalState(covered, saturated);
+  hrRenderSignal(sig);
   const status = document.getElementById('hr-status');
   if (!status) return;
   const left = Math.max(0, Math.ceil((HR_DURATION_MS - elapsed) / 1000));
   let msg;
   if (!covered) msg = 'Cover the camera lens and flash fully with your fingertip pad';
   else if (saturated) msg = 'Press a little lighter and keep your finger still';
-  else msg = 'Good signal. Hold still';
+  else if (sig.level >= 5) msg = 'Good signal. Hold still';
+  else msg = 'Signal is weak. Cover the lens and flash fully, press lightly and keep still';
   status.textContent = msg + ' (' + left + 's)';
+}
+
+// Extra check after the normal detection: a reading is only kept if the fingertip was
+// really on the camera for most of the time and the pulse was steady enough to trust.
+// This can only REJECT a reading, never change its value.
+function hrReadingIsTrustworthy(reading) {
+  hrRejectReason = '';
+  const coverage = hrTotalFrames > 0 ? hrGoodFrames / hrTotalFrames : 1;
+  if (coverage < 0.3) { hrRejectReason = (hrTotalFrames > 0 && hrSatFrames / hrTotalFrames > 0.5) ? 'light' : 'cover'; return false; }
+  const pt = reading.peakTimes || [];
+  if (pt.length >= 12) {
+    // A resting pulse does not steadily speed up or slow down over 20 seconds. Count beats in
+    // four equal slices; a clear one-way drift usually means the finger or lighting is changing.
+    // (Random beat-to-beat irregularity is NOT rejected, so the rhythm warning still works.)
+    const t0 = pt[0], span = pt[pt.length - 1] - t0;
+    const q = [0, 0, 0, 0];
+    pt.forEach(function (t) { q[Math.min(3, Math.floor(((t - t0) / span) * 4))]++; });
+    const up = q[0] < q[1] && q[1] < q[2] && q[2] < q[3];
+    const down = q[0] > q[1] && q[1] > q[2] && q[2] > q[3];
+    const mean = (q[0] + q[1] + q[2] + q[3]) / 4;
+    if ((up || down) && mean > 0 && Math.abs(q[3] - q[0]) / mean > 0.3) { hrRejectReason = 'steady'; return false; }
+    // Extremely uneven spacing between beats is almost always noise, not a real rhythm.
+    const iv = [];
+    for (let i = 1; i < pt.length; i++) iv.push(pt[i] - pt[i - 1]);
+    const m = iv.reduce(function (x, y) { return x + y; }, 0) / iv.length;
+    const sd = Math.sqrt(iv.reduce(function (x, y) { return x + Math.pow(y - m, 2); }, 0) / iv.length);
+    if (m > 0 && sd / m > 0.5) { hrRejectReason = 'steady'; return false; }
+  }
+  return true;
 }
 
 function hrTick() {
@@ -4049,7 +4134,11 @@ function hrTick() {
 function finishHeartRateMeasure() {
   const status = document.getElementById('hr-status');
   const alertBox = document.getElementById('hr-pattern-alert');
-  const reading = calculateBpmFromSamples(hrSamples);
+  hrRejectReason = '';
+  hrHideSignal();
+  let reading = calculateBpmFromSamples(hrSamples);
+  if (reading && !hrReadingIsTrustworthy(reading)) reading = null;
+  if (!reading && !hrRejectReason && hrTotalFrames > 0 && hrGoodFrames / hrTotalFrames < 0.3) hrRejectReason = (hrSatFrames / hrTotalFrames > 0.5) ? 'light' : 'cover';
   stopHeartRateCamera();
 
   if (alertBox) alertBox.style.display = 'none';
@@ -4068,7 +4157,13 @@ function finishHeartRateMeasure() {
       alertBox.style.display = 'flex';
     }
   } else {
-    status.textContent = 'Could not get a clear reading. Try again, holding still.';
+    status.textContent = hrRejectReason === 'cover'
+      ? 'Could not get a clear reading. Cover the camera lens and flash fully with your fingertip pad, then try again.'
+      : hrRejectReason === 'light'
+        ? 'Could not get a clear reading. Press a little lighter, keep your finger still and try again.'
+        : hrRejectReason === 'steady'
+        ? 'Your pulse signal was not steady enough to trust. Rest, keep still, press lightly and try again.'
+        : 'Could not get a clear reading. Try again, holding still.';
   }
 
   if (!patternAbnormal) {
@@ -4232,7 +4327,7 @@ function cancelHeartRateMeasure() {
 // Privacy features: consent, data deletion, data download, token for workers
 // (added 16 Nov 2026). Everything here is new and self-contained.
 // =====================================================================
-const SX_POLICY_VERSION = '2026-11-16';
+const SX_POLICY_VERSION = '2026-11-18';
 
 // Sends the user's Firebase ID token inside the JSON body so a Worker can verify
 // who is calling. It is added only when a token is available within 1.5 s, so an
@@ -4266,24 +4361,28 @@ window.sxIdToken = function () {
 };
 
 // ---- a small modal builder (DOM only, text set with textContent) ----
-function sxModal(titleText, paragraphs, extraEl, buttons) {
+// Esc and tapping outside the card close it (and call onDismiss). The page behind
+// does not scroll while it is open.
+function sxModal(titleText, paragraphs, extraEl, buttons, onDismiss) {
   const old = document.getElementById('sx-modal');
   if (old) old.remove();
+  const prevOverflow = document.body.style.overflow;
   const wrap = document.createElement('div');
   wrap.id = 'sx-modal';
   wrap.setAttribute('role', 'dialog');
   wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-label', titleText);
   wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(2,6,23,0.82);display:flex;align-items:center;justify-content:center;padding:18px;';
   const card = document.createElement('div');
-  card.style.cssText = 'background:#0f172a;border:1px solid rgba(148,163,184,0.3);border-radius:18px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow:auto;color:#e2e8f0;box-sizing:border-box;';
+  card.style.cssText = 'background:#0f172a;border:1px solid rgba(148,163,184,0.3);border-radius:18px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow:auto;color:#e2e8f0;box-sizing:border-box;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
   const h = document.createElement('h3');
   h.textContent = titleText;
-  h.style.cssText = 'margin:0 0 10px;font-size:18px;color:#fff;';
+  h.style.cssText = 'margin:0 0 12px;font-size:18px;line-height:1.3;color:#fff;';
   card.appendChild(h);
   paragraphs.forEach(function (t) {
     const p = document.createElement('p');
     p.textContent = t;
-    p.style.cssText = 'margin:0 0 10px;font-size:14px;line-height:1.5;color:#cbd5e1;';
+    p.style.cssText = 'margin:0 0 10px;font-size:14px;line-height:1.55;color:#cbd5e1;';
     card.appendChild(p);
   });
   if (extraEl) card.appendChild(extraEl);
@@ -4296,8 +4395,58 @@ function sxModal(titleText, paragraphs, extraEl, buttons) {
     card.appendChild(btn);
   });
   wrap.appendChild(card);
+  function close() {
+    document.removeEventListener('keydown', onKey);
+    document.body.style.overflow = prevOverflow;
+    if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+  }
+  function onKey(e) { if (e.key === 'Escape') { close(); if (onDismiss) onDismiss(); } }
+  wrap.remove = close;
+  wrap.addEventListener('click', function (e) { if (e.target === wrap) { close(); if (onDismiss) onDismiss(); } });
+  document.addEventListener('keydown', onKey);
+  document.body.style.overflow = 'hidden';
   document.body.appendChild(wrap);
+  const first = card.querySelector('input,button');
+  if (first) { try { first.focus(); } catch (_e) { /* ignore */ } }
   return wrap;
+}
+// A short message at the bottom of the screen that fades by itself.
+function sxToast(text) {
+  try {
+    const old = document.getElementById('sx-toast');
+    if (old) old.remove();
+    const d = document.createElement('div');
+    d.id = 'sx-toast';
+    d.setAttribute('role', 'status');
+    d.textContent = text;
+    d.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:100002;background:#065f46;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:90vw;text-align:center;';
+    document.body.appendChild(d);
+    setTimeout(function () { if (d.parentNode) d.remove(); }, 2600);
+  } catch (_e) { /* cosmetic */ }
+}
+// A small one-time notice card above the bottom bar.
+function sxNoticeCard(id, text, buttons) {
+  try {
+    if (document.getElementById(id)) return;
+    const d = document.createElement('div');
+    d.id = id;
+    d.setAttribute('role', 'status');
+    d.style.cssText = 'position:fixed;left:10px;right:10px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:9999;background:#0f172a;border:1px solid rgba(148,163,184,0.35);border-radius:14px;padding:12px 14px;color:#cbd5e1;font-size:13px;line-height:1.5;box-shadow:0 10px 30px rgba(0,0,0,0.45);';
+    const p = document.createElement('div');
+    p.textContent = text;
+    d.appendChild(p);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;margin-top:10px;';
+    buttons.forEach(function (b) {
+      const btn = document.createElement('button');
+      btn.textContent = b.label;
+      btn.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:0;font-size:13px;font-weight:600;cursor:pointer;' + (b.primary ? 'background:#2563eb;color:#fff;' : 'background:rgba(255,255,255,0.1);color:#e2e8f0;');
+      btn.addEventListener('click', function () { d.remove(); if (b.onClick) b.onClick(); });
+      row.appendChild(btn);
+    });
+    d.appendChild(row);
+    document.body.appendChild(d);
+  } catch (_e) { /* optional */ }
 }
 function sxLink(text, href) {
   const a = document.createElement('a');
@@ -4306,71 +4455,172 @@ function sxLink(text, href) {
   return a;
 }
 
-// ---- AI assistant and document scanner consent ----
+// ---- Consent: AI features and ads ----
+// Accounts created before this date were already using the AI features under the
+// earlier policy, so their consent is carried over (and they are told once).
+const SX_AI_CUTOFF = Date.UTC(2026, 10, 19);
+
 function sxAiConsentOk() { try { return localStorage.getItem('aiConsentV1') === 'yes'; } catch (_e) { return false; } }
 function sxAiShareHealthOn() { try { return localStorage.getItem('aiShareHealth') === 'yes'; } catch (_e) { return false; } }
-function sxSaveAiConsent(share) {
+function sxAdsPersonalisedOn() { try { return localStorage.getItem('sxAdsConsent') === 'yes'; } catch (_e) { return false; } }
+
+// c = { ai: boolean, share: boolean, ads?: boolean }. Saved on the phone and, when
+// signed in, on the account, so the choice follows the person to a new phone.
+function sxSaveConsents(c) {
   try {
-    localStorage.setItem('aiConsentV1', 'yes');
-    localStorage.setItem('aiShareHealth', share ? 'yes' : 'no');
+    if (c.ai) {
+      localStorage.setItem('aiConsentV1', 'yes');
+      localStorage.setItem('aiShareHealth', c.share ? 'yes' : 'no');
+      localStorage.removeItem('aiConsentDeclined');
+    } else {
+      localStorage.removeItem('aiConsentV1');
+      localStorage.setItem('aiShareHealth', 'no');
+      localStorage.setItem('aiConsentDeclined', '1');
+    }
+    if (typeof c.ads === 'boolean') localStorage.setItem('sxAdsConsent', c.ads ? 'yes' : 'no');
   } catch (_e) { /* best effort */ }
-  try { syncToFirestore({ consents: { ai: { version: SX_POLICY_VERSION, at: Date.now(), shareHealth: !!share } } }); } catch (_e) { /* device copy kept */ }
+  try {
+    const rec = { ai: { version: SX_POLICY_VERSION, at: Date.now(), enabled: !!c.ai, shareHealth: !!(c.ai && c.share) } };
+    if (typeof c.ads === 'boolean') rec.ads = { version: SX_POLICY_VERSION, at: Date.now(), personalised: c.ads };
+    syncToFirestore({ consents: rec });
+  } catch (_e) { /* device copy kept */ }
 }
+
+// Existing users: carry over consent once, on this phone.
+(function sxInitConsentDefaults() {
+  try {
+    if (localStorage.getItem('aiConsentMigrated')) return;
+    localStorage.setItem('aiConsentMigrated', '1');
+    const existingUser = !!localStorage.getItem('userName');
+    // aiShareHealth is only ever set by an explicit choice, so null means "never chose".
+    if (existingUser && localStorage.getItem('aiConsentV1') === null &&
+        localStorage.getItem('aiShareHealth') === null && !localStorage.getItem('aiConsentDeclined')) {
+      localStorage.setItem('aiConsentV1', 'yes');
+      localStorage.setItem('aiShareHealth', 'yes');
+      localStorage.setItem('aiNoticePending', '1');
+    }
+  } catch (_e) { /* ignore */ }
+})();
+
+// Called after login with the account's saved data: restores the person's choices
+// on a new phone, and carries over consent for accounts that already existed.
+function sxApplyCloudConsents(data, user) {
+  try {
+    const c = (data && data.consents) || {};
+    if (c.ai) {
+      if (c.ai.withdrawn || c.ai.enabled === false) {
+        localStorage.removeItem('aiConsentV1'); localStorage.setItem('aiShareHealth', 'no'); localStorage.setItem('aiConsentDeclined', '1');
+      } else {
+        localStorage.setItem('aiConsentV1', 'yes'); localStorage.setItem('aiShareHealth', c.ai.shareHealth ? 'yes' : 'no'); localStorage.removeItem('aiConsentDeclined');
+      }
+    } else if (user && user.metadata && user.metadata.creationTime &&
+               new Date(user.metadata.creationTime).getTime() < SX_AI_CUTOFF &&
+               !localStorage.getItem('aiConsentDeclined')) {
+      const alreadyAsked = localStorage.getItem('aiShareHealth') !== null; // they chose on this phone
+      if (!alreadyAsked) {
+        localStorage.setItem('aiConsentV1', 'yes'); localStorage.setItem('aiShareHealth', 'yes'); localStorage.setItem('aiNoticePending', '1');
+      }
+      syncToFirestore({ consents: { ai: { version: SX_POLICY_VERSION, at: Date.now(), enabled: sxAiConsentOk(), shareHealth: sxAiShareHealthOn(), basis: 'existing_user' } } });
+    }
+    if (c.ads && typeof c.ads.personalised === 'boolean') localStorage.setItem('sxAdsConsent', c.ads.personalised ? 'yes' : 'no');
+  } catch (_e) { /* never block login */ }
+  try { refreshEmergencyButtons(); } catch (_e) { /* cosmetic */ }
+}
+window.sxApplyCloudConsents = sxApplyCloudConsents;
+
+// One-time, non-blocking notice for people whose consent was carried over.
+(function sxScheduleAiNotice() {
+  let tries = 0;
+  const timer = setInterval(function () {
+    tries++;
+    if (tries > 40) { clearInterval(timer); return; }
+    try {
+      if (localStorage.getItem('aiNoticePending') !== '1') { if (tries > 3) clearInterval(timer); return; }
+      const signedIn = typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser;
+      if (!signedIn || document.getElementById('sx-modal') || document.getElementById('sos-wa-title')) return;
+      clearInterval(timer);
+      localStorage.removeItem('aiNoticePending');
+      sxNoticeCard('sx-ai-notice',
+        'Privacy update: when AI is on, your AI answers can include your readings and medicines. You can switch AI off or change this any time in Family, under Your privacy choices.',
+        [{ label: 'OK' }, { label: 'Review choices', primary: true, onClick: function () { sxOpenPrivacyChoices(); } }]);
+    } catch (_e) { /* optional */ }
+  }, 4000);
+})();
+
+// First use of the AI assistant or the document scanner, for people who have not chosen yet.
 function sxShowAiConsent(kind, onYes, onNo) {
   const scan = kind === 'scan';
   const paras = scan
     ? ['The photo you choose is sent to an AI service that reads the text on it. It may be processed outside Nigeria.',
-       'Please avoid photos that show your face, ID numbers or other people. AI results are general information, not medical advice. You can withdraw consent any time in the Family tab, under Your data and privacy.']
+       'Please avoid photos that show your face, ID numbers or other people. AI results are general information, not medical advice. You can change this any time in Family, under Your privacy choices.']
     : ['Your questions are sent to an AI service that writes the replies. It may be processed outside Nigeria. Please do not type your full name, address or ID numbers.',
-       'AI replies are general information, not medical advice. You can withdraw consent any time in the Family tab, under Your data and privacy.'];
-  let extra = null, cb = null;
+       'AI replies are general information, not medical advice. You can change this any time in Family, under Your privacy choices.'];
+  let cb = null;
+  const wrapEl = document.createElement('div');
   if (!scan) {
-    extra = document.createElement('label');
-    extra.style.cssText = 'display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#cbd5e1;margin:6px 0;';
+    const extra = document.createElement('label');
+    extra.style.cssText = 'display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.45;color:#cbd5e1;margin:8px 0;';
     cb = document.createElement('input');
-    cb.type = 'checkbox'; cb.style.cssText = 'width:18px;height:18px;margin-top:2px;flex-shrink:0;';
+    cb.type = 'checkbox'; cb.style.cssText = 'width:20px;height:20px;margin-top:1px;flex-shrink:0;';
     const sp = document.createElement('span');
     sp.textContent = 'Also include my latest readings, medicines and condition, so answers are more personal.';
     extra.appendChild(cb); extra.appendChild(sp);
+    wrapEl.appendChild(extra);
   }
-  const wrapEl = document.createElement('div');
-  if (extra) wrapEl.appendChild(extra);
   wrapEl.appendChild(sxLink('How we handle AI and your data', 'privacy.html#ai'));
+  let answered = false;
+  function decline() { if (answered) return; answered = true; try { localStorage.setItem('aiConsentDeclined', '1'); } catch (_e) {} if (onNo) onNo(); }
   sxModal(scan ? 'Before you scan a document' : 'Before you use the AI assistant', paras, wrapEl, [
     { label: 'I agree', kind: 'primary', onClick: function (w) {
-        const keep = sxAiShareHealthOn();
-        sxSaveAiConsent(cb ? cb.checked : keep);
+        answered = true;
+        sxSaveConsents({ ai: true, share: cb ? cb.checked : sxAiShareHealthOn() });
         w.remove(); if (onYes) onYes();
     } },
-    { label: 'Not now', kind: 'secondary', onClick: function (w) { w.remove(); if (onNo) onNo(); } }
-  ]);
+    { label: 'Not now', kind: 'secondary', onClick: function (w) { w.remove(); decline(); } }
+  ], decline);
 }
 window.sxAiConsentOk = sxAiConsentOk;
 window.sxShowAiConsent = sxShowAiConsent;
-function sxOpenAiSettings() {
-  const extra = document.createElement('div');
-  const label = document.createElement('label');
-  label.style.cssText = 'display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#cbd5e1;margin:6px 0;';
-  const cb = document.createElement('input');
-  cb.type = 'checkbox'; cb.checked = sxAiShareHealthOn(); cb.style.cssText = 'width:18px;height:18px;margin-top:2px;flex-shrink:0;';
-  const sp = document.createElement('span');
-  sp.textContent = 'Include my latest readings, medicines and condition in AI answers.';
-  label.appendChild(cb); label.appendChild(sp); extra.appendChild(label);
-  extra.appendChild(sxLink('How we handle AI and your data', 'privacy.html#ai'));
-  sxModal('AI privacy settings', [sxAiConsentOk() ? 'AI features are switched on for this account.' : 'AI features are switched off until you agree on first use.'], extra, [
+
+// All the consent switches in one place (Family tab > Your privacy choices).
+function sxOpenPrivacyChoices() {
+  function row(title, desc, checked) {
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid rgba(148,163,184,0.18);cursor:pointer;';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = !!checked; cb.style.cssText = 'width:22px;height:22px;margin-top:2px;flex-shrink:0;';
+    const box = document.createElement('div');
+    const t = document.createElement('div');
+    t.textContent = title; t.style.cssText = 'font-size:14px;font-weight:600;color:#fff;line-height:1.35;';
+    const d = document.createElement('div');
+    d.textContent = desc; d.style.cssText = 'font-size:12.5px;color:#94a3b8;line-height:1.45;margin-top:3px;';
+    box.appendChild(t); box.appendChild(d);
+    label.appendChild(cb); label.appendChild(box);
+    return { el: label, cb: cb };
+  }
+  const a = row('AI assistant and document scanning', 'Your questions or scanned photos are sent to an AI service, which may process them outside Nigeria. AI answers are general information, not medical advice.', sxAiConsentOk());
+  const h = row('Include my readings, medicines and condition in AI answers', 'Makes answers more personal. Needs the AI switch above.', sxAiShareHealthOn());
+  const d = row('Allow personalised ads', 'Only in the Health Library and marketplace, never next to your health data. If this is off you still see general ads.', sxAdsPersonalisedOn());
+  function sync() {
+    h.cb.disabled = !a.cb.checked;
+    if (!a.cb.checked) h.cb.checked = false;
+    h.el.style.opacity = a.cb.checked ? '1' : '0.5';
+  }
+  a.cb.addEventListener('change', sync); sync();
+  const wrapEl = document.createElement('div');
+  wrapEl.appendChild(a.el); wrapEl.appendChild(h.el); wrapEl.appendChild(d.el);
+  wrapEl.appendChild(sxLink('Read the full Privacy Policy', 'privacy.html'));
+  sxModal('Your privacy choices', [], wrapEl, [
     { label: 'Save', kind: 'primary', onClick: function (w) {
-        if (sxAiConsentOk()) sxSaveAiConsent(cb.checked);
+        sxSaveConsents({ ai: a.cb.checked, share: h.cb.checked, ads: d.cb.checked });
         w.remove();
-    } },
-    { label: 'Withdraw AI consent', kind: 'danger', onClick: function (w) {
-        try { localStorage.removeItem('aiConsentV1'); localStorage.setItem('aiShareHealth', 'no'); } catch (_e) {}
-        try { syncToFirestore({ consents: { ai: { version: SX_POLICY_VERSION, at: Date.now(), withdrawn: true } } }); } catch (_e) {}
-        w.remove();
+        sxToast('Your choices are saved');
     } },
     { label: 'Close', kind: 'secondary', onClick: function (w) { w.remove(); } }
   ]);
 }
-window.sxOpenAiSettings = sxOpenAiSettings;
+window.sxOpenPrivacyChoices = sxOpenPrivacyChoices;
+window.sxOpenAiSettings = sxOpenPrivacyChoices; // older button name
 
 // ---- Download my data ----
 function downloadMyData() {

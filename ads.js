@@ -45,24 +45,28 @@
   function consentValue() { try { return localStorage.getItem('sxAdsConsent'); } catch (_e) { return null; } }
   function showNotice() {
     try {
-      if (consentValue() || document.getElementById('sx-ads-notice')) return;
+      let seen = null; try { seen = localStorage.getItem('sxAdsNoticeSeen'); } catch (_e) {}
+      if (seen || consentValue() || document.getElementById('sx-ads-notice')) return;
       const d = document.createElement('div');
       d.id = 'sx-ads-notice';
-      d.style.cssText = 'position:fixed;left:10px;right:10px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:9998;background:#0f172a;border:1px solid rgba(148,163,184,0.35);border-radius:14px;padding:12px 14px;color:#cbd5e1;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,0.45);';
+      d.setAttribute('role', 'status');
+      d.style.cssText = 'position:fixed;left:10px;right:10px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:9998;background:#0f172a;border:1px solid rgba(148,163,184,0.35);border-radius:14px;padding:12px 14px;color:#cbd5e1;font-size:13px;line-height:1.5;box-shadow:0 10px 30px rgba(0,0,0,0.45);';
       const p = document.createElement('div');
-      p.textContent = 'Ads help keep Sentra-X free. They are never shown next to your health data. Allow personalised ads, or keep them general?';
+      p.textContent = 'These ads are general and do not use your personal interests. They are never shown next to your health data. You can allow personalised ads here, or change this any time in Family, under Your privacy choices.';
       d.appendChild(p);
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;gap:8px;margin-top:10px;';
-      function mk(label, val, primary) {
+      function mk(label, primary, onClick) {
         const b = document.createElement('button');
         b.textContent = label;
         b.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:0;font-size:13px;font-weight:600;cursor:pointer;' + (primary ? 'background:#2563eb;color:#fff;' : 'background:rgba(255,255,255,0.1);color:#e2e8f0;');
-        b.addEventListener('click', function () { try { localStorage.setItem('sxAdsConsent', val); } catch (_e) {} d.remove(); });
+        b.addEventListener('click', function () { try { localStorage.setItem('sxAdsNoticeSeen', '1'); } catch (_e) {} onClick(); d.remove(); });
         return b;
       }
-      row.appendChild(mk('Keep general', 'no', false));
-      row.appendChild(mk('Allow personalised', 'yes', true));
+      row.appendChild(mk('OK', false, function () {}));
+      row.appendChild(mk('Allow personalised', true, function () {
+        try { localStorage.setItem('sxAdsConsent', 'yes'); (window.adsbygoogle = window.adsbygoogle || []).requestNonPersonalizedAds = 0; } catch (_e) {}
+      }));
       d.appendChild(row);
       document.body.appendChild(d);
     } catch (_e) { /* notice is optional */ }

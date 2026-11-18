@@ -88,7 +88,7 @@
       .then(function() {
         console.log('Sentra-X: sign up successful.');
         // Keep a dated record of what the person agreed to (version of the policy and when).
-        try { if (typeof syncToFirestore === 'function') syncToFirestore({ consents: { privacy: { version: '2026-11-16', at: Date.now(), ageConfirmed: true } } }); } catch (_e) { /* not critical */ }
+        try { if (typeof syncToFirestore === 'function') syncToFirestore({ consents: { privacy: { version: '2026-11-18', at: Date.now(), ageConfirmed: true } } }); } catch (_e) { /* not critical */ }
       })
       .catch(function(err) {
         console.error('Sentra-X sign up error:', err.code, err.message);
@@ -458,6 +458,7 @@
       if (doc.exists) {
         const data = doc.data();
         if (data.userName) localStorage.setItem('userName', data.userName);
+        try { if (typeof sxApplyCloudConsents === 'function') sxApplyCloudConsents(data, firebase.auth().currentUser); } catch (_e) { /* never block login */ }
         if (data.userCondition) localStorage.setItem('userCondition', data.userCondition);
         if (data.meds) localStorage.setItem('meds', JSON.stringify(data.meds));
         if (data.medLogs) localStorage.setItem('medLogs', JSON.stringify(data.medLogs));
