@@ -3956,43 +3956,67 @@ function cleanAiMarkdown(text) {
     .replace(/`([^`]+)`/g, '$1');
 }
 // ---- Camera Heart Rate Check (estimates heart rate only — NOT blood pressure) ----
-// All signal maths lives in hr-engine.js (window.SXHR). This part runs the camera and shows one quiet line:
-// "Good signal" or "Weak signal". It never gives up on its own: a weak signal just restarts the 20 second run
-// and keeps listening until the signal is good. The scan only ends with a number, or when the person taps Cancel.
-const HR_RUN_MS = 20000;      // length of one uninterrupted good-signal scan
+// All signal maths lives in hr-engine.js (window.SXHR). This part runs the camera and shows one quiet line.
+// One fixed 20 second window, which starts the moment a fingertip is on the lens:
+//   - the pulse line moves live and the label reads "Checking signal" / "Weak signal" until the signal is good,
+//   - when it is good the person is told to hold still until the timer ends,
+//   - at 0 the reading is checked: a good reading is added to the form, otherwise they tap Try again.
+// A weak patch inside the window is simply re-assessed every moment, so the signal can recover at any point.
+const HR_RUN_MS = 20000;      // the whole scan
+const HR_MIN_GOOD_S = 10;     // the last uninterrupted stretch with a finger on must be at least this long
 let hrStream = null, hrRaf = null, hrBuf = null, hrActive = false, hrWake = null;
-let hrUncov = 0, hrUncovSince = 0, hrRunStart = 0, hrSessionStart = 0, hrBadSince = 0, hrLastAssess = 0, hrShown = 'wait', hrFrameKey = -1, hrEma = null, hrTorchOk = true, hrCtx = null;
-let hrFails = 0, hrRecoveries = 0, hrPausedByHide = false, hrLastHint = '';
+let hrUncov = 0, hrUncovSince = 0, hrWinStart = 0, hrBadSince = 0, hrLastAssess = 0, hrShown = 'wait', hrFrameKey = -1, hrEma = null, hrTorchOk = true, hrCtx = null;
+let hrWave = [], hrRecoveries = 0, hrPausedByHide = false, hrWatchdog = null, hrLastFrameAt = 0, hrHint = '';
 
 function hrEl(id) { return document.getElementById(id); }
 function hrEmptyBuf() { return { t: [], r: [], g: [], b: [] }; }
 
 // kind: 'good' | 'bad' | 'wait' | 'done' | 'fail'   (bad is shown to the person as "Weak signal")
-function hrSetUi(kind, label, status, progress) {
+function hrSetUi(kind, label, status, progress, timeText) {
   const box = hrEl('hr-measure-box'); if (!box) return;
   box.className = 'hr-line hr-' + kind;
   if (label != null) hrEl('hr-signal-label').textContent = label;
   if (status != null) hrEl('hr-status').textContent = status;
   if (progress != null) hrEl('hr-bar-fg').style.width = Math.round(Math.max(0, Math.min(1, progress)) * 100) + '%';
+  if (timeText != null) hrEl('hr-time').textContent = timeText;
 }
 function hrButtons(running) {
   hrEl('hr-cancel').textContent = running ? 'Cancel' : 'Close';
   hrEl('hr-again').style.display = running ? 'none' : 'inline';
 }
 
+// The small live pulse line. It moves with the real camera signal, so it keeps fluctuating until the signal settles.
+function hrDrawWave() {
+  const c = hrEl('hr-wave'); if (!c || !c.getContext) return;
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) return;
+  if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const n = hrWave.length; if (n < 3) return;
+  let m = 0; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(hrWave[i]));
+  if (m < 0.3) m = 0.3;
+  const col = hrShown === 'good' ? '#4ade80' : hrShown === 'bad' ? '#fbbf24' : '#93c5fd';
+  g.lineWidth = 1.6; g.lineJoin = 'round'; g.lineCap = 'round'; g.strokeStyle = col; g.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = (i / 119) * w, y = h / 2 - (hrWave[i] / m) * (h / 2 - 3);
+    if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.stroke();
+}
+
 function measureHeartRate(isRecovery) {
   stopHeartRateCamera();
-  if (!isRecovery) { hrRecoveries = 0; hrFails = 0; }
+  if (!isRecovery) hrRecoveries = 0;
   const box = hrEl('hr-measure-box');
   box.style.display = 'block';
   hrButtons(true);
   const alertBox = hrEl('hr-pattern-alert'); if (alertBox) alertBox.style.display = 'none';
-  hrShown = 'wait'; hrEma = null; hrBuf = hrEmptyBuf(); hrBadSince = 0; hrLastAssess = 0; hrFrameKey = -1; hrTorchOk = true; hrUncov = 0; hrUncovSince = 0; hrPausedByHide = false; hrLastHint = '';
-  hrSetUi('wait', 'Starting camera…', '', 0);
+  hrShown = 'wait'; hrEma = null; hrWave = []; hrBuf = hrEmptyBuf(); hrBadSince = 0; hrLastAssess = 0; hrFrameKey = -1; hrTorchOk = true; hrUncov = 0; hrUncovSince = 0; hrWinStart = 0; hrPausedByHide = false; hrHint = '';
+  hrSetUi('wait', 'Starting camera…', '', 0, '20s');
   if (!isRecovery) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    hrSetUi('fail', 'Camera unavailable', 'This browser cannot use the camera. Try Chrome or Safari, or type your pulse in by hand.', 0);
+    hrSetUi('fail', 'Camera unavailable', 'This browser cannot use the camera. Try Chrome or Safari, or type your pulse in by hand.', 0, '');
     hrButtons(false); hrEl('hr-again').style.display = 'none';
     return;
   }
@@ -4026,10 +4050,10 @@ function measureHeartRate(isRecovery) {
       try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { hrWake = l; }).catch(function () {}); } catch (_e) {}
       video.onloadedmetadata = function () {
         video.play().catch(function () {});
-        hrSessionStart = 0; hrRunStart = 0;
+        hrWinStart = 0;
         hrSetUi('wait', 'Checking signal', hrTorchOk
-          ? 'Cover the back camera and flash with your fingertip. Keep still for 20 seconds.'
-          : 'Cover the back camera with your fingertip in a bright room. Keep still for 20 seconds.', 0);
+          ? 'Cover the back camera and flash with your fingertip. The 20 seconds starts when your finger is on.'
+          : 'Cover the back camera with your fingertip in a bright room. The 20 seconds starts when your finger is on.', 0, '20s');
         hrStartSampling(video);
       };
     })
@@ -4038,7 +4062,7 @@ function measureHeartRate(isRecovery) {
       const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
       hrSetUi('fail', denied ? 'Camera blocked' : 'Camera unavailable', denied
         ? 'Allow the camera for Sentra-X in your browser settings, then try again.'
-        : 'Could not start the camera. Close other apps that use it, then try again.', 0);
+        : 'Could not start the camera. Close other apps that use it, then try again.', 0, '');
       hrButtons(false);
     });
 }
@@ -4048,7 +4072,7 @@ function hrRecover() {
   if (!hrActive || hrPausedByHide) return;
   if (hrRecoveries >= 3) {
     stopHeartRateCamera();
-    hrSetUi('fail', 'Camera stopped', 'The camera was interrupted. Close other apps that use it, then tap Try again.', 0);
+    hrSetUi('fail', 'Camera stopped', 'The camera was interrupted. Close other apps that use it, then tap Try again.', 0, '');
     hrButtons(false); return;
   }
   hrRecoveries++;
@@ -4096,84 +4120,91 @@ function hrStartSampling(video) {
     if (hrLastFrameAt && performance.now() - hrLastFrameAt > 4000) { hrLastFrameAt = 0; clearInterval(wd); hrRecover(); }
   }, 1000);
 }
-let hrWatchdog = null, hrLastFrameAt = 0;
 
-function hrRestartRun(t) { hrBuf = hrEmptyBuf(); hrRunStart = t; hrBadSince = 0; hrEma = null; }
+// Refresh the line, the timer and the progress bar. `hint` is the engine's one-line help for the current problem.
+function hrRefresh(t, hint) {
+  const started = hrWinStart > 0, el = started ? t - hrWinStart : 0;
+  const left = started ? Math.max(0, Math.ceil((HR_RUN_MS - el) / 1000)) : HR_RUN_MS / 1000, prog = started ? el / HR_RUN_MS : 0, tt = left + 's';
+  const help = hint || 'Cover the back camera and flash fully with your fingertip.';
+  if (!started) hrSetUi('wait', 'Checking signal', 'Cover the back camera and flash with your fingertip. The 20 seconds starts when your finger is on.', 0, tt);
+  else if (hrShown === 'good') hrSetUi('good', 'Good signal', 'Good signal. Hold still until the timer ends.', prog, tt);
+  else if (hrShown === 'bad') hrSetUi('bad', 'Weak signal', help, prog, tt);
+  else hrSetUi('wait', 'Checking signal', help, prog, tt);
+}
 
 function hrOnSample(t, r, g, b) {
   if (!hrBuf) return;
   hrLastFrameAt = performance.now();
-  if (!hrSessionStart) { hrSessionStart = t; hrRunStart = t; }
-  const hintOf = function (h) { return h || 'Cover the back camera and flash with your fingertip.'; };
 
-  // Fingertip off the lens: keep nothing, so the scan only ever contains frames with a finger on the camera.
-  if (!window.SXHR.isCovered(r, g, b)) {
+  // The live pulse line always follows the camera: red minus its own slow average.
+  hrEma = hrEma === null ? r : hrEma + 0.06 * (r - hrEma);
+  if (hrBuf.t.length > 15 || !hrWinStart) { hrWave.push(r - hrEma); if (hrWave.length > 120) hrWave.shift(); }
+  hrDrawWave();
+
+  // Time is up: judge the reading.
+  if (hrWinStart && t - hrWinStart >= HR_RUN_MS) { hrFinish(); return; }
+
+  const covered = window.SXHR.isCovered(r, g, b);
+  if (!covered) {
+    // Fingertip off the lens: keep nothing, so the scan only ever holds frames with a finger on the camera.
     if (!hrUncov) hrUncovSince = t;
     hrUncov++;
-    if (hrUncov >= 3 && hrBuf.t.length) hrRestartRun(t);
-    if (t - hrLastAssess >= 400) {
+    if (hrUncov >= 3 && hrBuf.t.length) { hrBuf = hrEmptyBuf(); hrBadSince = 0; hrEma = null; }
+    if (t - hrLastAssess >= 300) {
       hrLastAssess = t;
       if (t - hrUncovSince >= 700) hrShown = 'bad';
-      if (hrShown === 'bad') hrSetUi('bad', 'Weak signal', 'Cover the back camera and flash fully with your fingertip.', 0);
-      else hrSetUi('wait', 'Checking signal', 'Cover the back camera and flash with your fingertip.', 0);
+      hrRefresh(t, 'Cover the back camera and flash fully with your fingertip.');
     }
     return;
   }
-  if (hrUncov && hrShown === 'bad') hrShown = 'wait';   // finger is back: start checking afresh
+  if (hrUncov && hrShown === 'bad') hrShown = 'wait';   // finger is back: check afresh
   hrUncov = 0;
-  if (!hrBuf.t.length) hrRunStart = t;
+  if (!hrWinStart) hrWinStart = t;                       // the 20 seconds begins when the fingertip is on
   hrBuf.t.push(t); hrBuf.r.push(r); hrBuf.g.push(g); hrBuf.b.push(b);
 
-  if (t - hrLastAssess < 400) return;
+  if (t - hrLastAssess < 300) return;
   hrLastAssess = t;
   const v = window.SXHR.assessLive(hrBuf);
-  const runMs = t - hrRunStart;
-
   if (v.good || v.checking) hrBadSince = 0; else if (!hrBadSince) hrBadSince = t;
   const badFor = hrBadSince ? t - hrBadSince : 0;
-  if (v.hint) hrLastHint = v.hint;
-
   if (v.good) hrShown = 'good';
   else if (v.checking) { /* keep what is on screen */ }
   else if (badFor >= 700) hrShown = 'bad';
-
-  // Weak signal for long enough: throw this run away and start the 20 seconds again. The scan itself carries on.
-  if (hrBadSince && badFor >= (v.reason === 'nofinger' ? 1000 : 2200) && hrBuf.t.length > 1) {
-    hrRestartRun(t); hrBadSince = t;
-    hrSetUi('bad', 'Weak signal', hintOf(v.hint) + ' Starting the count again.', 0);
-    return;
-  }
-
-  if (hrShown === 'good') {
-    const left = Math.max(0, Math.ceil((HR_RUN_MS - runMs) / 1000));
-    hrSetUi('good', 'Good signal', 'Hold still… ' + left + 's left', runMs / HR_RUN_MS);
-  } else if (hrShown === 'bad') {
-    hrSetUi('bad', 'Weak signal', hintOf(v.hint), runMs / HR_RUN_MS);
-  } else {
-    hrSetUi('wait', 'Checking signal', hintOf(v.hint), runMs / HR_RUN_MS);
-  }
-
-  if (runMs >= HR_RUN_MS) hrFinish(t);
+  hrRefresh(t, v.hint);
 }
 
-function hrFinish(t) {
-  const result = window.SXHR.analyze(hrBuf);
-  if (!result.ok) {
-    // Not clean enough to trust. Do not stop: begin a fresh run and keep going until the signal is good.
-    hrFails++;
-    hrRestartRun(t); hrShown = 'wait';
-    hrSetUi('wait', 'Checking signal', result.reason === 'camera'
-      ? 'The camera is running slowly. A brighter place helps. Still trying…'
-      : hrFails >= 2 ? 'Still trying. Rest your hand on a table and press lightly with your fingertip.' : 'Not steady enough yet. Keep still, trying again…', 0);
-    return;
+// The first seconds of a scan are the noisiest (pressing, exposure settling). Judge the whole run first; if that is not clean,
+// judge only the later, steadier part. Every try uses the same strict checks, and each needs at least HR_MIN_GOOD_S of clean pulse.
+function hrJudge() {
+  const buf = hrBuf, first = window.SXHR.analyze(buf, { minSeconds: HR_MIN_GOOD_S });
+  if (first.ok || !buf.t.length) return first;
+  for (let skip = 2000; skip <= 8000; skip += 2000) {
+    let i = 0; while (i < buf.t.length && buf.t[i] - buf.t[0] < skip) i++;
+    if (i >= buf.t.length) break;
+    const r = window.SXHR.analyze({ t: buf.t.slice(i), r: buf.r.slice(i), g: buf.g.slice(i), b: buf.b.slice(i) }, { minSeconds: HR_MIN_GOOD_S });
+    if (r.ok) return r;
   }
+  return first;
+}
+
+function hrFinish() {
+  const result = hrJudge();
   stopHeartRateCamera();
   hrButtons(false);
   const alertBox = hrEl('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
+  if (!result.ok) {
+    const msg = result.reason === 'camera'
+      ? 'The camera ran too slowly. Try again in a brighter place.'
+      : result.reason === 'short'
+        ? 'The signal was not good for long enough in the 20 seconds. Tap Try again and keep your fingertip still on the lens.'
+        : 'Could not get a clear reading in the 20 seconds. Rest your hand on a table, press lightly and tap Try again.';
+    hrSetUi('fail', 'No good reading', msg, 1, '0s');
+    return;
+  }
   const bpm = Math.round(result.bpm);
   hrEl('heartrate').value = bpm;
-  hrSetUi('done', 'Reading complete', bpm + ' bpm added to your reading below.', 1);
+  hrSetUi('done', 'Good reading', bpm + ' bpm added to your reading below.', 1, '0s');
   try { if (navigator.vibrate) navigator.vibrate(60); } catch (_e) {}
 
   const pattern = analyzeHeartRatePattern(bpm, result.peaks);

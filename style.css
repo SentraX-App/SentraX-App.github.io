@@ -1012,10 +1012,12 @@ nav button.active .icon { filter: none; }
 .hr-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hr-c); transition: background .3s; flex: none; }
 .hr-line.hr-good .hr-dot { animation: hrPulse 1s ease-in-out infinite; }
 @keyframes hrPulse { 50% { transform: scale(1.5); opacity: .55; } }
-.hr-actions { display: inline-flex; gap: 14px; }
-.hr-actions .hr-link { all: unset; box-sizing: border-box; cursor: pointer; font-size: 12px; font-weight: 600; color: #94a3b8; padding: 6px 2px; text-decoration: underline; text-underline-offset: 3px; }
-.hr-actions .hr-link:hover { color: #e5e7eb; }
-.hr-actions .hr-link:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; border-radius: 4px; }
+.hr-right { display: inline-flex; align-items: center; gap: 14px; }
+.hr-time { font-size: 13px; font-weight: 700; color: var(--hr-c); font-variant-numeric: tabular-nums; min-width: 2.2em; text-align: right; transition: color .3s; }
+.hr-wave { display: block; width: 100%; height: 26px; margin: 2px 0 4px; }
+.hr-right .hr-link { all: unset; box-sizing: border-box; cursor: pointer; font-size: 12px; font-weight: 600; color: #94a3b8; padding: 6px 2px; text-decoration: underline; text-underline-offset: 3px; }
+.hr-right .hr-link:hover { color: #e5e7eb; }
+.hr-right .hr-link:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; border-radius: 4px; }
 .hr-bar { height: 3px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 2px 0 0; }
 .hr-bar span { display: block; height: 100%; width: 0; background: var(--hr-c); border-radius: 3px; transition: width .4s linear, background .3s; }
 .hr-status { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: #94a3b8; min-height: 17px; }

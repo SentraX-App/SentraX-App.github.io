@@ -199,7 +199,7 @@
     var t0 = buf.t[0], i0 = 0;
     while (i0 < n && buf.t[i0] - t0 < settleMs) i0++;
     var ts = buf.t.slice(i0), spanS = ts.length > 1 ? (ts[ts.length - 1] - ts[0]) / 1000 : 0;
-    if (spanS < 12) return { ok: false, reason: 'short' };
+    if (spanS < (opts.minSeconds || 12)) return { ok: false, reason: 'short' };
     if (fpsOf(ts) < MIN_FPS) return { ok: false, reason: 'camera' };
 
     var infos = [];
