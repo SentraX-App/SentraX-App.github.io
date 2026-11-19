@@ -266,6 +266,7 @@
           <span id="hr-signal" class="hr-signal" role="status" aria-live="polite"><span class="hr-dot"></span><span id="hr-signal-label">Starting camera…</span></span>
           <span class="hr-right">
             <span id="hr-time" class="hr-time" aria-label="Seconds left">20s</span>
+            <button type="button" id="hr-flash" class="hr-link" style="display:none;" onclick="hrToggleFlash()">Flash: on</button>
             <button type="button" id="hr-again" class="hr-link" style="display:none;" onclick="measureHeartRate()">Try again</button>
             <button type="button" id="hr-cancel" class="hr-link" onclick="cancelHeartRateMeasure()">Cancel</button>
           </span>

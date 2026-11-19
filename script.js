@@ -3974,7 +3974,7 @@ function hrEmptyBuf() { return { t: [], r: [], g: [], b: [] }; }
 // kind: 'good' | 'bad' | 'wait' | 'done' | 'fail'   (bad is shown to the person as "Weak signal")
 function hrSetUi(kind, label, status, progress, timeText) {
   const box = hrEl('hr-measure-box'); if (!box) return;
-  box.className = 'hr-line hr-' + kind;
+  if (kind) box.className = 'hr-line hr-' + kind;   // null keeps the current colour (used for a note that does not change the state)
   if (label != null) hrEl('hr-signal-label').textContent = label;
   if (status != null) hrEl('hr-status').textContent = status;
   if (progress != null) hrEl('hr-bar-fg').style.width = Math.round(Math.max(0, Math.min(1, progress)) * 100) + '%';
@@ -4002,6 +4002,52 @@ function hrDrawWave() {
     if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
   }
   g.stroke();
+}
+
+// ---- Flash (torch) safety net -------------------------------------------------------------------------
+// The flash helps the camera see the pulse, but it heats up against skin. It is on by default, with these limits:
+//   1. Off the moment the scan ends, is cancelled, the person leaves the app, or the camera stops.
+//   2. Off if no fingertip is found within HR_FLASH_IDLE_MS (a lit flash left running only warms the phone).
+//   3. Never lit longer than HR_FLASH_MAX_MS in one scan.
+//   4. After a scan that used the flash, the next one starts with the flash resting (room light) for HR_FLASH_COOLDOWN_MS,
+//      so repeated retries cannot keep heating the same spot.
+//   5. The person can switch it off with the "Flash on/off" link, and the screen says to lift the finger if it feels warm.
+// Software cannot measure fingertip temperature, so 5 matters most.
+const HR_FLASH_IDLE_MS = 10000, HR_FLASH_MAX_MS = 22000, HR_FLASH_COOLDOWN_MS = 60000, HR_FLASH_MIN_USED_MS = 5000;
+let hrTrack = null, hrFlashOn = false, hrFlashSince = 0, hrFlashHasTorch = false;
+
+function hrFlashPref() { try { return localStorage.getItem('hrFlash') !== 'off'; } catch (_e) { return true; } }
+function hrFlashCooling() { try { const t = Number(localStorage.getItem('hrFlashLast')) || 0; return t > 0 && Date.now() - t < HR_FLASH_COOLDOWN_MS; } catch (_e) { return false; } }
+// 'unsupported' | 'off' | 'cooling' | 'on'
+function hrFlashDecision(hasTorch) { if (!hasTorch) return 'unsupported'; if (!hrFlashPref()) return 'off'; if (hrFlashCooling()) return 'cooling'; return 'on'; }
+
+function hrSetFlash(on) {
+  try { if (hrTrack && hrTrack.applyConstraints) hrTrack.applyConstraints({ advanced: [{ torch: !!on }] }).catch(function () {}); } catch (_e) { /* optional camera control */ }
+  if (on && !hrFlashOn) hrFlashSince = performance.now();
+  if (!on && hrFlashOn) {
+    try { if (performance.now() - hrFlashSince >= HR_FLASH_MIN_USED_MS) localStorage.setItem('hrFlashLast', String(Date.now())); } catch (_e) {}
+  }
+  hrFlashOn = !!on;
+}
+// Called on every frame and once a second: switches the flash off when a limit is reached.
+function hrFlashGuard() {
+  if (!hrFlashOn) return;
+  const lit = performance.now() - hrFlashSince;
+  if (lit > HR_FLASH_MAX_MS || (!hrWinStart && lit > HR_FLASH_IDLE_MS)) {
+    hrSetFlash(false);
+    if (hrActive) hrSetUi(null, null, 'The flash switched itself off to stop it getting hot. Keep your fingertip lightly on the lens in a bright room.', null, null);
+  }
+}
+function hrIntro() {
+  return hrFlashOn
+    ? 'Rest your fingertip lightly over the back camera lens and flash. Do not press hard. If it feels warm, lift your finger and tap Cancel. The 20 seconds starts when your finger is on.'
+    : 'Rest your fingertip lightly over the back camera lens in a bright room. If the phone feels warm, lift your finger and tap Cancel. The 20 seconds starts when your finger is on.';
+}
+function hrFlashLabel() { const b = hrEl('hr-flash'); if (!b) return; b.style.display = hrFlashHasTorch ? 'inline' : 'none'; b.textContent = hrFlashPref() ? 'Flash: on' : 'Flash: off'; }
+function hrToggleFlash() {
+  try { localStorage.setItem('hrFlash', hrFlashPref() ? 'off' : 'on'); } catch (_e) {}
+  if (hrActive) measureHeartRate(true);   // a light change in the middle of a scan would spoil it, so start the scan again
+  else hrFlashLabel();
 }
 
 function measureHeartRate(isRecovery) {
@@ -4037,14 +4083,20 @@ function measureHeartRate(isRecovery) {
       video.srcObject = stream;
       const track = stream.getVideoTracks()[0];
       if (track) track.onended = function () { hrRecover(); };   // camera taken by another app or switched off: start again by itself
-      // The flash is NEVER switched on: pressed against a fingertip for 20 seconds it gets hot enough to burn.
-      // This scan uses room light only, and makes sure a flash left on by anything else is off.
-      try { if (track && track.applyConstraints) track.applyConstraints({ advanced: [{ torch: false }] }).catch(function () {}); } catch (_e) { /* optional camera control */ }
+      hrTrack = track || null;
+      try { const caps = track && track.getCapabilities ? track.getCapabilities() : {}; hrFlashHasTorch = !!caps.torch; } catch (_e) { hrFlashHasTorch = false; }
+      const decision = hrFlashDecision(hrFlashHasTorch);
+      hrSetFlash(decision === 'on');
+      hrFlashLabel();
+      video.onplaying = function () { if (decision === 'on' && hrActive && hrFlashOn) setTimeout(function () { if (hrActive && hrFlashOn) hrSetFlash(true); }, 400); };   // some phones only accept the flash once frames flow
       try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { hrWake = l; }).catch(function () {}); } catch (_e) {}
       video.onloadedmetadata = function () {
         video.play().catch(function () {});
         hrWinStart = 0;
-        hrSetUi('wait', 'Checking signal', 'Rest your fingertip lightly over the back camera lens in a bright room. If the phone feels warm, lift your finger and tap Cancel.', 0, '20s');
+        let intro = hrIntro();
+        if (decision === 'cooling') intro = 'The flash is resting for a minute so it does not get hot. ' + intro;
+        else if (decision === 'unsupported') intro = 'This phone does not let the browser use the flash, so use a bright room. ' + intro;
+        hrSetUi('wait', 'Checking signal', intro, 0, '20s');
         hrStartSampling(video);
       };
     })
@@ -4109,6 +4161,7 @@ function hrStartSampling(video) {
   // Watchdog: if no frame arrives for a few seconds the camera has frozen, so reopen it.
   const wd = hrWatchdog = setInterval(function () {
     if (!hrActive || wd !== hrWatchdog) { clearInterval(wd); return; }
+    hrFlashGuard();
     if (hrLastFrameAt && performance.now() - hrLastFrameAt > 4000) { hrLastFrameAt = 0; clearInterval(wd); hrRecover(); }
   }, 1000);
 }
@@ -4118,7 +4171,7 @@ function hrRefresh(t, hint) {
   const started = hrWinStart > 0, el = started ? t - hrWinStart : 0;
   const left = started ? Math.max(0, Math.ceil((HR_RUN_MS - el) / 1000)) : HR_RUN_MS / 1000, prog = started ? el / HR_RUN_MS : 0, tt = left + 's';
   const help = hint || 'Cover the back camera lens fully with your fingertip, in a bright room.';
-  if (!started) hrSetUi('wait', 'Checking signal', (hint && hint.indexOf('too dark') > -1) ? hint : 'Rest your fingertip lightly over the back camera lens in a bright room. The 20 seconds starts when your finger is on.', 0, tt);
+  if (!started) hrSetUi('wait', 'Checking signal', (hint && hint.indexOf('too dark') > -1) ? hint : hrIntro(), 0, tt);
   else if (hrShown === 'good') hrSetUi('good', 'Good signal', 'Good signal. Hold still until the timer ends.', prog, tt);
   else if (hrShown === 'bad') hrSetUi('bad', 'Weak signal', help, prog, tt);
   else hrSetUi('wait', 'Checking signal', help, prog, tt);
@@ -4144,6 +4197,7 @@ function hrDebug(r, g, b, u, covered, v) {
 
 function hrOnSample(t, r, g, b, u) {
   if (!hrBuf) return;
+  hrFlashGuard();
   hrLastFrameAt = performance.now();
 
   // The live pulse line always follows the camera: red minus its own slow average.
@@ -4268,6 +4322,8 @@ function focusBpFields() {
 
 function stopHeartRateCamera() {
   hrActive = false;
+  hrSetFlash(false);   // flash off first, whatever else happens
+  hrTrack = null; hrFlashOn = false;
   if (hrWatchdog) { clearInterval(hrWatchdog); hrWatchdog = null; }
   hrLastFrameAt = 0;
   if (hrRaf) { cancelAnimationFrame(hrRaf); hrRaf = null; }
@@ -4711,7 +4767,7 @@ const SX_HELP_POSTER = 'help/sentrax-tour.jpg';
 function sxHelpSections() {
   return [
     ['Log a blood pressure reading', ['Open the Vitals tab.', 'Type the top number (Systolic) and the bottom number (Diastolic). Heart rate and weight are optional.', 'Tap Save & Check My Risk. The colour shows your risk level, and the reading is saved in History.']],
-    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Rest the soft pad of your fingertip over the back camera lens, in a bright room. Press lightly, like touching a screen. The 20 seconds starts when your finger is on.', 'Sit down, rest your hand on a table and keep still. Do not talk.', 'Watch the label: Good signal (green) means hold still. Weak signal (amber) shows a tip, such as pressing lighter or covering the flash. The small line moves with your pulse.', 'Only a good reading is added to your reading form. If it says No good reading, rest, warm your hands and tap Try again.', 'This is an estimate for everyday tracking, not a medical test.']],
+    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Rest the soft pad of your fingertip over the back camera lens and flash. Press lightly, and lift your finger if it feels warm. If the flash is too warm for you, tap Flash: on to turn it off and use a bright room instead. Press lightly, like touching a screen. The 20 seconds starts when your finger is on.', 'Sit down, rest your hand on a table and keep still. Do not talk.', 'Watch the label: Good signal (green) means hold still. Weak signal (amber) shows a tip, such as pressing lighter or covering the flash. The small line moves with your pulse.', 'Only a good reading is added to your reading form. If it says No good reading, rest, warm your hands and tap Try again.', 'This is an estimate for everyday tracking, not a medical test.']],
     ['Medicines and reminders', ['Open the Meds tab and add the name, time and how long you take it.', 'You get a reminder at that time. Tap to mark each dose as taken.', 'If a caregiver is linked, they are alerted only if a dose is still missed after your reminder.']],
     ['Add a caregiver', ['Open the Family tab.', 'Add Caregiver saves a phone number or email so they get SMS and email alerts. Please ask them first.', 'Generate Invite Code lets someone create their own account and see your readings. You can remove their access at any time under Linked caregivers.']],
     ['Emergency SOS', ['On the Vitals tab, the Emergency card has the SOS button. It asks you to confirm, then sends your location to your caregivers by SMS and email and prepares a WhatsApp message.', 'Call Emergency Line shows the number for where you are. Use it for real emergencies only.']],
