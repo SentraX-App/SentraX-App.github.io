@@ -3956,85 +3956,80 @@ function cleanAiMarkdown(text) {
     .replace(/`([^`]+)`/g, '$1');
 }
 // ---- Camera Heart Rate Check (estimates heart rate only — NOT blood pressure) ----
-// All signal maths lives in hr-engine.js (window.SXHR). This part runs the camera, shows the live
-// "Good signal / Bad signal" badge, and only counts time while the signal is good: if the finger
-// slips or the hand moves, the 20 second timer restarts so the final number is never built on bad frames.
+// All signal maths lives in hr-engine.js (window.SXHR). This part runs the camera and shows one quiet line:
+// "Good signal" or "Weak signal". It never gives up on its own: a weak signal just restarts the 20 second run
+// and keeps listening until the signal is good. The scan only ends with a number, or when the person taps Cancel.
 const HR_RUN_MS = 20000;      // length of one uninterrupted good-signal scan
-const HR_GIVE_UP_MS = 90000;  // stop trying after this long in total
-const HR_RING_LEN = 326.7;    // circumference of the progress ring (r = 52)
 let hrStream = null, hrRaf = null, hrBuf = null, hrActive = false, hrWake = null;
-let hrUncov = 0, hrUncovSince = 0, hrRunStart = 0, hrSessionStart = 0, hrBadSince = 0, hrLastAssess = 0, hrShown = 'wait', hrFrameKey = -1, hrWave = [], hrEma = null, hrTorchOk = true, hrUsingVfc = false, hrCtx = null;
+let hrUncov = 0, hrUncovSince = 0, hrRunStart = 0, hrSessionStart = 0, hrBadSince = 0, hrLastAssess = 0, hrShown = 'wait', hrFrameKey = -1, hrEma = null, hrTorchOk = true, hrCtx = null;
+let hrFails = 0, hrRecoveries = 0, hrPausedByHide = false, hrLastHint = '';
 
 function hrEl(id) { return document.getElementById(id); }
+function hrEmptyBuf() { return { t: [], r: [], g: [], b: [] }; }
 
-// kind: 'good' | 'bad' | 'wait' | 'done' | 'fail'
-function hrSetUi(kind, pill, status, progress) {
+// kind: 'good' | 'bad' | 'wait' | 'done' | 'fail'   (bad is shown to the person as "Weak signal")
+function hrSetUi(kind, label, status, progress) {
   const box = hrEl('hr-measure-box'); if (!box) return;
-  box.className = 'hr-panel hr-' + kind;
-  if (pill != null) hrEl('hr-signal-label').textContent = pill;
+  box.className = 'hr-line hr-' + kind;
+  if (label != null) hrEl('hr-signal-label').textContent = label;
   if (status != null) hrEl('hr-status').textContent = status;
-  if (progress != null) hrEl('hr-ring-fg').style.strokeDashoffset = String(HR_RING_LEN * (1 - Math.max(0, Math.min(1, progress))));
+  if (progress != null) hrEl('hr-bar-fg').style.width = Math.round(Math.max(0, Math.min(1, progress)) * 100) + '%';
+}
+function hrButtons(running) {
+  hrEl('hr-cancel').textContent = running ? 'Cancel' : 'Close';
+  hrEl('hr-again').style.display = running ? 'none' : 'inline';
 }
 
-function hrDrawWave() {
-  const c = hrEl('hr-wave'); if (!c) return;
-  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
-  if (!w || !h) return;
-  if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
-  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
-  const n = hrWave.length; if (n < 3) return;
-  let m = 0; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(hrWave[i]));
-  if (m < 1e-6) m = 1;
-  const col = hrShown === 'good' ? '#4ade80' : hrShown === 'bad' ? '#f87171' : '#93c5fd';
-  g.lineWidth = 2; g.lineJoin = 'round'; g.lineCap = 'round'; g.strokeStyle = col; g.shadowColor = col; g.shadowBlur = 6; g.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = (i / 179) * w, y = h / 2 - (hrWave[i] / m) * (h / 2 - 5);
-    if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
-  }
-  g.stroke();
-}
-
-function measureHeartRate() {
+function measureHeartRate(isRecovery) {
   stopHeartRateCamera();
+  if (!isRecovery) { hrRecoveries = 0; hrFails = 0; }
   const box = hrEl('hr-measure-box');
   box.style.display = 'block';
-  hrEl('hr-cancel').textContent = 'Cancel'; hrEl('hr-again').style.display = 'none';
-  hrEl('hr-bpm-num').textContent = '--';
-  hrEl('hr-hint').style.display = 'block';
+  hrButtons(true);
   const alertBox = hrEl('hr-pattern-alert'); if (alertBox) alertBox.style.display = 'none';
-  hrShown = 'wait'; hrWave = []; hrEma = null; hrBuf = { t: [], r: [], g: [], b: [] }; hrBadSince = 0; hrLastAssess = 0; hrFrameKey = -1; hrTorchOk = true; hrUncov = 0; hrUncovSince = 0;
-  hrSetUi('wait', 'Starting camera', 'Starting camera…', 0);
-  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  hrShown = 'wait'; hrEma = null; hrBuf = hrEmptyBuf(); hrBadSince = 0; hrLastAssess = 0; hrFrameKey = -1; hrTorchOk = true; hrUncov = 0; hrUncovSince = 0; hrPausedByHide = false; hrLastHint = '';
+  hrSetUi('wait', 'Starting camera…', '', 0);
+  if (!isRecovery) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    hrSetUi('fail', 'Camera unavailable', 'This browser cannot use the camera. Try Chrome or Safari, or enter your pulse by hand.', 0);
-    hrEl('hr-cancel').textContent = 'Close';
+    hrSetUi('fail', 'Camera unavailable', 'This browser cannot use the camera. Try Chrome or Safari, or type your pulse in by hand.', 0);
+    hrButtons(false); hrEl('hr-again').style.display = 'none';
     return;
   }
   hrActive = true;
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 160 }, height: { ideal: 160 }, frameRate: { ideal: 30 } }, audio: false })
+  const want = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 160 }, height: { ideal: 160 }, frameRate: { ideal: 30 } }, audio: false };
+  // Some phones refuse the size/frame-rate hints: fall back to the plain back camera instead of failing.
+  navigator.mediaDevices.getUserMedia(want)
+    .catch(function (err) {
+      if (err && (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError' || err.name === 'NotFoundError')) {
+        return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      }
+      throw err;
+    })
     .then(function (stream) {
       if (!hrActive) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
       hrStream = stream;
       const video = hrEl('hr-video');
       video.srcObject = stream;
       const track = stream.getVideoTracks()[0];
-      try {
-        const caps = track && track.getCapabilities ? track.getCapabilities() : {};
-        hrTorchOk = !!caps.torch;
-        if (track && track.applyConstraints) {
-          if (caps.torch) track.applyConstraints({ advanced: [{ torch: true }] }).catch(function () {});
-          track.applyConstraints({ advanced: [{ focusMode: 'fixed' }] }).catch(function () {});
-          track.applyConstraints({ advanced: [{ exposureMode: 'manual' }] }).catch(function () {});
-          track.applyConstraints({ advanced: [{ whiteBalanceMode: 'manual' }] }).catch(function () {});
-        }
-      } catch (_e) { /* optional camera controls */ }
+      if (track) track.onended = function () { hrRecover(); };   // camera taken by another app or switched off: start again by itself
+      // Flash on. Exposure and white balance are left on automatic: forcing them manual made some phones go black.
+      const torchOn = function () {
+        try {
+          const caps = track && track.getCapabilities ? track.getCapabilities() : {};
+          hrTorchOk = !!caps.torch;
+          if (caps.torch && track.applyConstraints) track.applyConstraints({ advanced: [{ torch: true }] }).catch(function () {});
+        } catch (_e) { /* optional camera control */ }
+      };
+      torchOn();
+      video.onplaying = function () { setTimeout(torchOn, 400); };   // some phones only accept the flash once frames are flowing
       try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { hrWake = l; }).catch(function () {}); } catch (_e) {}
       video.onloadedmetadata = function () {
         video.play().catch(function () {});
         hrSessionStart = 0; hrRunStart = 0;
-        hrSetUi('wait', 'Checking signal', 'Cover the camera lens and flash fully with your fingertip', 0);
-        if (!hrTorchOk) hrEl('hr-hint').textContent = 'Tip: this phone\u2019s flash cannot be switched on from the browser. Use a bright room and press lightly.';
+        hrSetUi('wait', 'Checking signal', hrTorchOk
+          ? 'Cover the back camera and flash with your fingertip. Keep still for 20 seconds.'
+          : 'Cover the back camera with your fingertip in a bright room. Keep still for 20 seconds.', 0);
         hrStartSampling(video);
       };
     })
@@ -4042,15 +4037,28 @@ function measureHeartRate() {
       hrActive = false;
       const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
       hrSetUi('fail', denied ? 'Camera blocked' : 'Camera unavailable', denied
-        ? 'Camera access is blocked. Allow the camera for Sentra-X in your browser settings, then try again.'
+        ? 'Allow the camera for Sentra-X in your browser settings, then try again.'
         : 'Could not start the camera. Close other apps that use it, then try again.', 0);
-      hrEl('hr-cancel').textContent = 'Close'; hrEl('hr-again').style.display = 'inline-block';
+      hrButtons(false);
     });
+}
+
+// The camera stopped by itself (not the person): reopen it a few times before telling them.
+function hrRecover() {
+  if (!hrActive || hrPausedByHide) return;
+  if (hrRecoveries >= 3) {
+    stopHeartRateCamera();
+    hrSetUi('fail', 'Camera stopped', 'The camera was interrupted. Close other apps that use it, then tap Try again.', 0);
+    hrButtons(false); return;
+  }
+  hrRecoveries++;
+  measureHeartRate(true);
 }
 
 function hrStartSampling(video) {
   const canvas = hrEl('hr-canvas');
   hrCtx = canvas.getContext('2d', { willReadFrequently: true });
+  hrLastFrameAt = performance.now();   // so a camera that never delivers a single frame is also caught by the watchdog
   let useCapture = null;
   const grab = function (tMs) {
     if (!hrActive || !hrStream) return;
@@ -4067,7 +4075,6 @@ function hrStartSampling(video) {
   };
   if (video.requestVideoFrameCallback) {
     // one sample per real camera frame, with the camera's own timestamp
-    hrUsingVfc = true;
     const onFrame = function (now, meta) {
       if (!hrActive || !hrStream) return;
       if (useCapture === null) useCapture = !!(meta && meta.captureTime);
@@ -4076,7 +4083,6 @@ function hrStartSampling(video) {
     };
     video.requestVideoFrameCallback(onFrame);
   } else {
-    hrUsingVfc = false;
     const tick = function () {
       if (!hrActive || !hrStream) return;
       if (video.readyState >= 2 && video.currentTime !== hrFrameKey) { hrFrameKey = video.currentTime; grab(performance.now()); }
@@ -4084,23 +4090,32 @@ function hrStartSampling(video) {
     };
     hrRaf = requestAnimationFrame(tick);
   }
+  // Watchdog: if no frame arrives for a few seconds the camera has frozen, so reopen it.
+  const wd = hrWatchdog = setInterval(function () {
+    if (!hrActive || wd !== hrWatchdog) { clearInterval(wd); return; }
+    if (hrLastFrameAt && performance.now() - hrLastFrameAt > 4000) { hrLastFrameAt = 0; clearInterval(wd); hrRecover(); }
+  }, 1000);
 }
+let hrWatchdog = null, hrLastFrameAt = 0;
+
+function hrRestartRun(t) { hrBuf = hrEmptyBuf(); hrRunStart = t; hrBadSince = 0; hrEma = null; }
 
 function hrOnSample(t, r, g, b) {
   if (!hrBuf) return;
+  hrLastFrameAt = performance.now();
   if (!hrSessionStart) { hrSessionStart = t; hrRunStart = t; }
+  const hintOf = function (h) { return h || 'Cover the back camera and flash with your fingertip.'; };
 
   // Fingertip off the lens: keep nothing, so the scan only ever contains frames with a finger on the camera.
   if (!window.SXHR.isCovered(r, g, b)) {
     if (!hrUncov) hrUncovSince = t;
     hrUncov++;
-    if (hrUncov >= 3) { if (hrBuf.t.length) hrBuf = { t: [], r: [], g: [], b: [] }; hrWave = []; hrEma = null; hrBadSince = 0; hrRunStart = t; }
+    if (hrUncov >= 3 && hrBuf.t.length) hrRestartRun(t);
     if (t - hrLastAssess >= 400) {
       hrLastAssess = t;
       if (t - hrUncovSince >= 700) hrShown = 'bad';
-      if (hrShown === 'bad') hrSetUi('bad', 'Bad signal', 'Cover the camera lens and flash fully with your fingertip', 0);
-      else hrSetUi('wait', 'Checking signal', 'Cover the camera lens and flash fully with your fingertip', 0);
-      hrDrawWave();
+      if (hrShown === 'bad') hrSetUi('bad', 'Weak signal', 'Cover the back camera and flash fully with your fingertip.', 0);
+      else hrSetUi('wait', 'Checking signal', 'Cover the back camera and flash with your fingertip.', 0);
     }
     return;
   }
@@ -4108,10 +4123,6 @@ function hrOnSample(t, r, g, b) {
   hrUncov = 0;
   if (!hrBuf.t.length) hrRunStart = t;
   hrBuf.t.push(t); hrBuf.r.push(r); hrBuf.g.push(g); hrBuf.b.push(b);
-  // moving picture of the pulse: red minus its own slow average
-  hrEma = hrEma === null ? r : hrEma + 0.06 * (r - hrEma);
-  if (hrBuf.t.length > 15) { hrWave.push(r - hrEma); if (hrWave.length > 180) hrWave.shift(); }
-  hrDrawWave();
 
   if (t - hrLastAssess < 400) return;
   hrLastAssess = t;
@@ -4120,56 +4131,49 @@ function hrOnSample(t, r, g, b) {
 
   if (v.good || v.checking) hrBadSince = 0; else if (!hrBadSince) hrBadSince = t;
   const badFor = hrBadSince ? t - hrBadSince : 0;
+  if (v.hint) hrLastHint = v.hint;
 
   if (v.good) hrShown = 'good';
   else if (v.checking) { /* keep what is on screen */ }
   else if (badFor >= 700) hrShown = 'bad';
 
-  // Bad signal for long enough: throw away the run and start the 20 seconds again.
+  // Weak signal for long enough: throw this run away and start the 20 seconds again. The scan itself carries on.
   if (hrBadSince && badFor >= (v.reason === 'nofinger' ? 1000 : 2200) && hrBuf.t.length > 1) {
-    hrBuf = { t: [], r: [], g: [], b: [] }; hrRunStart = t; hrBadSince = t; hrWave = []; hrEma = null;
-    hrSetUi('bad', 'Bad signal', v.hint + '. The timer restarts', 0);
+    hrRestartRun(t); hrBadSince = t;
+    hrSetUi('bad', 'Weak signal', hintOf(v.hint) + ' Starting the count again.', 0);
     return;
   }
 
   if (hrShown === 'good') {
     const left = Math.max(0, Math.ceil((HR_RUN_MS - runMs) / 1000));
-    hrSetUi('good', 'Good signal', 'Hold still\u2026 ' + left + 's left', runMs / HR_RUN_MS);
+    hrSetUi('good', 'Good signal', 'Hold still… ' + left + 's left', runMs / HR_RUN_MS);
   } else if (hrShown === 'bad') {
-    hrSetUi('bad', 'Bad signal', v.hint, runMs / HR_RUN_MS);
+    hrSetUi('bad', 'Weak signal', hintOf(v.hint), runMs / HR_RUN_MS);
   } else {
-    hrSetUi('wait', 'Checking signal', v.hint, runMs / HR_RUN_MS);
+    hrSetUi('wait', 'Checking signal', hintOf(v.hint), runMs / HR_RUN_MS);
   }
 
-  if (runMs >= HR_RUN_MS) { hrFinish(); return; }
-  if (t - hrSessionStart > HR_GIVE_UP_MS) {
-    stopHeartRateCamera();
-    hrSetUi('fail', 'Bad signal', 'We could not hold a good signal. Rest your hand on a table, cover the lens and flash fully with a fingertip, press lightly and try again.', 0);
-    hrEl('hr-cancel').textContent = 'Close'; hrEl('hr-again').style.display = 'inline-block'; hrEl('hr-hint').style.display = 'none';
-  }
+  if (runMs >= HR_RUN_MS) hrFinish(t);
 }
 
-function hrFinish() {
+function hrFinish(t) {
   const result = window.SXHR.analyze(hrBuf);
-  stopHeartRateCamera();
-  hrEl('hr-hint').style.display = 'none';
-  hrEl('hr-cancel').textContent = 'Close'; hrEl('hr-again').style.display = 'inline-block';
-  const alertBox = hrEl('hr-pattern-alert');
-  if (alertBox) alertBox.style.display = 'none';
-
   if (!result.ok) {
-    const msg = result.reason === 'unsteady'
-      ? 'Your pulse signal was not steady enough to trust. Rest your hand, keep still, press lightly and try again.'
-      : result.reason === 'camera'
-        ? 'Your camera is running too slowly for this check. Try again in a brighter place.'
-        : 'Could not get a clear pulse. Cover the lens and flash fully with your fingertip, press lightly and try again.';
-    hrSetUi('fail', 'No reading', msg, 0);
+    // Not clean enough to trust. Do not stop: begin a fresh run and keep going until the signal is good.
+    hrFails++;
+    hrRestartRun(t); hrShown = 'wait';
+    hrSetUi('wait', 'Checking signal', result.reason === 'camera'
+      ? 'The camera is running slowly. A brighter place helps. Still trying…'
+      : hrFails >= 2 ? 'Still trying. Rest your hand on a table and press lightly with your fingertip.' : 'Not steady enough yet. Keep still, trying again…', 0);
     return;
   }
+  stopHeartRateCamera();
+  hrButtons(false);
+  const alertBox = hrEl('hr-pattern-alert');
+  if (alertBox) alertBox.style.display = 'none';
   const bpm = Math.round(result.bpm);
   hrEl('heartrate').value = bpm;
-  hrEl('hr-bpm-num').textContent = String(bpm);
-  hrSetUi('done', 'Reading complete', 'Heart rate ' + bpm + ' bpm. It has been added to your reading below.', 1);
+  hrSetUi('done', 'Reading complete', bpm + ' bpm added to your reading below.', 1);
   try { if (navigator.vibrate) navigator.vibrate(60); } catch (_e) {}
 
   const pattern = analyzeHeartRatePattern(bpm, result.peaks);
@@ -4221,9 +4225,11 @@ function focusBpFields() {
 
 function stopHeartRateCamera() {
   hrActive = false;
+  if (hrWatchdog) { clearInterval(hrWatchdog); hrWatchdog = null; }
+  hrLastFrameAt = 0;
   if (hrRaf) { cancelAnimationFrame(hrRaf); hrRaf = null; }
   if (hrStream) {
-    hrStream.getTracks().forEach(function (t) { t.stop(); });
+    hrStream.getTracks().forEach(function (t) { t.onended = null; t.stop(); });
     hrStream = null;
   }
   const v = hrEl('hr-video'); if (v) { try { v.srcObject = null; } catch (_e) {} }
@@ -4232,19 +4238,21 @@ function stopHeartRateCamera() {
 
 function cancelHeartRateMeasure() {
   stopHeartRateCamera();
-  hrBuf = null;
+  hrBuf = null; hrPausedByHide = false;
   const box = hrEl('hr-measure-box'); if (box) box.style.display = 'none';
   const alertBox = hrEl('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
 }
 
-// Release the camera if the person switches app or tab mid-scan.
+// Release the camera when the person leaves the app mid-scan, and pick the scan up again by itself when they return.
 document.addEventListener('visibilitychange', function () {
   if (document.hidden && hrActive) {
+    hrPausedByHide = true;
     stopHeartRateCamera();
-    hrSetUi('fail', 'Paused', 'The scan stopped because you left the app. Tap Measure again when you are ready.', 0);
-    const c = hrEl('hr-cancel'); if (c) c.textContent = 'Close';
-    const a = hrEl('hr-again'); if (a) a.style.display = 'inline-block';
+    hrSetUi('wait', 'Paused', 'Scan paused while you are away. It restarts when you come back.', 0);
+  } else if (!document.hidden && hrPausedByHide) {
+    hrPausedByHide = false;
+    measureHeartRate(true);
   }
 });
 

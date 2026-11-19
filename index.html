@@ -259,24 +259,18 @@
         <input type="number" id="weight" placeholder="Weight kg (opt.)">
       </div>
       <button type="button" class="ghost" onclick="measureHeartRate()">📷 Check Heart Rate (Camera)</button>
-      <div id="hr-measure-box" class="hr-panel hr-wait" style="display:none;" role="region" aria-label="Camera heart rate scan">
+      <div id="hr-measure-box" class="hr-line hr-wait" style="display:none;" role="region" aria-label="Camera heart rate scan">
         <video id="hr-video" class="hr-video" autoplay playsinline muted></video>
         <canvas id="hr-canvas" width="40" height="40" style="display:none;"></canvas>
-        <div class="hr-ring">
-          <svg viewBox="0 0 120 120" aria-hidden="true">
-            <circle class="hr-ring-bg" cx="60" cy="60" r="52"></circle>
-            <circle id="hr-ring-fg" class="hr-ring-fg" cx="60" cy="60" r="52"></circle>
-          </svg>
-          <div class="hr-center"><span id="hr-bpm-num" class="hr-bpm-num">--</span><span class="hr-bpm-unit">bpm</span></div>
+        <div class="hr-row">
+          <span id="hr-signal" class="hr-signal" role="status" aria-live="polite"><span class="hr-dot"></span><span id="hr-signal-label">Starting camera…</span></span>
+          <span class="hr-actions">
+            <button type="button" id="hr-again" class="hr-link" style="display:none;" onclick="measureHeartRate()">Try again</button>
+            <button type="button" id="hr-cancel" class="hr-link" onclick="cancelHeartRateMeasure()">Cancel</button>
+          </span>
         </div>
-        <div id="hr-signal" class="hr-pill" role="status" aria-live="polite"><span class="hr-dot"></span><span id="hr-signal-label">Checking signal</span></div>
-        <canvas id="hr-wave" class="hr-wave" aria-hidden="true"></canvas>
-        <p id="hr-status" class="hr-status" aria-live="polite">Starting camera…</p>
-        <p id="hr-hint" class="hr-hint">Rest your hand on a table. Cover the rear camera and flash fully with your fingertip pad and press lightly. Stay still for 20 seconds.</p>
-        <div class="hr-actions">
-          <button type="button" id="hr-cancel" class="secondary" onclick="cancelHeartRateMeasure()">Cancel</button>
-          <button type="button" id="hr-again" class="ghost" style="display:none;" onclick="measureHeartRate()">Measure again</button>
-        </div>
+        <div class="hr-bar" aria-hidden="true"><span id="hr-bar-fg"></span></div>
+        <p id="hr-status" class="hr-status" aria-live="polite"></p>
       </div>
       <div id="hr-pattern-alert" class="modal-backdrop" style="display:none;">
         <div class="alert-banner caution" style="margin:0;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5);">

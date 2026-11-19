@@ -146,7 +146,7 @@
     return { dc: dc, x: x, t0: rs.t0, filt: filt, f0: f0, snr: spectralSnr(sp, f0, T), pi: dc > 0 ? sd(filt) / dc : 0, lowRatio: inBand > 0 ? low / inBand : 99, pkRatio: med > 0 ? pk / med : 0, ampCv: am > 0 ? sd(amps) / am : 9, T: T };
   }
 
-  var isCovered = function (r, g, b) { return r > 55 && r > g * 1.25 && r > b * 1.25; };
+  var isCovered = function (r, g, b) { return r > 40 && r > g * 1.2 && r > b * 1.2; };   // a fingertip over the lens is clearly red, even in a dim room or with no flash
   // Only frames after the fingertip was last placed count (placing the finger is a big jump, not a pulse).
   function trimToCovered(buf) {
     var i = buf.t.length - 1;
@@ -172,7 +172,7 @@
     while (i0 > 0 && tEnd - buf.t[i0 - 1] <= winMs) i0--;
     var ts = buf.t.slice(i0), r = buf.r.slice(i0), g = buf.g.slice(i0), b = buf.b.slice(i0);
     var k = Math.max(0, r.length - 10), mr = mean(r.slice(k)), mg = mean(g.slice(k)), mb = mean(b.slice(k));
-    var covered = mr > 55 && mr > mg * 1.25 && mr > mb * 1.25;
+    var covered = isCovered(mr, mg, mb);
     if (!covered) return { good: false, checking: false, reason: 'nofinger', text: 'Bad signal', hint: 'Cover the camera lens and flash fully with your fingertip', snr: 0 };
     var spanS = (ts[ts.length - 1] - ts[0]) / 1000;
     if (spanS < 4) return { good: false, checking: true, reason: 'checking', text: 'Checking signal', hint: 'Hold still', snr: 0 };

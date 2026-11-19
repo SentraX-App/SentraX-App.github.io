@@ -998,44 +998,25 @@ nav button.active .icon { filter: none; }
 #vitals-screen input::placeholder { font-size: 14px; }
 .emergency-card button.call { font-size: 15px; }
 
-/* --- Camera heart rate scan (panel under "Check Heart Rate") ------------------
-   One panel, three states: waiting (blue), good signal (green), bad signal (red),
-   then done (green, bpm shown) or fail (red). The class on #hr-measure-box drives all colours. */
-.hr-panel {
-  --hr-c: #60a5fa;
-  margin-top: 14px; padding: 18px 16px 14px; text-align: center;
-  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255,255,255,0.10); border-radius: 18px;
-  animation: hrIn .3s ease;
-}
-.hr-panel.hr-good, .hr-panel.hr-done { --hr-c: #4ade80; }
-.hr-panel.hr-bad, .hr-panel.hr-fail { --hr-c: #f87171; }
-@keyframes hrIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.hr-video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.hr-ring { position: relative; width: 150px; height: 150px; margin: 0 auto 12px; }
-.hr-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.hr-ring circle { fill: none; stroke-width: 7; }
-.hr-ring-bg { stroke: rgba(255,255,255,0.10); }
-.hr-ring-fg { stroke: var(--hr-c); stroke-linecap: round; stroke-dasharray: 326.7; stroke-dashoffset: 326.7; transition: stroke-dashoffset .4s linear, stroke .3s; filter: drop-shadow(0 0 6px var(--hr-c)); }
-.hr-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.hr-bpm-num { font-size: 42px; font-weight: 800; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
-.hr-bpm-unit { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--hr-c); margin-top: 4px; }
-.hr-panel.hr-good .hr-bpm-num, .hr-panel.hr-wait .hr-bpm-num, .hr-panel.hr-bad .hr-bpm-num { color: rgba(255,255,255,0.35); }
-.hr-panel.hr-done .hr-bpm-num { color: #fff; animation: hrBeat .9s ease-out; }
-@keyframes hrBeat { 0% { transform: scale(.8); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
-.hr-pill {
-  display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 999px;
-  font-size: 14px; font-weight: 700; color: var(--hr-c);
-  background: color-mix(in srgb, var(--hr-c) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--hr-c) 45%, transparent);
-  transition: color .3s, background .3s, border-color .3s;
-}
-.hr-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--hr-c); box-shadow: 0 0 8px var(--hr-c); }
-.hr-panel.hr-good .hr-dot { animation: hrPulse 1s ease-in-out infinite; }
-@keyframes hrPulse { 50% { transform: scale(1.5); opacity: .6; } }
-.hr-wave { display: block; width: 100%; height: 56px; margin: 12px 0 4px; }
-.hr-status { margin: 6px 4px 4px; font-size: 14px; line-height: 1.45; color: #e5e7eb; min-height: 40px; }
-.hr-hint { margin: 2px 4px 10px; font-size: 12px; line-height: 1.45; color: #94a3b8; }
-.hr-actions { display: flex; gap: 10px; }
-.hr-actions button { flex: 1; margin-top: 0; }
-@media (prefers-reduced-motion: reduce) { .hr-panel, .hr-panel.hr-done .hr-bpm-num, .hr-panel.hr-good .hr-dot { animation: none; } .hr-ring-fg { transition: none; } }
+/* --- Camera heart rate scan (quiet line under "Check Heart Rate") --------------
+   Just a small status line: a dot and "Good signal" / "Weak signal", a thin progress bar and one line of help.
+   The class on #hr-measure-box (hr-wait | hr-good | hr-bad | hr-done | hr-fail) sets the colour. */
+.hr-line { --hr-c: #93c5fd; margin: 10px 2px 0; padding: 0; text-align: left; animation: hrIn .25s ease; }
+.hr-line.hr-good, .hr-line.hr-done { --hr-c: #4ade80; }
+.hr-line.hr-bad { --hr-c: #fbbf24; }
+.hr-line.hr-fail { --hr-c: #f87171; }
+@keyframes hrIn { from { opacity: 0; } to { opacity: 1; } }
+.hr-video { position: absolute; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
+.hr-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; }
+.hr-signal { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--hr-c); transition: color .3s; }
+.hr-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hr-c); transition: background .3s; flex: none; }
+.hr-line.hr-good .hr-dot { animation: hrPulse 1s ease-in-out infinite; }
+@keyframes hrPulse { 50% { transform: scale(1.5); opacity: .55; } }
+.hr-actions { display: inline-flex; gap: 14px; }
+.hr-actions .hr-link { all: unset; box-sizing: border-box; cursor: pointer; font-size: 12px; font-weight: 600; color: #94a3b8; padding: 6px 2px; text-decoration: underline; text-underline-offset: 3px; }
+.hr-actions .hr-link:hover { color: #e5e7eb; }
+.hr-actions .hr-link:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; border-radius: 4px; }
+.hr-bar { height: 3px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 2px 0 0; }
+.hr-bar span { display: block; height: 100%; width: 0; background: var(--hr-c); border-radius: 3px; transition: width .4s linear, background .3s; }
+.hr-status { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: #94a3b8; min-height: 17px; }
+@media (prefers-reduced-motion: reduce) { .hr-line, .hr-line.hr-good .hr-dot { animation: none; } .hr-bar span { transition: none; } }
