@@ -3998,22 +3998,33 @@ function hrToggleFlash() {
 }
 
 // ---- Camera Heart Rate Check (estimates heart rate only — NOT blood pressure) ----
+// Frames go into a buffer; hr-engine.js (window.SXHR) judges the live signal ("Good signal" / "Weak signal")
+// and works out the final beats-per-minute. This file only handles the camera, the flash and the screen.
 let hrStream = null;
 let hrFlashDecisionNow = 'on';
-let hrRafId = null;
-let hrSamples = [];
-let hrStartTime = 0;
-const HR_DURATION_MS = 20000;
+let hrRafId = null, hrVfcId = null;
+let hrBuf = null;
+let hrStartTime = 0, hrLastVerdictAt = 0, hrLastTryAt = 0, hrWeakRun = 0, hrShown = '', hrLastVerdict = null, hrIsGood = false;
+const HR_DURATION_MS = 20000;   // earliest the reading can finish
+const HR_MAX_MS = 40000;        // give up here if the signal never settles
+
+function hrShow(cls, text) {
+  const box = document.getElementById('hr-measure-box');
+  if (box) box.className = 'hr-line ' + cls;
+  const status = document.getElementById('hr-status');
+  if (status && hrShown !== text) { status.textContent = text; hrShown = text; }
+}
 
 function measureHeartRate() {
   stopHeartRateCamera();   // never leave an earlier camera (or flash) running
   hrCoveredSeen = false; hrFlashNote = '';
   const box = document.getElementById('hr-measure-box');
-  const status = document.getElementById('hr-status');
   box.style.display = 'block';
-  status.textContent = 'Starting camera…';
-  hrSamples = [];
-  hrGoodFrames = 0; hrTotalFrames = 0; hrGuideLast = 0;
+  if (typeof SXHR === 'undefined') { hrShown = ''; hrShow('hr-fail', 'Could not start. Close and reopen the app.'); return; }
+  hrShown = ''; hrShow('hr-wait', 'Starting camera…');
+  const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = '0%';
+  hrBuf = { t: [], r: [], g: [], b: [] };
+  hrLastVerdictAt = 0; hrLastTryAt = 0; hrWeakRun = 0; hrLastVerdict = null; hrIsGood = false;
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
 
@@ -4030,88 +4041,86 @@ function measureHeartRate() {
         hrFlashDecisionNow = hrFlashDecision(hrFlashHasTorch);
         hrSetFlash(hrFlashDecisionNow === 'on');
         hrFlashLabel();
-        track.applyConstraints({ advanced: [{ focusMode: 'fixed' }] }).catch(function () {});
-        track.applyConstraints({ advanced: [{ exposureMode: 'manual' }] }).catch(function () {});
-        track.applyConstraints({ advanced: [{ whiteBalanceMode: 'manual' }] }).catch(function () {});
+        // one call, so applying the camera settings cannot switch the torch back off (each advanced set is applied if the phone supports it)
+        track.applyConstraints({ advanced: [{ torch: hrFlashOn }, { focusMode: 'fixed' }, { exposureMode: 'manual' }, { whiteBalanceMode: 'manual' }] }).catch(function () {});
       }
 
       video.onloadedmetadata = function () {
         video.play();
-        status.textContent = (hrFlashDecisionNow === 'cooling' ? 'The flash is resting for a minute so it does not get hot. Use a bright room. ' : hrFlashDecisionNow === 'unsupported' ? 'This phone does not let the browser use the flash, so use a bright room. ' : '') +
-          'Measuring… hold still for 20 seconds';
-        hrStartTime = Date.now();
-        hrTick();
+        hrShow('hr-bad', 'Weak signal');
+        hrStartTime = performance.now();
+        hrSchedule();
       };
     })
     .catch(function () {
-      status.textContent = 'Could not access camera. Check permissions and try again.';
+      hrShow('hr-fail', 'Could not access camera. Check permissions and try again.');
     });
-  }
-
-// Live finger-placement guidance. Reads the same camera frames as the
-// measurement; it only changes the on-screen message and never the result.
-let hrGuideLast = 0, hrGoodFrames = 0, hrTotalFrames = 0;
-function hrUpdateGuidance(r, g, b, elapsed) {
-  hrTotalFrames++;
-  const covered = r > 60 && r > g * 1.3 && r > b * 1.3;
-  const saturated = r >= 250;
-  if (covered) hrCoveredSeen = true;
-  if (covered && !saturated) hrGoodFrames++;
-  const now = Date.now();
-  if (now - hrGuideLast < 400) return;
-  hrGuideLast = now;
-  const status = document.getElementById('hr-status');
-  if (!status) return;
-  const left = Math.max(0, Math.ceil((HR_DURATION_MS - elapsed) / 1000));
-  let msg;
-  if (!covered) msg = 'Cover the camera ' + hrLensWord() + ' fully with your fingertip pad';
-  else if (saturated) msg = 'Press a little lighter and keep your finger still';
-  else msg = 'Good signal. Hold still';
-  status.textContent = hrFlashNote + msg + ' (' + left + 's)';
 }
 
-function hrTick() {
+// One callback per real camera frame where the browser supports it (exact timing = better accuracy), else every screen refresh.
+function hrSchedule() {
+  const video = document.getElementById('hr-video');
+  if (video && typeof video.requestVideoFrameCallback === 'function') hrVfcId = video.requestVideoFrameCallback(hrTick);
+  else hrRafId = requestAnimationFrame(hrTick);
+}
+
+function hrTick(now) {
+  if (!hrStream) return;
   hrFlashGuard();
   const video = document.getElementById('hr-video');
   const canvas = document.getElementById('hr-canvas');
-  if (!hrStream || !video || video.readyState < 2) {
-    hrRafId = requestAnimationFrame(hrTick);
-    return;
-   }
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const frame = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-
-  let sum = 0, sumG = 0, sumB = 0;
-  for (let i = 0; i < frame.length; i += 4) { sum += frame[i]; sumG += frame[i + 1]; sumB += frame[i + 2]; }
-  const px = frame.length / 4;
-  const avgRed = sum / px;
-  hrSamples.push({ t: Date.now(), v: avgRed });
-
-  const elapsed = Date.now() - hrStartTime;
-  hrUpdateGuidance(avgRed, sumG / px, sumB / px, elapsed);
-  if (elapsed < HR_DURATION_MS) {
-    hrRafId = requestAnimationFrame(hrTick);
-  } else {
-    finishHeartRateMeasure();
+  if (video && canvas && video.readyState >= 2) {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let sr = 0, sg = 0, sb = 0;
+    for (let i = 0; i < frame.length; i += 4) { sr += frame[i]; sg += frame[i + 1]; sb += frame[i + 2]; }
+    const px = frame.length / 4;
+    try { hrOnFrame(sr / px, sg / px, sb / px, typeof now === 'number' ? now : performance.now()); }
+    catch (_e) { finishHeartRateMeasure(null); return; }
   }
+  if (hrStream) hrSchedule();   // finishing a scan stops the camera, which ends the loop
 }
 
-function finishHeartRateMeasure() {
-  const status = document.getElementById('hr-status');
-  const alertBox = document.getElementById('hr-pattern-alert');
-  const reading = calculateBpmFromSamples(hrSamples);
-  stopHeartRateCamera();
+function hrOnFrame(r, g, b, t) {
+  if (!hrBuf) return;
+  hrBuf.t.push(t); hrBuf.r.push(r); hrBuf.g.push(g); hrBuf.b.push(b);
+  if (SXHR.isCovered(r, g, b)) hrCoveredSeen = true;
+  const elapsed = t - hrStartTime;
 
+  // live label, refreshed about 2.5 times a second; it only turns to "Weak" after two weak checks in a row so it does not flicker
+  if (elapsed - hrLastVerdictAt >= 400) {
+    hrLastVerdictAt = elapsed;
+    hrLastVerdict = SXHR.assessLive(hrBuf);
+    let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + hrLastVerdict.reason; } catch (_e) {}
+    if (hrLastVerdict.good) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal' + dbg); }
+    else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', 'Weak signal' + dbg); }
+    const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, elapsed / HR_DURATION_MS * 100) + '%';
+  }
+
+  // from 20 s on, try for the final number once a second until it comes out clean
+  if (elapsed >= HR_DURATION_MS && elapsed - hrLastTryAt >= 1000) {
+    hrLastTryAt = elapsed;
+    const res = SXHR.analyze(hrBuf);
+    if (res && res.ok) { finishHeartRateMeasure(res); return; }
+  }
+  if (elapsed >= HR_MAX_MS) finishHeartRateMeasure(null);
+}
+
+function finishHeartRateMeasure(res) {
+  const alertBox = document.getElementById('hr-pattern-alert');
+  stopHeartRateCamera();
+  hrBuf = null;
   if (alertBox) alertBox.style.display = 'none';
+  const bar = document.getElementById('hr-bar-fill');
 
   let patternAbnormal = false;
-  if (reading) {
-    document.getElementById('heartrate').value = reading.bpm;
-    status.textContent = 'Estimated heart rate: ' + reading.bpm + ' bpm (added below)' +
-      ((hrTotalFrames > 0 && hrGoodFrames / hrTotalFrames < 0.6) ? '. Signal was weak, so this may be less accurate. Try again with your fingertip covering the ' + hrLensWord() + '.' : '');
-
-    const pattern = analyzeHeartRatePattern(reading.bpm, reading.peakTimes);
+  if (res && res.ok) {
+    const bpm = Math.round(res.bpm * 10) / 10;   // one decimal keeps the full accuracy of the measurement
+    document.getElementById('heartrate').value = bpm;
+    hrShow('hr-done', 'Heart rate: ' + bpm + ' bpm');
+    if (bar) bar.style.width = '100%';
+    const pattern = analyzeHeartRatePattern(Math.round(bpm), res.peaks);
     patternAbnormal = pattern.abnormal;
     if (patternAbnormal && alertBox) {
       document.getElementById('hr-pattern-text').textContent =
@@ -4119,108 +4128,14 @@ function finishHeartRateMeasure() {
       alertBox.style.display = 'flex';
     }
   } else {
-    status.textContent = 'Could not get a clear reading. Try again, holding still.';
+    hrShow('hr-fail', 'Weak signal. Try again');
   }
 
   if (!patternAbnormal) {
     setTimeout(function () {
-      document.getElementById('hr-measure-box').style.display = 'none';
-    }, 2500);
+      if (!hrStream) document.getElementById('hr-measure-box').style.display = 'none';   // not if a new scan has already started
+    }, res && res.ok ? 3000 : 4000);
   }
-}
-
-// A normal pulse waveform has a small secondary bump after the main peak
-// (the "dicrotic notch") — a basic threshold-crossing detector can mistake
-// that for a second beat. Unlike a one-off noise glitch, this can happen on
-// most beats in a reading, producing a systematic alternating short/long
-// pattern that looks like an irregular rhythm even when the real heartbeat
-// is perfectly steady. Fix it structurally: after detecting candidate
-// peaks, merge any peak that lands much closer to the previous one than
-// this reading's own typical spacing — that's almost certainly the same
-// beat counted twice, not a genuinely extra one.
-function mergeDoubleCountedPeaks(peakTimes) {
-  if (peakTimes.length < 3) return peakTimes;
-  const rawIntervals = [];
-  for (let i = 1; i < peakTimes.length; i++) rawIntervals.push(peakTimes[i] - peakTimes[i - 1]);
-  const sorted = rawIntervals.slice().sort(function (a, b) { return a - b; });
-  const median = sorted[Math.floor(sorted.length / 2)];
-
-  const cleaned = [peakTimes[0]];
-  for (let i = 1; i < peakTimes.length; i++) {
-    const gap = peakTimes[i] - cleaned[cleaned.length - 1];
-    if (gap < median * 0.6) continue; // too close to be a separate beat — drop it
-    cleaned.push(peakTimes[i]);
-  }
-  return cleaned;
-}
-
-function calculateBpmFromSamples(samples) {
-  if (samples.length < 20) return null;
-
-  // Discard the first second: camera auto-exposure/white-balance is still
-  // stabilizing right after the flash turns on, and that swing isn't part
-  // of the pulse signal.
-  const settleMs = 1000;
-  const startT = samples[0].t;
-  const usable = samples.filter(function (s) { return s.t - startT > settleMs; });
-  if (usable.length < 20) return null;
-
-  const values = usable.map(function (s) { return s.v; });
-
-  // Rolling baseline instead of one flat average for the whole window — a
-  // single global average lets slow lighting drift dominate the threshold
-  // and throws off peak counting. A rolling local amplitude (stdev) rides
-  // alongside it so peak detection can require a real bump, not just a
-  // sliver above a noisy average — without this, small ripples from sensor
-  // noise or an imperfect fingertip seal get miscounted as extra beats,
-  // which then shows up as fake rhythm irregularity even on a normal pulse.
-  const windowSize = 15;
-  const baseline = [];
-  const localAmp = [];
-  for (let i = 0; i < values.length; i++) {
-    const start = Math.max(0, i - windowSize);
-    const slice = values.slice(start, i + 1);
-    const avg = slice.reduce(function (a, b) { return a + b; }, 0) / slice.length;
-    baseline.push(avg);
-    const variance = slice.reduce(function (s, v) { return s + Math.pow(v - avg, 2); }, 0) / slice.length;
-    localAmp.push(Math.sqrt(variance));
-  }
-// Peak detection with a refractory period: a real pulse can't repeat
-  // faster than ~300ms (200bpm — the same ceiling already enforced below),
-  // so a crossing sooner than that is noise, not a beat. PROMINENCE_K
-  // requires each candidate peak to clear the baseline by a real margin
-  // (relative to the local signal's own noise level), not just barely
-  // cross it.
-  const REFRACTORY_MS = 300;
-  const PROMINENCE_K = 0.5;
-  let rising = false;
-  let lastPeakT = -Infinity;
-  const rawPeakTimes = [];
-  for (let i = 1; i < values.length; i++) {
-    const threshold = baseline[i] + PROMINENCE_K * localAmp[i];
-    const above = values[i] > threshold;
-    if (above && values[i] > values[i - 1] && !rising) {
-      rising = true;
-      const t = usable[i].t;
-      if (t - lastPeakT >= REFRACTORY_MS) {
-        rawPeakTimes.push(t);
-        lastPeakT = t;
-      }
-    } else if (!above) {
-      rising = false;
-    }
-  }
-
-  const peakTimes = mergeDoubleCountedPeaks(rawPeakTimes);
-  const meanLocalAmp = localAmp.reduce(function (a, b) { return a + b; }, 0) / localAmp.length;
-  const meanBrightness = values.reduce(function (a, b) { return a + b; }, 0) / values.length;
-  if (meanBrightness < 10 || (meanLocalAmp / meanBrightness) < 0.0015) return null;
-  const durationMinutes = (usable[usable.length - 1].t - usable[0].t) / 60000;
-  if (durationMinutes <= 0) return null;
-
-  const bpm = Math.round(peakTimes.length / durationMinutes);
-  if (bpm < 40 || bpm > 200) return null;
-  return { bpm: bpm, peakTimes: peakTimes };
 }
 
 // ---- Heart rate PATTERN analysis (rate + rhythm only) ----
@@ -4266,6 +4181,7 @@ function stopHeartRateCamera() {
   hrSetFlash(false);   // flash off first, whatever else happens
   hrTrack = null; hrFlashOn = false;
   if (hrRafId) { cancelAnimationFrame(hrRafId); hrRafId = null; }
+  if (hrVfcId) { try { document.getElementById('hr-video').cancelVideoFrameCallback(hrVfcId); } catch (_e) {} hrVfcId = null; }
   if (hrStream) {
     hrStream.getTracks().forEach(function (t) { t.stop(); });
     hrStream = null;
@@ -4274,7 +4190,7 @@ function stopHeartRateCamera() {
 
 function cancelHeartRateMeasure() {
   stopHeartRateCamera();
-  document.getElementById('hr-status').textContent = 'Cancelled.';
+  hrBuf = null;
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
@@ -4700,7 +4616,7 @@ const SX_HELP_POSTER = 'help/sentrax-tour.jpg';
 function sxHelpSections() {
   return [
     ['Log a blood pressure reading', ['Open the Vitals tab.', 'Type the top number (Systolic) and the bottom number (Diastolic). Heart rate and weight are optional.', 'Tap Save & Check My Risk. The colour shows your risk level, and the reading is saved in History.']],
-    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Rest the soft pad of your fingertip over the back camera lens and flash. Press lightly, and lift your finger if it feels warm. If the flash is too warm for you, tap Flash: on to turn it off and use a bright room instead. Press lightly, like touching a screen. The 20 seconds starts when your finger is on.', 'Sit down, rest your hand on a table and keep still. Do not talk.', 'Watch the label: Good signal (green) means hold still. Weak signal (amber) shows a tip, such as pressing lighter or covering the flash. The small line moves with your pulse.', 'Only a good reading is added to your reading form. If it says No good reading, rest, warm your hands and tap Try again.', 'This is an estimate for everyday tracking, not a medical test.']],
+    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Rest the soft pad of your fingertip over the back camera lens and flash. Press lightly, and lift your finger if it feels warm. If the flash is too warm for you, tap Flash: on to turn it off and use a bright room instead. Press lightly, like touching a screen.', 'Sit down, rest your hand on a table and keep still. Do not talk.', 'Watch the label: Good signal (green) means hold still. Weak signal (amber) means press lighter, cover the lens fully and keep still.', 'The reading is added to your reading form when it finishes. If it says Weak signal, rest, warm your hands and tap Check Heart Rate again.', 'This is an estimate for everyday tracking, not a medical test.']],
     ['Medicines and reminders', ['Open the Meds tab and add the name, time and how long you take it.', 'You get a reminder at that time. Tap to mark each dose as taken.', 'If a caregiver is linked, they are alerted only if a dose is still missed after your reminder.']],
     ['Add a caregiver', ['Open the Family tab.', 'Add Caregiver saves a phone number or email so they get SMS and email alerts. Please ask them first.', 'Generate Invite Code lets someone create their own account and see your readings. You can remove their access at any time under Linked caregivers.']],
     ['Emergency SOS', ['On the Vitals tab, the Emergency card has the SOS button. It asks you to confirm, then sends your location to your caregivers by SMS and email and prepares a WhatsApp message.', 'Call Emergency Line shows the number for where you are. Use it for real emergencies only.']],

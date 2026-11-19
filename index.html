@@ -255,7 +255,7 @@
         <input type="number" id="diastolic" placeholder="Diastolic (bottom)">
       </div>
       <div class="input-row">
-        <input type="number" id="heartrate" placeholder="Heart rate (opt.)">
+        <input type="number" step="0.1" id="heartrate" placeholder="Heart rate (opt.)">
         <input type="number" id="weight" placeholder="Weight kg (opt.)">
       </div>
       <button type="button" class="ghost" onclick="measureHeartRate()">📷 Check Heart Rate (Camera)</button>
@@ -263,13 +263,14 @@
         <video id="hr-video" class="hr-video" autoplay playsinline muted></video>
         <canvas id="hr-canvas" width="40" height="40" style="display:none;"></canvas>
         <div class="hr-row">
-          <p id="hr-status" class="hr-status" role="status" aria-live="polite" style="margin:0;color:#cbd5e1;font-size:13px;"></p>
+          <span class="hr-signal"><span class="hr-dot" aria-hidden="true"></span><span id="hr-status" role="status" aria-live="polite"></span></span>
           <span class="hr-right">
             <button type="button" id="hr-flash" class="hr-link" style="display:none;" onclick="hrToggleFlash()">Flash: on</button>
             <button type="button" id="hr-cancel" class="hr-link" onclick="cancelHeartRateMeasure()">Cancel</button>
           </span>
         </div>
-        <p id="hr-warm" class="hr-status" style="display:none;margin:6px 0 0;color:#fbbf24;font-size:12px;">Flash is on. If your finger feels warm, lift it and tap Cancel.</p>
+        <div class="hr-bar" aria-hidden="true"><span id="hr-bar-fill"></span></div>
+        <p id="hr-warm" class="hr-status" style="display:none;margin:6px 0 0;color:#fbbf24;font-size:12px;">Flash is on. Lift your finger if it feels warm.</p>
       </div>
       <div id="hr-pattern-alert" class="modal-backdrop" style="display:none;">
         <div class="alert-banner caution" style="margin:0;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
