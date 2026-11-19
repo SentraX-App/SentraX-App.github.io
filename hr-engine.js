@@ -6,7 +6,7 @@
    How accuracy is reached (a camera pulse is a weak, noisy signal, so each step matters):
    1. Samples are re-timed onto an exact 30 Hz grid, so uneven camera frame timing cannot bend the rate.
    2. A zero-lag band-pass filter keeps only 0.55 to 3.4 Hz (33 to 204 bpm) and removes drift and flicker.
-   3. The red AND green channel are both tried; the one with the cleaner pulse is used (red often saturates under a flash).
+   3. The red AND green channel are both tried; the one with the cleaner pulse is used (red can saturate in very bright light).
    4. A zero-padded FFT finds the pulse frequency; a harmonic check stops the "second bump" of the pulse wave being read as double speed.
    5. The signal is re-filtered tightly around that frequency, individual beats are located to a fraction of a frame,
       and the rate is the average time between the first and last accepted beat (not "beats in 20 seconds", which is only exact to 3 bpm).
@@ -146,7 +146,7 @@
     return { dc: dc, x: x, t0: rs.t0, filt: filt, f0: f0, snr: spectralSnr(sp, f0, T), pi: dc > 0 ? sd(filt) / dc : 0, lowRatio: inBand > 0 ? low / inBand : 99, pkRatio: med > 0 ? pk / med : 0, ampCv: am > 0 ? sd(amps) / am : 9, T: T };
   }
 
-  // Is a fingertip over the lens? Phones render a fingertip very differently (flash on or off, colour correction),
+  // Is a fingertip over the lens? Phones render a fingertip very differently (lighting, colour correction),
   // so the colour test is deliberately forgiving. u is how uneven the picture is (0 = perfectly even). A fingertip is
   // an even, blurry red picture; a room scene is uneven. A clearly red frame passes on colour alone; a mildly red
   // one (washed-out phones) must also be even. Without u (frames that were already accepted) the colour test is enough.
@@ -172,17 +172,17 @@
   function assessLive(buf, opts) {
     opts = opts || {};
     var full = buf, n = buf.t.length, winMs = opts.windowMs || 8000;
-    if (n && !isCovered(buf.r[n - 1], buf.g[n - 1], buf.b[n - 1])) return { good: false, checking: false, reason: 'nofinger', text: 'Bad signal', hint: 'Cover the camera lens and flash fully with your fingertip', snr: 0 };
+    if (n && !isCovered(buf.r[n - 1], buf.g[n - 1], buf.b[n - 1])) return { good: false, checking: false, reason: 'nofinger', text: 'Bad signal', hint: 'Cover the camera lens fully with your fingertip, in a bright room', snr: 0 };
     buf = trimToCovered(buf); n = buf.t.length;
     var skip = 0; while (skip < n && buf.t[skip] - buf.t[0] < 1000) skip++;   // camera exposure is still settling
     if (skip < n) { buf = { t: buf.t.slice(skip), r: buf.r.slice(skip), g: buf.g.slice(skip), b: buf.b.slice(skip) }; n = buf.t.length; } else n = 0;
-    if (n < 6) return { good: false, checking: true, reason: 'checking', text: 'Checking signal', hint: 'Place your fingertip over the camera and flash', snr: 0 };
+    if (n < 6) return { good: false, checking: true, reason: 'checking', text: 'Checking signal', hint: 'Place your fingertip lightly over the camera lens', snr: 0 };
     var tEnd = buf.t[n - 1], i0 = n - 1;
     while (i0 > 0 && tEnd - buf.t[i0 - 1] <= winMs) i0--;
     var ts = buf.t.slice(i0), r = buf.r.slice(i0), g = buf.g.slice(i0), b = buf.b.slice(i0);
     var k = Math.max(0, r.length - 10), mr = mean(r.slice(k)), mg = mean(g.slice(k)), mb = mean(b.slice(k));
     var covered = isCovered(mr, mg, mb);
-    if (!covered) return { good: false, checking: false, reason: 'nofinger', text: 'Bad signal', hint: 'Cover the camera lens and flash fully with your fingertip', snr: 0 };
+    if (!covered) return { good: false, checking: false, reason: 'nofinger', text: 'Bad signal', hint: 'Cover the camera lens fully with your fingertip, in a bright room', snr: 0 };
     var spanS = (ts[ts.length - 1] - ts[0]) / 1000;
     if (spanS < 4) return { good: false, checking: true, reason: 'checking', text: 'Checking signal', hint: 'Hold still', snr: 0 };
     if (fpsOf(ts) < MIN_FPS) return { good: false, checking: false, reason: 'camera', text: 'Bad signal', hint: 'Camera is running too slowly. Move to a brighter place', snr: 0 };

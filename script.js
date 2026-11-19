@@ -3965,7 +3965,7 @@ function cleanAiMarkdown(text) {
 const HR_RUN_MS = 20000;      // the whole scan
 const HR_MIN_GOOD_S = 10;     // the last uninterrupted stretch with a finger on must be at least this long
 let hrStream = null, hrRaf = null, hrBuf = null, hrActive = false, hrWake = null;
-let hrUncov = 0, hrUncovSince = 0, hrWinStart = 0, hrBadSince = 0, hrLastAssess = 0, hrShown = 'wait', hrFrameKey = -1, hrEma = null, hrTorchOk = true, hrCtx = null;
+let hrUncov = 0, hrUncovSince = 0, hrWinStart = 0, hrBadSince = 0, hrLastAssess = 0, hrShown = 'wait', hrFrameKey = -1, hrEma = null, hrCtx = null;
 let hrWave = [], hrRecoveries = 0, hrPausedByHide = false, hrWatchdog = null, hrLastFrameAt = 0, hrHint = '';
 
 function hrEl(id) { return document.getElementById(id); }
@@ -4011,7 +4011,7 @@ function measureHeartRate(isRecovery) {
   box.style.display = 'block';
   hrButtons(true);
   const alertBox = hrEl('hr-pattern-alert'); if (alertBox) alertBox.style.display = 'none';
-  hrShown = 'wait'; hrEma = null; hrWave = []; hrBuf = hrEmptyBuf(); hrBadSince = 0; hrLastAssess = 0; hrFrameKey = -1; hrTorchOk = true; hrUncov = 0; hrUncovSince = 0; hrWinStart = 0; hrPausedByHide = false; hrHint = '';
+  hrShown = 'wait'; hrEma = null; hrWave = []; hrBuf = hrEmptyBuf(); hrBadSince = 0; hrLastAssess = 0; hrFrameKey = -1; hrUncov = 0; hrUncovSince = 0; hrWinStart = 0; hrPausedByHide = false; hrHint = '';
   hrSetUi('wait', 'Starting camera…', '', 0, '20s');
   if (!isRecovery) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
@@ -4037,23 +4037,14 @@ function measureHeartRate(isRecovery) {
       video.srcObject = stream;
       const track = stream.getVideoTracks()[0];
       if (track) track.onended = function () { hrRecover(); };   // camera taken by another app or switched off: start again by itself
-      // Flash on. Exposure and white balance are left on automatic: forcing them manual made some phones go black.
-      const torchOn = function () {
-        try {
-          const caps = track && track.getCapabilities ? track.getCapabilities() : {};
-          hrTorchOk = !!caps.torch;
-          if (caps.torch && track.applyConstraints) track.applyConstraints({ advanced: [{ torch: true }] }).catch(function () {});
-        } catch (_e) { /* optional camera control */ }
-      };
-      torchOn();
-      video.onplaying = function () { setTimeout(torchOn, 400); };   // some phones only accept the flash once frames are flowing
+      // The flash is NEVER switched on: pressed against a fingertip for 20 seconds it gets hot enough to burn.
+      // This scan uses room light only, and makes sure a flash left on by anything else is off.
+      try { if (track && track.applyConstraints) track.applyConstraints({ advanced: [{ torch: false }] }).catch(function () {}); } catch (_e) { /* optional camera control */ }
       try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { hrWake = l; }).catch(function () {}); } catch (_e) {}
       video.onloadedmetadata = function () {
         video.play().catch(function () {});
         hrWinStart = 0;
-        hrSetUi('wait', 'Checking signal', hrTorchOk
-          ? 'Cover the back camera and flash with your fingertip. The 20 seconds starts when your finger is on.'
-          : 'Cover the back camera with your fingertip in a bright room. The 20 seconds starts when your finger is on.', 0, '20s');
+        hrSetUi('wait', 'Checking signal', 'Rest your fingertip lightly over the back camera lens in a bright room. If the phone feels warm, lift your finger and tap Cancel.', 0, '20s');
         hrStartSampling(video);
       };
     })
@@ -4126,8 +4117,8 @@ function hrStartSampling(video) {
 function hrRefresh(t, hint) {
   const started = hrWinStart > 0, el = started ? t - hrWinStart : 0;
   const left = started ? Math.max(0, Math.ceil((HR_RUN_MS - el) / 1000)) : HR_RUN_MS / 1000, prog = started ? el / HR_RUN_MS : 0, tt = left + 's';
-  const help = hint || 'Cover the back camera and flash fully with your fingertip.';
-  if (!started) hrSetUi('wait', 'Checking signal', (hint && hint.indexOf('too dark') > -1) ? hint : 'Cover the back camera and flash with your fingertip. The 20 seconds starts when your finger is on.', 0, tt);
+  const help = hint || 'Cover the back camera lens fully with your fingertip, in a bright room.';
+  if (!started) hrSetUi('wait', 'Checking signal', (hint && hint.indexOf('too dark') > -1) ? hint : 'Rest your fingertip lightly over the back camera lens in a bright room. The 20 seconds starts when your finger is on.', 0, tt);
   else if (hrShown === 'good') hrSetUi('good', 'Good signal', 'Good signal. Hold still until the timer ends.', prog, tt);
   else if (hrShown === 'bad') hrSetUi('bad', 'Weak signal', help, prog, tt);
   else hrSetUi('wait', 'Checking signal', help, prog, tt);
@@ -4147,7 +4138,7 @@ function hrDebug(r, g, b, u, covered, v) {
       st.parentNode.insertBefore(d, st.nextSibling);
     }
     d.textContent = 'R' + Math.round(r) + ' G' + Math.round(g) + ' B' + Math.round(b) + ' u' + (u == null ? '-' : u.toFixed(3)) +
-      ' covered=' + covered + ' flash=' + (hrTorchOk ? 'yes' : 'no') + (v ? ' verdict=' + v.reason + ' snr=' + (v.snr != null ? Number(v.snr).toFixed(1) : '-') : '');
+      ' covered=' + covered + (v ? ' verdict=' + v.reason + ' snr=' + (v.snr != null ? Number(v.snr).toFixed(1) : '-') : '');
   } catch (_e) { /* debug only */ }
 }
 
@@ -4173,7 +4164,7 @@ function hrOnSample(t, r, g, b, u) {
     if (t - hrLastAssess >= 300) {
       hrLastAssess = t;
       if (t - hrUncovSince >= 700) hrShown = 'bad';
-      hrRefresh(t, r <= 18 ? 'It is too dark. Cover the lens and flash fully, or turn on a light.' : 'Cover the back camera and flash fully with your fingertip.');
+      hrRefresh(t, r <= 18 ? 'It is too dark. Cover the lens fully, or move to a brighter place.' : 'Cover the back camera lens fully with your fingertip, in a bright room.');
     }
     return;
   }
@@ -4720,7 +4711,7 @@ const SX_HELP_POSTER = 'help/sentrax-tour.jpg';
 function sxHelpSections() {
   return [
     ['Log a blood pressure reading', ['Open the Vitals tab.', 'Type the top number (Systolic) and the bottom number (Diastolic). Heart rate and weight are optional.', 'Tap Save & Check My Risk. The colour shows your risk level, and the reading is saved in History.']],
-    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Cover the back camera and the flash fully with the soft pad of your fingertip. Press lightly, like touching a screen. The 20 seconds starts when your finger is on.', 'Sit down, rest your hand on a table and keep still. Do not talk.', 'Watch the label: Good signal (green) means hold still. Weak signal (amber) shows a tip, such as pressing lighter or covering the flash. The small line moves with your pulse.', 'Only a good reading is added to your reading form. If it says No good reading, rest, warm your hands and tap Try again.', 'This is an estimate for everyday tracking, not a medical test.']],
+    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Rest the soft pad of your fingertip over the back camera lens, in a bright room. Press lightly, like touching a screen. The 20 seconds starts when your finger is on.', 'Sit down, rest your hand on a table and keep still. Do not talk.', 'Watch the label: Good signal (green) means hold still. Weak signal (amber) shows a tip, such as pressing lighter or covering the flash. The small line moves with your pulse.', 'Only a good reading is added to your reading form. If it says No good reading, rest, warm your hands and tap Try again.', 'This is an estimate for everyday tracking, not a medical test.']],
     ['Medicines and reminders', ['Open the Meds tab and add the name, time and how long you take it.', 'You get a reminder at that time. Tap to mark each dose as taken.', 'If a caregiver is linked, they are alerted only if a dose is still missed after your reminder.']],
     ['Add a caregiver', ['Open the Family tab.', 'Add Caregiver saves a phone number or email so they get SMS and email alerts. Please ask them first.', 'Generate Invite Code lets someone create their own account and see your readings. You can remove their access at any time under Linked caregivers.']],
     ['Emergency SOS', ['On the Vitals tab, the Emergency card has the SOS button. It asks you to confirm, then sends your location to your caregivers by SMS and email and prepares a WhatsApp message.', 'Call Emergency Line shows the number for where you are. Use it for real emergencies only.']],
