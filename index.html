@@ -263,17 +263,13 @@
         <video id="hr-video" class="hr-video" autoplay playsinline muted></video>
         <canvas id="hr-canvas" width="40" height="40" style="display:none;"></canvas>
         <div class="hr-row">
-          <span id="hr-signal" class="hr-signal" role="status" aria-live="polite"><span class="hr-dot"></span><span id="hr-signal-label">Starting camera…</span></span>
+          <p id="hr-status" class="hr-status" role="status" aria-live="polite" style="margin:0;color:#cbd5e1;font-size:13px;"></p>
           <span class="hr-right">
-            <span id="hr-time" class="hr-time" aria-label="Seconds left">20s</span>
             <button type="button" id="hr-flash" class="hr-link" style="display:none;" onclick="hrToggleFlash()">Flash: on</button>
-            <button type="button" id="hr-again" class="hr-link" style="display:none;" onclick="measureHeartRate()">Try again</button>
             <button type="button" id="hr-cancel" class="hr-link" onclick="cancelHeartRateMeasure()">Cancel</button>
           </span>
         </div>
-        <canvas id="hr-wave" class="hr-wave" aria-hidden="true"></canvas>
-        <div class="hr-bar" aria-hidden="true"><span id="hr-bar-fg"></span></div>
-        <p id="hr-status" class="hr-status" aria-live="polite"></p>
+        <p id="hr-warm" class="hr-status" style="display:none;margin:6px 0 0;color:#fbbf24;font-size:12px;">Flash is on. If your finger feels warm, lift it and tap Cancel.</p>
       </div>
       <div id="hr-pattern-alert" class="modal-backdrop" style="display:none;">
         <div class="alert-banner caution" style="margin:0;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
