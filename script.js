@@ -4092,9 +4092,10 @@ function hrStartSampling(video) {
       const cs = Math.min(vw, vh) * 0.6, sx = (vw - cs) / 2, sy = (vh - cs) / 2;
       hrCtx.drawImage(video, sx, sy, cs, cs, 0, 0, canvas.width, canvas.height);
       const d = hrCtx.getImageData(0, 0, canvas.width, canvas.height).data;
-      let r = 0, g = 0, b = 0; const px = d.length / 4;
-      for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
-      hrOnSample(tMs, r / px, g / px, b / px);
+      let r = 0, g = 0, b = 0, rr = 0; const px = d.length / 4;
+      for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; rr += d[i] * d[i]; }
+      const mr = r / px, u = mr > 0 ? Math.sqrt(Math.max(0, rr / px - mr * mr)) / mr : 1;   // how uneven the picture is
+      hrOnSample(tMs, mr, g / px, b / px, u);
     }
   };
   if (video.requestVideoFrameCallback) {
@@ -4126,13 +4127,31 @@ function hrRefresh(t, hint) {
   const started = hrWinStart > 0, el = started ? t - hrWinStart : 0;
   const left = started ? Math.max(0, Math.ceil((HR_RUN_MS - el) / 1000)) : HR_RUN_MS / 1000, prog = started ? el / HR_RUN_MS : 0, tt = left + 's';
   const help = hint || 'Cover the back camera and flash fully with your fingertip.';
-  if (!started) hrSetUi('wait', 'Checking signal', 'Cover the back camera and flash with your fingertip. The 20 seconds starts when your finger is on.', 0, tt);
+  if (!started) hrSetUi('wait', 'Checking signal', (hint && hint.indexOf('too dark') > -1) ? hint : 'Cover the back camera and flash with your fingertip. The 20 seconds starts when your finger is on.', 0, tt);
   else if (hrShown === 'good') hrSetUi('good', 'Good signal', 'Good signal. Hold still until the timer ends.', prog, tt);
   else if (hrShown === 'bad') hrSetUi('bad', 'Weak signal', help, prog, tt);
   else hrSetUi('wait', 'Checking signal', help, prog, tt);
 }
 
-function hrOnSample(t, r, g, b) {
+// Shown only when the page address has ?hrdebug=1 (or localStorage hrDebug=1). It prints what the camera reports so a
+// phone that struggles can be diagnosed from one screenshot.
+function hrDebug(r, g, b, u, covered, v) {
+  try {
+    if (!(/[?&]hrdebug=1/.test(location.search) || localStorage.getItem('hrDebug') === '1')) return;
+    const now = performance.now(); if (now - (hrDebug.last || 0) < 400) return; hrDebug.last = now;
+    let d = hrEl('hr-debug');
+    if (!d) {
+      const st = hrEl('hr-status'); if (!st) return;
+      d = document.createElement('div'); d.id = 'hr-debug';
+      d.style.cssText = 'font:11px/1.4 monospace;color:#94a3b8;margin-top:6px;word-break:break-all;';
+      st.parentNode.insertBefore(d, st.nextSibling);
+    }
+    d.textContent = 'R' + Math.round(r) + ' G' + Math.round(g) + ' B' + Math.round(b) + ' u' + (u == null ? '-' : u.toFixed(3)) +
+      ' covered=' + covered + ' flash=' + (hrTorchOk ? 'yes' : 'no') + (v ? ' verdict=' + v.reason + ' snr=' + (v.snr != null ? Number(v.snr).toFixed(1) : '-') : '');
+  } catch (_e) { /* debug only */ }
+}
+
+function hrOnSample(t, r, g, b, u) {
   if (!hrBuf) return;
   hrLastFrameAt = performance.now();
 
@@ -4144,7 +4163,8 @@ function hrOnSample(t, r, g, b) {
   // Time is up: judge the reading.
   if (hrWinStart && t - hrWinStart >= HR_RUN_MS) { hrFinish(); return; }
 
-  const covered = window.SXHR.isCovered(r, g, b);
+  const covered = window.SXHR.isCovered(r, g, b, u);
+  hrDebug(r, g, b, u, covered, null);
   if (!covered) {
     // Fingertip off the lens: keep nothing, so the scan only ever holds frames with a finger on the camera.
     if (!hrUncov) hrUncovSince = t;
@@ -4153,7 +4173,7 @@ function hrOnSample(t, r, g, b) {
     if (t - hrLastAssess >= 300) {
       hrLastAssess = t;
       if (t - hrUncovSince >= 700) hrShown = 'bad';
-      hrRefresh(t, 'Cover the back camera and flash fully with your fingertip.');
+      hrRefresh(t, r <= 18 ? 'It is too dark. Cover the lens and flash fully, or turn on a light.' : 'Cover the back camera and flash fully with your fingertip.');
     }
     return;
   }
@@ -4165,6 +4185,7 @@ function hrOnSample(t, r, g, b) {
   if (t - hrLastAssess < 300) return;
   hrLastAssess = t;
   const v = window.SXHR.assessLive(hrBuf);
+  hrDebug(r, g, b, u, true, v);
   if (v.good || v.checking) hrBadSince = 0; else if (!hrBadSince) hrBadSince = t;
   const badFor = hrBadSince ? t - hrBadSince : 0;
   if (v.good) hrShown = 'good';
@@ -4487,6 +4508,7 @@ function sxApplyCloudConsents(data, user) {
       syncToFirestore({ consents: { ai: { version: SX_POLICY_VERSION, at: Date.now(), enabled: sxAiConsentOk(), shareHealth: sxAiShareHealthOn(), basis: 'existing_user' } } });
     }
     if (c.ads && typeof c.ads.personalised === 'boolean') localStorage.setItem('sxAdsConsent', c.ads.personalised ? 'yes' : 'no');
+    if (user && user.metadata && user.metadata.creationTime && new Date(user.metadata.creationTime).getTime() < SX_AI_CUTOFF) localStorage.setItem('sxTourSeen', '1');
   } catch (_e) { /* never block login */ }
   try { refreshEmergencyButtons(); } catch (_e) { /* cosmetic */ }
 }
@@ -4678,3 +4700,156 @@ function logOutAndWipe() {
   try { firebase.auth().signOut().then(done, done); } catch (_e) { done(); }
 }
 window.logOutAndWipe = logOutAndWipe;
+
+// =====================================================================
+// Help and quick tour: a Help button on the first page (always there), a
+// one-time welcome for brand-new users only, and a guide with a video.
+// =====================================================================
+const SX_HELP_VIDEO = 'help/sentrax-tour.mp4';
+const SX_HELP_POSTER = 'help/sentrax-tour.jpg';
+
+// People who were already using the app are marked as having seen the welcome.
+(function sxInitTour() {
+  try {
+    if (localStorage.getItem('sxTourInit')) return;
+    localStorage.setItem('sxTourInit', '1');
+    if (localStorage.getItem('userName')) localStorage.setItem('sxTourSeen', '1');
+  } catch (_e) { /* ignore */ }
+})();
+
+function sxHelpSections() {
+  return [
+    ['Log a blood pressure reading', ['Open the Vitals tab.', 'Type the top number (Systolic) and the bottom number (Diastolic). Heart rate and weight are optional.', 'Tap Save & Check My Risk. The colour shows your risk level, and the reading is saved in History.']],
+    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Cover the back camera and the flash fully with the soft pad of your fingertip. Press lightly, like touching a screen. The 20 seconds starts when your finger is on.', 'Sit down, rest your hand on a table and keep still. Do not talk.', 'Watch the label: Good signal (green) means hold still. Weak signal (amber) shows a tip, such as pressing lighter or covering the flash. The small line moves with your pulse.', 'Only a good reading is added to your reading form. If it says No good reading, rest, warm your hands and tap Try again.', 'This is an estimate for everyday tracking, not a medical test.']],
+    ['Medicines and reminders', ['Open the Meds tab and add the name, time and how long you take it.', 'You get a reminder at that time. Tap to mark each dose as taken.', 'If a caregiver is linked, they are alerted only if a dose is still missed after your reminder.']],
+    ['Add a caregiver', ['Open the Family tab.', 'Add Caregiver saves a phone number or email so they get SMS and email alerts. Please ask them first.', 'Generate Invite Code lets someone create their own account and see your readings. You can remove their access at any time under Linked caregivers.']],
+    ['Emergency SOS', ['On the Vitals tab, the Emergency card has the SOS button. It asks you to confirm, then sends your location to your caregivers by SMS and email and prepares a WhatsApp message.', 'Call Emergency Line shows the number for where you are. Use it for real emergencies only.']],
+    ['Assistant, Articles and more', ['Tap More at the bottom to find First Aid, the AI Assistant, Health Trends, the Health Library articles, your Health Passport and more.', 'The Assistant gives general health information. It does not replace a doctor.']],
+    ['Your privacy', ['Open the Family tab and scroll to Your data and privacy.', 'There you can change your privacy choices, download your data, or delete your account.']],
+    ['Need help?', ['Email sentraxforteltd@gmail.com or call +234 706 324 3807.']]
+  ];
+}
+
+function sxOpenHelp(autoplay) {
+  const old = document.getElementById('sx-help');
+  if (old) old.remove();
+  const prevOverflow = document.body.style.overflow;
+  const sheet = document.createElement('div');
+  sheet.id = 'sx-help';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('aria-label', 'Help and quick tour');
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#0b1220;overflow:auto;-webkit-overflow-scrolling:touch;padding:0 0 40px;';
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(11,18,32,0.96);border-bottom:1px solid rgba(148,163,184,0.2);';
+  const title = document.createElement('div');
+  title.textContent = 'Help and tour';
+  title.style.cssText = 'font-size:18px;font-weight:700;color:#fff;';
+  const x = document.createElement('button');
+  x.textContent = 'Close';
+  x.setAttribute('aria-label', 'Close help');
+  x.style.cssText = 'padding:8px 14px;border-radius:10px;border:0;background:rgba(255,255,255,0.1);color:#e2e8f0;font-size:14px;font-weight:600;cursor:pointer;';
+  bar.appendChild(title); bar.appendChild(x);
+  sheet.appendChild(bar);
+  const body = document.createElement('div');
+  body.style.cssText = 'max-width:560px;margin:0 auto;padding:16px;';
+  // video
+  const vCard = document.createElement('div');
+  vCard.style.cssText = 'background:#0f172a;border:1px solid rgba(148,163,184,0.25);border-radius:16px;padding:12px;margin-bottom:16px;';
+  const vh = document.createElement('div');
+  vh.textContent = 'Watch the quick tour';
+  vh.style.cssText = 'font-size:15px;font-weight:700;color:#93c5fd;margin:2px 2px 10px;';
+  const v = document.createElement('video');
+  v.id = 'sx-help-video';
+  v.controls = true; v.setAttribute('playsinline', ''); v.preload = 'none';
+  v.poster = SX_HELP_POSTER; v.src = SX_HELP_VIDEO;
+  v.style.cssText = 'width:100%;max-height:70vh;border-radius:12px;background:#000;display:block;';
+  const vNote = document.createElement('div');
+  vNote.style.cssText = 'display:none;font-size:13px;color:#fca5a5;margin-top:8px;line-height:1.45;';
+  vNote.textContent = 'The video could not be loaded. Please check your connection. You can still follow the guide below.';
+  v.addEventListener('error', function () { vNote.style.display = 'block'; });
+  vCard.appendChild(vh); vCard.appendChild(v); vCard.appendChild(vNote);
+  body.appendChild(vCard);
+  // guide
+  sxHelpSections().forEach(function (sec, i) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#0f172a;border:1px solid rgba(148,163,184,0.2);border-radius:16px;padding:14px 16px;margin-bottom:12px;';
+    const h = document.createElement('div');
+    h.textContent = (i + 1) + '. ' + sec[0];
+    h.style.cssText = 'font-size:15px;font-weight:700;color:#fff;margin-bottom:8px;line-height:1.35;';
+    card.appendChild(h);
+    sec[1].forEach(function (t) {
+      const p = document.createElement('div');
+      p.textContent = t;
+      p.style.cssText = 'font-size:14px;line-height:1.55;color:#cbd5e1;margin:0 0 6px;';
+      card.appendChild(p);
+    });
+    body.appendChild(card);
+  });
+  sheet.appendChild(body);
+  function close() {
+    document.removeEventListener('keydown', onKey);
+    document.body.style.overflow = prevOverflow;
+    try { v.pause(); } catch (_e) {}
+    if (sheet.parentNode) sheet.parentNode.removeChild(sheet);
+  }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  x.addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  document.body.style.overflow = 'hidden';
+  document.body.appendChild(sheet);
+  sheet.scrollTop = 0;
+  if (autoplay) { try { v.play().catch(function () {}); } catch (_e) {} }
+}
+window.sxOpenHelp = sxOpenHelp;
+
+// A slim Help button at the top of the first page (Vitals). Always available.
+(function sxInjectHelpButton() {
+  let tries = 0;
+  const timer = setInterval(function () {
+    tries++;
+    try {
+      const screen = document.getElementById('vitals-screen');
+      if (screen) {
+        clearInterval(timer);
+        if (document.getElementById('sx-help-btn')) return;
+        const b = document.createElement('button');
+        b.id = 'sx-help-btn';
+        b.type = 'button';
+        b.textContent = '\u2753  Help and video tour';
+        b.style.cssText = 'display:block;width:100%;margin:0 0 12px;padding:11px 14px;border-radius:14px;border:1px solid rgba(147,197,253,0.35);background:rgba(37,99,235,0.12);color:#93c5fd;font-size:14px;font-weight:600;cursor:pointer;';
+        b.addEventListener('click', function () { sxOpenHelp(false); });
+        screen.insertBefore(b, screen.firstChild);
+        return;
+      }
+    } catch (_e) { /* try again */ }
+    if (tries > 40) clearInterval(timer);
+  }, 250);
+})();
+
+// One-time welcome for brand-new users, shown after they finish setting up.
+(function sxScheduleWelcome() {
+  let tries = 0;
+  const timer = setInterval(function () {
+    tries++;
+    if (tries > 150) { clearInterval(timer); return; }
+    try {
+      if (localStorage.getItem('sxTourSeen')) { clearInterval(timer); return; }
+      const signedIn = typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser;
+      if (!signedIn || !localStorage.getItem('userName')) return;
+      if (document.getElementById('sx-modal') || document.getElementById('sx-help') || document.getElementById('sos-wa-title')) return;
+      const ob = document.getElementById('onboarding-overlay');
+      if (ob && getComputedStyle(ob).display !== 'none') return;
+      clearInterval(timer);
+      const seen = function () { try { localStorage.setItem('sxTourSeen', '1'); } catch (_e) {} };
+      sxModal('Welcome to Sentra-X', [
+        'Take a one-minute tour to see how to log readings, check your heart rate, add a caregiver and use Emergency SOS.',
+        'You can find Help any time at the top of the Vitals page.'
+      ], null, [
+        { label: 'Watch the video tour', kind: 'primary', onClick: function (w) { seen(); w.remove(); sxOpenHelp(true); } },
+        { label: 'Read the quick guide', kind: 'secondary', onClick: function (w) { seen(); w.remove(); sxOpenHelp(false); } },
+        { label: 'Skip for now', kind: 'secondary', onClick: function (w) { seen(); w.remove(); } }
+      ], seen);
+    } catch (_e) { /* optional */ }
+  }, 3000);
+})();

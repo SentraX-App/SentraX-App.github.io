@@ -146,7 +146,16 @@
     return { dc: dc, x: x, t0: rs.t0, filt: filt, f0: f0, snr: spectralSnr(sp, f0, T), pi: dc > 0 ? sd(filt) / dc : 0, lowRatio: inBand > 0 ? low / inBand : 99, pkRatio: med > 0 ? pk / med : 0, ampCv: am > 0 ? sd(amps) / am : 9, T: T };
   }
 
-  var isCovered = function (r, g, b) { return r > 40 && r > g * 1.2 && r > b * 1.2; };   // a fingertip over the lens is clearly red, even in a dim room or with no flash
+  // Is a fingertip over the lens? Phones render a fingertip very differently (flash on or off, colour correction),
+  // so the colour test is deliberately forgiving. u is how uneven the picture is (0 = perfectly even). A fingertip is
+  // an even, blurry red picture; a room scene is uneven. A clearly red frame passes on colour alone; a mildly red
+  // one (washed-out phones) must also be even. Without u (frames that were already accepted) the colour test is enough.
+  var isCovered = function (r, g, b, u) {
+    if (!(r > 18)) return false;                                   // black: lens covered but no light, or no camera light at all
+    if (r > g * 1.2 && r > b * 1.2) return true;                   // clearly red
+    if (r > g * 1.05 && r > b * 1.05) return u === undefined || u < 0.08;
+    return false;
+  };
   // Only frames after the fingertip was last placed count (placing the finger is a big jump, not a pulse).
   function trimToCovered(buf) {
     var i = buf.t.length - 1;
