@@ -3963,7 +3963,7 @@ function cleanAiMarkdown(text) {
 //   4. After a scan that used the flash, the next one starts with the flash resting for HR_FLASH_COOLDOWN_MS (room light).
 //   5. "Flash: on/off" link lets the person switch it off, and the screen says to lift the finger if it feels warm.
 // Software cannot measure fingertip temperature, so 5 matters most.
-const HR_FLASH_IDLE_MS = 10000, HR_FLASH_MAX_MS = 32000, HR_FLASH_COOLDOWN_MS = 10000, HR_FLASH_MIN_USED_MS = 5000;
+const HR_FLASH_IDLE_MS = 10000, HR_FLASH_MAX_MS = 36000, HR_FLASH_COOLDOWN_MS = 10000, HR_FLASH_MIN_USED_MS = 5000;
 let hrTrack = null, hrFlashOn = false, hrFlashSince = 0, hrFlashHasTorch = false, hrCoveredSeen = false, hrFlashNote = '';
 
 function hrFlashPref() { try { return localStorage.getItem('hrFlash') !== 'off'; } catch (_e) { return true; } }
@@ -4008,9 +4008,9 @@ let hrRafId = null, hrVfcId = null;
 let hrBuf = null;
 let hrStartTime = 0, hrLastVerdictAt = 0, hrLastTryAt = 0, hrWeakRun = 0, hrShown = '', hrLastVerdict = null, hrIsGood = false;
 const HR_RUN_MS = 20000;        // finger must stay on the lens this long before the reading is taken
-const HR_MAX_MS = 30000;        // give up here if the signal never settles (the flash limit above outlasts this)
+const HR_MAX_MS = 35000;        // give up here if the signal never settles (the flash limit above outlasts this)
 let hrRunStart = null, hrTorchTimers = [], hrSession = 0;
-let hrSamples = [], hrGoodFrames = 0, hrTotalFrames = 0;
+let hrSamples = [], hrGoodFrames = 0, hrTotalFrames = 0, hrPrevBpm = null;
 
 function hrShow(cls, text) {
   const box = document.getElementById('hr-measure-box');
@@ -4028,7 +4028,7 @@ function measureHeartRate() {
   hrShown = ''; hrShow('hr-wait', 'Starting camera…');
   const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = '0%';
   hrBuf = { t: [], r: [], g: [], b: [] };
-  hrSamples = []; hrGoodFrames = 0; hrTotalFrames = 0;
+  hrSamples = []; hrGoodFrames = 0; hrTotalFrames = 0; hrPrevBpm = null;
   hrLastVerdictAt = 0; hrLastTryAt = -1e9; hrWeakRun = 0; hrLastVerdict = null; hrIsGood = false; hrRunStart = null;
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
@@ -4113,8 +4113,8 @@ function hrOnFrame(r, g, b, t) {
   // the original scanner's finger test: red-dominant and not washed out
   const covered = r > 60 && r > g * 1.3 && r > b * 1.3, saturated = r >= 250;
   hrTotalFrames++; if (covered && !saturated) hrGoodFrames++;
-  if (covered || SXHR.isCovered(r, g, b)) hrCoveredSeen = true;
-  const elapsed = t - hrStartTime;
+  if (SXHR.isCovered(r, g, b)) { hrCoveredSeen = true; if (hrRunStart === null) hrRunStart = t; } else hrRunStart = null;
+  const elapsed = t - hrStartTime, run = hrRunStart === null ? 0 : t - hrRunStart;   // run = how long the finger has been steadily on the lens
 
   // live label, about 2.5 times a second
   if (elapsed - hrLastVerdictAt >= 400) {
@@ -4124,14 +4124,18 @@ function hrOnFrame(r, g, b, t) {
     let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + hrLastVerdict.reason; } catch (_e) {}
     if (good) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal' + dbg); }
     else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', 'Weak signal' + dbg); }
-    const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, elapsed / HR_RUN_MS * 100) + '%';
+    const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, run / HR_RUN_MS * 100) + '%';
   }
 
-  // from 20 s on, try for the final number once a second until the engine accepts it (it never guesses: a poor signal gives no number)
-  if (elapsed >= HR_RUN_MS && t - hrLastTryAt >= 1000) {
+  // once the finger has been steadily on for 20 s, try for the final number once a second. A number is only accepted when two
+  // checks one second apart agree (within 1.5 bpm), so a borderline reading can never flip between values. It never guesses.
+  if (run >= HR_RUN_MS && t - hrLastTryAt >= 1000) {
     hrLastTryAt = t;
     const res = SXHR.analyze(hrBuf);
-    if (res && res.ok) { finishHeartRateMeasure({ ok: true, bpm: res.bpm, peaks: res.peaks }); return; }
+    if (res && res.ok) {
+      if (hrPrevBpm !== null && Math.abs(res.bpm - hrPrevBpm) <= 1.5) { finishHeartRateMeasure({ ok: true, bpm: res.bpm, peaks: res.peaks }); return; }
+      hrPrevBpm = res.bpm;
+    } else hrPrevBpm = null;
   }
   if (elapsed >= HR_MAX_MS) finishHeartRateMeasure(null);
 }
