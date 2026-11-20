@@ -130,6 +130,25 @@
     return tot > 0 ? Math.min(1, s / tot) : 0;
   }
 
+  // Fine pulse-frequency search. The FFT bins are only a starting point: here the Hann-windowed power at f (plus its second
+  // harmonic, which a pulse wave always carries) is maximised with a golden-section search, so the rate is no longer limited
+  // by the bin spacing or by the length of the window. Always stays close to the FFT peak f0.
+  function refineFreq(x, fs, f0, T) {
+    var n = x.length, m = mean(x), xs = new Array(n), i;
+    if (n < 16) return f0;
+    for (i = 0; i < n; i++) xs[i] = (x[i] - m) * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1)));
+    function pw(f) { var re = 0, im = 0, a = 2 * Math.PI * f / fs; for (var k = 0; k < n; k++) { re += xs[k] * Math.cos(a * k); im += xs[k] * Math.sin(a * k); } return re * re + im * im; }
+    function score(f) { return pw(f) + (2 * f < HI ? pw(2 * f) : 0); }
+    var d = Math.max(0.05, 0.6 / T), a = Math.max(LO, f0 - d), b = Math.min(HI, f0 + d), g = 0.6180339887;
+    var c = b - g * (b - a), e = a + g * (b - a), fc = score(c), fe = score(e);
+    for (i = 0; i < 26; i++) {
+      if (fc > fe) { b = e; e = c; fe = fc; c = b - g * (b - a); fc = score(c); }
+      else { a = c; c = e; fc = fe; e = a + g * (b - a); fe = score(e); }
+    }
+    var r = 0.5 * (a + b);
+    return isFinite(r) ? r : f0;
+  }
+
   // Everything we need to know about one colour channel over a stretch of frames.
   function channelInfo(ts, vs, resHz) {
     var rs = resample(ts, vs, FS), x = rs.x;
@@ -230,7 +249,7 @@
     var t0 = buf.t[0], i0 = 0;
     while (i0 < n && buf.t[i0] - t0 < settleMs) i0++;
     var ts = buf.t.slice(i0), spanS = ts.length > 1 ? (ts[ts.length - 1] - ts[0]) / 1000 : 0;
-    if (spanS < (opts.minSeconds || 12)) return { ok: false, reason: 'short' };
+    if (spanS < (opts.minSeconds || 8)) return { ok: false, reason: 'short' };
     if (fpsOf(ts) < MIN_FPS) return { ok: false, reason: 'camera' };
 
     var infos = [];
@@ -289,13 +308,16 @@
     if (beats < 7 || dur < 8) return { ok: false, reason: 'unsteady', snr: ch.snr };
     var lx = [], ly = []; for (i = 0; i < kept.length; i++) { lx.push(idx[kept[i]]); ly.push(pk[kept[i]]); }
     var lmx = mean(lx), lmy = mean(ly), lxx = 0, lxy = 0; for (i = 0; i < lx.length; i++) { lxx += (lx[i] - lmx) * (lx[i] - lmx); lxy += (lx[i] - lmx) * (ly[i] - lmy); }
-    var bpmTime = 0.5 * (60 * beats / dur) + 0.5 * (60 * lxx / lxy), bpmSpec = 60 * f0, diff = Math.abs(bpmTime - bpmSpec), bpm, method;
-    if (diff <= 3) { bpm = bpmTime; method = 'beats'; }
+    // Two independent estimates must agree (loose check, catches a wrong peak or a slipped finger). The number that is shown
+    // comes from the fine frequency search over the whole window, which uses every sample instead of only the first and last beat.
+    var fRef = refineFreq(ch.filt, FS, f0, ch.T);
+    var bpmTime = 0.5 * (60 * beats / dur) + 0.5 * (60 * lxx / lxy), bpmSpec = 60 * fRef, diff = Math.abs(bpmTime - bpmSpec), bpm, method;
+    if (diff <= 3) { bpm = bpmSpec; method = 'spectrum+beats'; }
     else if (diff <= 6 && ch.snr >= 0.6) { bpm = bpmSpec; method = 'spectrum'; }
     else return { ok: false, reason: 'unsteady', snr: ch.snr };
     if (bpm < 40 || bpm > 200) return { ok: false, reason: 'weak', snr: ch.snr };
     var t0s = (ch.t0 - buf.t[0]) / 1000;
-    return { ok: true, bpm: bpm, peaks: kept.map(function (j) { return Math.round((t0s + pk[j]) * 1000); }), beats: beats, snr: ch.snr, channel: ch.name, method: method, seconds: dur };
+    return { ok: true, bpm: bpm, peaks: kept.map(function (j) { return Math.round((t0s + pk[j]) * 1000); }), beats: beats, snr: ch.snr, channel: ch.name, method: method, seconds: dur, bpmBeats: bpmTime };
   }
 
   return { analyze: analyze, assessLive: assessLive, isCovered: isCovered, _x: { resample: resample, bandpass: bandpass, powerSpectrum: powerSpectrum, channelInfo: channelInfo, FS: FS } };
