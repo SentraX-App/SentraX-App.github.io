@@ -4009,7 +4009,9 @@ let hrBuf = null;
 let hrStartTime = 0, hrLastVerdictAt = 0, hrLastTryAt = 0, hrWeakRun = 0, hrShown = '', hrLastVerdict = null, hrIsGood = false;
 const HR_RUN_MS = 20000;        // finger must stay on the lens this long before the reading is taken
 const HR_MAX_MS = 35000;        // give up here if the signal never settles (the flash limit above outlasts this)
-let hrRunStart = null, hrMissSince = null, hrTorchTimers = [], hrSession = 0;
+const HR_ABS_MAX_MS = 75000;     // hard stop, however often the finger moved
+let hrRunStart = null, hrMissSince = null, hrTorchTimers = [], hrSession = 0, hrEverRun = 0;
+let hrFailReason = null;
 let hrSamples = [], hrGoodFrames = 0, hrTotalFrames = 0, hrPrevBpm = null, hrAnalyzeReason = '-', hrFailInfo = '', hrLastRGB = [0, 0, 0];
 
 function hrShow(cls, text) {
@@ -4028,8 +4030,8 @@ function measureHeartRate() {
   hrShown = ''; hrShow('hr-wait', 'Starting camera…');
   const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = '0%';
   hrBuf = { t: [], r: [], g: [], b: [] };
-  hrSamples = []; hrGoodFrames = 0; hrTotalFrames = 0; hrPrevBpm = null; hrAnalyzeReason = '-'; hrFailInfo = '';
-  hrLastVerdictAt = 0; hrLastTryAt = -1e9; hrWeakRun = 0; hrLastVerdict = null; hrIsGood = false; hrRunStart = null; hrMissSince = null;
+  hrSamples = []; hrGoodFrames = 0; hrTotalFrames = 0; hrPrevBpm = null; hrAnalyzeReason = '-'; hrFailInfo = ''; hrFailReason = null;
+  hrLastVerdictAt = 0; hrLastTryAt = -1e9; hrWeakRun = 0; hrLastVerdict = null; hrIsGood = false; hrRunStart = null; hrMissSince = null; hrEverRun = 0;
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
 
@@ -4078,11 +4080,11 @@ function hrOpenCamera() {
     });
 }
 
-// Torch + fixed camera settings in ONE call, so the settings can never switch the torch back off
-// (each advanced set is applied only if the phone supports it).
+// Only the torch is set. Forcing manual exposure, focus and white balance (an earlier version did) locked many phones
+// to a dark, slow picture (green near 5/255 and about 14 frames a second), which hides the pulse completely.
 function hrApplyCam() {
   if (!hrTrack || !hrStream) return;
-  try { hrTrack.applyConstraints({ advanced: [{ torch: !!hrFlashOn }, { focusMode: 'fixed' }, { exposureMode: 'manual' }, { whiteBalanceMode: 'manual' }] }).catch(function () {}); } catch (_e) { /* optional camera control */ }
+  try { hrTrack.applyConstraints({ advanced: [{ torch: !!hrFlashOn }] }).catch(function () {}); } catch (_e) { /* optional camera control */ }
 }
 
 // One callback per real camera frame where the browser supports it (exact timing = better accuracy), else every screen refresh.
@@ -4121,15 +4123,18 @@ function hrOnFrame(r, g, b, t) {
   if (SXHR.isCovered(r, g, b)) { hrCoveredSeen = true; hrMissSince = null; if (hrRunStart === null) hrRunStart = t; }
   else { if (hrMissSince === null) hrMissSince = t; if (t - hrMissSince >= 700) hrRunStart = null; }
   const elapsed = t - hrStartTime, run = hrRunStart === null ? 0 : t - hrRunStart;   // run = how long the finger has been steadily on the lens
+  if (run > hrEverRun) hrEverRun = run;
 
-  // live label, about 2.5 times a second
+  // live label, about 2.5 times a second. "Good signal" now means the engine can really see a pulse,
+  // not just that a finger is on the lens, so it can no longer say good and then fail at the end.
   if (elapsed - hrLastVerdictAt >= 400) {
     hrLastVerdictAt = elapsed;
     hrLastVerdict = SXHR.assessLive(hrBuf);
-    const good = (covered && !saturated) || hrLastVerdict.good;   // finger on the lens (the original scanner's test), or a readable pulse
-    let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + hrLastVerdict.reason; } catch (_e) {}
-    if (good) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal' + dbg); }
-    else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', 'Weak signal' + dbg); }
+    const v = hrLastVerdict, onLens = covered && !saturated;
+    let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + v.reason; } catch (_e) {}
+    if (v.good) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal. Hold still' + dbg); }
+    else if (v.checking || (onLens && run < 6000)) { hrWeakRun = 0; hrShow('hr-wait', (onLens ? 'Reading your pulse. Hold still' : 'Place your fingertip on the lens') + dbg); }
+    else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', hrHintFor(v.reason, onLens) + dbg); }
     const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, run / HR_RUN_MS * 100) + '%';
   }
 
@@ -4143,11 +4148,37 @@ function hrOnFrame(r, g, b, t) {
       hrPrevBpm = res.bpm;
     } else { hrPrevBpm = null; hrAnalyzeReason = (res && res.reason) || 'weak'; }
   }
-  if (elapsed >= HR_MAX_MS) {
+  // Give up 35 s after the start, but never while the finger is steadily on the lens and the 20 s plus 15 s of retries are
+  // not used up yet (someone who places their finger late used to run out of time before the 20 s were even over).
+  const deadline = hrRunStart === null ? HR_MAX_MS : Math.min(HR_ABS_MAX_MS, Math.max(HR_MAX_MS, (hrRunStart - hrStartTime) + HR_RUN_MS + 15000));
+  if (elapsed >= deadline) {
     const n = hrBuf.t.length, fps = n > 1 ? Math.round((n - 1) / ((hrBuf.t[n - 1] - hrBuf.t[0]) / 1000)) : 0;
     hrFailInfo = (hrLastVerdict ? hrLastVerdict.reason : '-') + '/' + hrAnalyzeReason + ' · ' + hrLastRGB.map(Math.round).join('/') + ' · ' + fps + 'fps · run ' + Math.round(run / 1000) + 's';
+    hrFailReason = { analyze: hrAnalyzeReason, live: hrLastVerdict ? hrLastVerdict.reason : '-', ever: hrEverRun, covered: hrCoveredSeen, fps: fps };
     finishHeartRateMeasure(null);
   }
+}
+
+// One plain sentence for each thing that can go wrong, so the person knows what to change.
+function hrHintFor(reason, onLens) {
+  switch (reason) {
+    case 'nofinger': return 'No finger detected. Cover the camera lens and flash fully';
+    case 'motion': return 'Too much movement. Rest your hand on a table and keep still';
+    case 'bright': return 'Too bright. Press a little lighter, away from direct light';
+    case 'camera': return 'Camera is slow. Move to a brighter place';
+    case 'weak': return onLens ? 'Pulse is faint. Press lightly, keep your fingertip flat on the lens' : 'No finger detected. Cover the camera lens and flash fully';
+    default: return onLens ? 'Weak signal. Press lightly and hold still' : 'No finger detected. Cover the camera lens and flash fully';
+  }
+}
+function hrFailMessage() {
+  const f = hrFailReason;
+  if (!f) return 'The scan could not finish. Cover the lens and flash with your fingertip, hold still and try again.';
+  if (!f.covered) return 'No finger detected. Cover the camera lens and the flash fully with your fingertip, then try again.';
+  if (f.ever < HR_RUN_MS) return 'Keep your fingertip on the lens for the full 20 seconds without lifting it. Try again.';
+  if (f.fps && f.fps < 7) return 'Your camera is running too slowly. Move to a brighter room and try again.';
+  if (f.analyze === 'unsteady' || f.live === 'motion') return 'Your pulse moved too much to read. Rest your hand on a table, stay still and try again.';
+  if (f.live === 'bright') return 'The picture is too bright. Press a little lighter, away from direct light, and try again.';
+  return 'Could not find a clear pulse. Press lightly, keep your fingertip flat on the lens and stay still. Try again.';
 }
 
 function finishHeartRateMeasure(res) {
@@ -4171,7 +4202,8 @@ function finishHeartRateMeasure(res) {
       alertBox.style.display = 'flex';
     }
   } else {
-    hrShow('hr-fail', 'Weak signal. Try again' + (hrFailInfo ? ' · ' + hrFailInfo : ''));
+    let dbgInfo = ''; try { if (/hrdebug/.test(location.hash) && hrFailInfo) dbgInfo = ' · ' + hrFailInfo; } catch (_e) {}
+    hrShow('hr-fail', hrFailMessage() + dbgInfo);
   }
 
   if (!patternAbnormal) {

@@ -1073,3 +1073,11 @@ input[type="number"] { -moz-appearance: textfield; }
 .mkt-cover { position: relative; background: linear-gradient(135deg, #334155, #1e293b); }
 .mkt-cover::before { content: "🛍️"; position: absolute; font-size: 34px; opacity: 0.55; }
 .mkt-cover-img { background: #1e293b; }
+
+/* Heart-rate scan status row: message gets the room, the two links stay on one line */
+.hr-row { align-items: flex-start; }
+.hr-signal { flex: 1 1 auto; min-width: 0; align-items: flex-start; line-height: 1.4; }
+.hr-signal .hr-dot { margin-top: 5px; }
+#hr-status { overflow-wrap: anywhere; }
+.hr-right { flex: none; gap: 12px; }
+.hr-right .hr-link { white-space: nowrap; padding: 4px 2px; }
