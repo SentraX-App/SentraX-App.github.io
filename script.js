@@ -4116,27 +4116,22 @@ function hrOnFrame(r, g, b, t) {
   if (covered || SXHR.isCovered(r, g, b)) hrCoveredSeen = true;
   const elapsed = t - hrStartTime;
 
-  // live label, about 2.5 times a second: "Good signal" when either the original test or the precise engine sees a usable finger
+  // live label, about 2.5 times a second
   if (elapsed - hrLastVerdictAt >= 400) {
     hrLastVerdictAt = elapsed;
     hrLastVerdict = SXHR.assessLive(hrBuf);
-    const good = (covered && !saturated) || hrLastVerdict.good;
+    const good = hrLastVerdict.good;   // "Good signal" means the engine can really read your pulse, so a good label always leads to a reading
     let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + hrLastVerdict.reason; } catch (_e) {}
     if (good) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal' + dbg); }
     else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', 'Weak signal' + dbg); }
     const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, elapsed / HR_RUN_MS * 100) + '%';
   }
 
-  // from 20 s on, try once a second: the precise engine first; if it cannot lock on, use the original beat counter from 25 s
+  // from 20 s on, try for the final number once a second until the engine accepts it (it never guesses: a poor signal gives no number)
   if (elapsed >= HR_RUN_MS && t - hrLastTryAt >= 1000) {
     hrLastTryAt = t;
     const res = SXHR.analyze(hrBuf);
-    if (res && res.ok) { finishHeartRateMeasure({ ok: true, bpm: res.bpm, peaks: res.peaks, approx: false }); return; }
-    if (elapsed >= HR_RUN_MS + 5000) {
-      const recent = hrSamples.filter(function (x) { return t - x.t <= HR_RUN_MS; });
-      const est = calculateBpmFromSamples(recent);
-      if (est) { finishHeartRateMeasure({ ok: true, bpm: est.bpm, peaks: est.peakTimes, approx: true }); return; }
-    }
+    if (res && res.ok) { finishHeartRateMeasure({ ok: true, bpm: res.bpm, peaks: res.peaks }); return; }
   }
   if (elapsed >= HR_MAX_MS) finishHeartRateMeasure(null);
 }
@@ -4150,9 +4145,9 @@ function finishHeartRateMeasure(res) {
 
   let patternAbnormal = false;
   if (res && res.ok) {
-    const bpm = res.approx ? Math.round(res.bpm) : Math.round(res.bpm * 10) / 10;   // precise engine: one decimal
+    const bpm = Math.round(res.bpm * 10) / 10;   // one decimal keeps the full accuracy of the measurement
     document.getElementById('heartrate').value = bpm;
-    hrShow('hr-done', 'Heart rate: ' + bpm + ' bpm' + (res.approx ? ' · Weak signal' : ''));
+    hrShow('hr-done', 'Heart rate: ' + bpm + ' bpm');
     if (bar) bar.style.width = '100%';
     const pattern = analyzeHeartRatePattern(Math.round(bpm), res.peaks);
     patternAbnormal = pattern.abnormal;
@@ -4170,101 +4165,6 @@ function finishHeartRateMeasure(res) {
       if (!hrStream) document.getElementById('hr-measure-box').style.display = 'none';   // not if a new scan has already started
     }, res && res.ok ? 3000 : 4000);
   }
-}
-
-// ---- Safety-net estimator: the original scanner's beat counter, used when the precise engine cannot lock on ----
-// A normal pulse waveform has a small secondary bump after the main peak
-// (the "dicrotic notch") — a basic threshold-crossing detector can mistake
-// that for a second beat. Unlike a one-off noise glitch, this can happen on
-// most beats in a reading, producing a systematic alternating short/long
-// pattern that looks like an irregular rhythm even when the real heartbeat
-// is perfectly steady. Fix it structurally: after detecting candidate
-// peaks, merge any peak that lands much closer to the previous one than
-// this reading's own typical spacing — that's almost certainly the same
-// beat counted twice, not a genuinely extra one.
-function mergeDoubleCountedPeaks(peakTimes) {
-  if (peakTimes.length < 3) return peakTimes;
-  const rawIntervals = [];
-  for (let i = 1; i < peakTimes.length; i++) rawIntervals.push(peakTimes[i] - peakTimes[i - 1]);
-  const sorted = rawIntervals.slice().sort(function (a, b) { return a - b; });
-  const median = sorted[Math.floor(sorted.length / 2)];
-
-  const cleaned = [peakTimes[0]];
-  for (let i = 1; i < peakTimes.length; i++) {
-    const gap = peakTimes[i] - cleaned[cleaned.length - 1];
-    if (gap < median * 0.6) continue; // too close to be a separate beat — drop it
-    cleaned.push(peakTimes[i]);
-  }
-  return cleaned;
-}
-
-function calculateBpmFromSamples(samples) {
-  if (samples.length < 20) return null;
-
-  // Discard the first second: camera auto-exposure/white-balance is still
-  // stabilizing right after the flash turns on, and that swing isn't part
-  // of the pulse signal.
-  const settleMs = 1000;
-  const startT = samples[0].t;
-  const usable = samples.filter(function (s) { return s.t - startT > settleMs; });
-  if (usable.length < 20) return null;
-
-  const values = usable.map(function (s) { return s.v; });
-
-  // Rolling baseline instead of one flat average for the whole window — a
-  // single global average lets slow lighting drift dominate the threshold
-  // and throws off peak counting. A rolling local amplitude (stdev) rides
-  // alongside it so peak detection can require a real bump, not just a
-  // sliver above a noisy average — without this, small ripples from sensor
-  // noise or an imperfect fingertip seal get miscounted as extra beats,
-  // which then shows up as fake rhythm irregularity even on a normal pulse.
-  const windowSize = 15;
-  const baseline = [];
-  const localAmp = [];
-  for (let i = 0; i < values.length; i++) {
-    const start = Math.max(0, i - windowSize);
-    const slice = values.slice(start, i + 1);
-    const avg = slice.reduce(function (a, b) { return a + b; }, 0) / slice.length;
-    baseline.push(avg);
-    const variance = slice.reduce(function (s, v) { return s + Math.pow(v - avg, 2); }, 0) / slice.length;
-    localAmp.push(Math.sqrt(variance));
-  }
-// Peak detection with a refractory period: a real pulse can't repeat
-  // faster than ~300ms (200bpm — the same ceiling already enforced below),
-  // so a crossing sooner than that is noise, not a beat. PROMINENCE_K
-  // requires each candidate peak to clear the baseline by a real margin
-  // (relative to the local signal's own noise level), not just barely
-  // cross it.
-  const REFRACTORY_MS = 300;
-  const PROMINENCE_K = 0.5;
-  let rising = false;
-  let lastPeakT = -Infinity;
-  const rawPeakTimes = [];
-  for (let i = 1; i < values.length; i++) {
-    const threshold = baseline[i] + PROMINENCE_K * localAmp[i];
-    const above = values[i] > threshold;
-    if (above && values[i] > values[i - 1] && !rising) {
-      rising = true;
-      const t = usable[i].t;
-      if (t - lastPeakT >= REFRACTORY_MS) {
-        rawPeakTimes.push(t);
-        lastPeakT = t;
-      }
-    } else if (!above) {
-      rising = false;
-    }
-  }
-
-  const peakTimes = mergeDoubleCountedPeaks(rawPeakTimes);
-  const meanLocalAmp = localAmp.reduce(function (a, b) { return a + b; }, 0) / localAmp.length;
-  const meanBrightness = values.reduce(function (a, b) { return a + b; }, 0) / values.length;
-  if (meanBrightness < 10 || (meanLocalAmp / meanBrightness) < 0.0015) return null;
-  const durationMinutes = (usable[usable.length - 1].t - usable[0].t) / 60000;
-  if (durationMinutes <= 0) return null;
-
-  const bpm = Math.round(peakTimes.length / durationMinutes);
-  if (bpm < 40 || bpm > 200) return null;
-  return { bpm: bpm, peakTimes: peakTimes };
 }
 
 // ---- Heart rate PATTERN analysis (rate + rhythm only) ----

@@ -225,7 +225,7 @@
     if (ch.snr < 0.45 || ch.pi < 0.0006 || ch.pkRatio < 10) return { ok: false, reason: 'weak', snr: ch.snr };
     // the two halves of the run must show the same pulse rate (a hand that moved or a finger that slipped changes it)
     var half = Math.floor(ch.filt.length / 2), fa = pulseFreq(powerSpectrum(ch.filt.slice(0, half), FS, 0.005), half / FS), fb = pulseFreq(powerSpectrum(ch.filt.slice(half), FS, 0.005), (ch.filt.length - half) / FS);
-    if (Math.abs(fa - fb) * 60 > 8) return { ok: false, reason: 'unsteady', snr: ch.snr };
+    if (Math.abs(fa - fb) * 60 > 3.5) return { ok: false, reason: 'unsteady', snr: ch.snr };
 
     // Tight band around the pulse frequency removes the second bump of the pulse wave, leaving one clean peak per beat.
     var tight = bandpass(ch.x, FS, Math.max(0.5, f0 * 0.62), Math.min(HI + 0.5, f0 * 1.55)), x = tight;
