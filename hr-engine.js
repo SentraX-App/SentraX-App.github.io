@@ -19,7 +19,7 @@
 
   var FS = 30;                 // analysis sample rate (Hz)
   var LO = 0.55, HI = 3.4;     // pulse band (Hz): 33 to 204 bpm
-  var MIN_FPS = 10;            // slower cameras cannot resolve a pulse
+  var MIN_FPS = 7;            // slower cameras cannot resolve a pulse
 
   function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }
   function sd(a) { var m = mean(a), s = 0; for (var i = 0; i < a.length; i++) s += (a[i] - m) * (a[i] - m); return a.length ? Math.sqrt(s / a.length) : 0; }

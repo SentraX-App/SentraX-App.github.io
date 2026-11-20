@@ -4010,7 +4010,7 @@ let hrStartTime = 0, hrLastVerdictAt = 0, hrLastTryAt = 0, hrWeakRun = 0, hrShow
 const HR_RUN_MS = 20000;        // finger must stay on the lens this long before the reading is taken
 const HR_MAX_MS = 35000;        // give up here if the signal never settles (the flash limit above outlasts this)
 let hrRunStart = null, hrMissSince = null, hrTorchTimers = [], hrSession = 0;
-let hrSamples = [], hrGoodFrames = 0, hrTotalFrames = 0, hrPrevBpm = null;
+let hrSamples = [], hrGoodFrames = 0, hrTotalFrames = 0, hrPrevBpm = null, hrAnalyzeReason = '-', hrFailInfo = '', hrLastRGB = [0, 0, 0];
 
 function hrShow(cls, text) {
   const box = document.getElementById('hr-measure-box');
@@ -4028,7 +4028,7 @@ function measureHeartRate() {
   hrShown = ''; hrShow('hr-wait', 'Starting camera…');
   const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = '0%';
   hrBuf = { t: [], r: [], g: [], b: [] };
-  hrSamples = []; hrGoodFrames = 0; hrTotalFrames = 0; hrPrevBpm = null;
+  hrSamples = []; hrGoodFrames = 0; hrTotalFrames = 0; hrPrevBpm = null; hrAnalyzeReason = '-'; hrFailInfo = '';
   hrLastVerdictAt = 0; hrLastTryAt = -1e9; hrWeakRun = 0; hrLastVerdict = null; hrIsGood = false; hrRunStart = null; hrMissSince = null;
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
@@ -4109,7 +4109,7 @@ function hrTick(now) {
 function hrOnFrame(r, g, b, t) {
   if (!hrBuf) return;
   hrBuf.t.push(t); hrBuf.r.push(r); hrBuf.g.push(g); hrBuf.b.push(b);
-  hrSamples.push({ t: t, v: r });
+  hrSamples.push({ t: t, v: r }); hrLastRGB = [r, g, b];
   // the original scanner's finger test: red-dominant and not washed out
   const covered = r > 60 && r > g * 1.3 && r > b * 1.3, saturated = r >= 250;
   hrTotalFrames++; if (covered && !saturated) hrGoodFrames++;
@@ -4122,7 +4122,7 @@ function hrOnFrame(r, g, b, t) {
   if (elapsed - hrLastVerdictAt >= 400) {
     hrLastVerdictAt = elapsed;
     hrLastVerdict = SXHR.assessLive(hrBuf);
-    const good = hrLastVerdict.good;   // "Good signal" means the engine can really read your pulse, so a good label always leads to a reading
+    const good = (covered && !saturated) || hrLastVerdict.good;   // finger on the lens (the original scanner's test), or a readable pulse
     let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + hrLastVerdict.reason; } catch (_e) {}
     if (good) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal' + dbg); }
     else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', 'Weak signal' + dbg); }
@@ -4137,9 +4137,13 @@ function hrOnFrame(r, g, b, t) {
     if (res && res.ok) {
       if (hrPrevBpm !== null && Math.abs(res.bpm - hrPrevBpm) <= 1.5) { finishHeartRateMeasure({ ok: true, bpm: res.bpm, peaks: res.peaks }); return; }
       hrPrevBpm = res.bpm;
-    } else hrPrevBpm = null;
+    } else { hrPrevBpm = null; hrAnalyzeReason = (res && res.reason) || 'weak'; }
   }
-  if (elapsed >= HR_MAX_MS) finishHeartRateMeasure(null);
+  if (elapsed >= HR_MAX_MS) {
+    const n = hrBuf.t.length, fps = n > 1 ? Math.round((n - 1) / ((hrBuf.t[n - 1] - hrBuf.t[0]) / 1000)) : 0;
+    hrFailInfo = (hrLastVerdict ? hrLastVerdict.reason : '-') + '/' + hrAnalyzeReason + ' · ' + hrLastRGB.map(Math.round).join('/') + ' · ' + fps + 'fps · run ' + Math.round(run / 1000) + 's';
+    finishHeartRateMeasure(null);
+  }
 }
 
 function finishHeartRateMeasure(res) {
@@ -4163,7 +4167,7 @@ function finishHeartRateMeasure(res) {
       alertBox.style.display = 'flex';
     }
   } else {
-    hrShow('hr-fail', 'Weak signal. Try again');
+    hrShow('hr-fail', 'Weak signal. Try again' + (hrFailInfo ? ' · ' + hrFailInfo : ''));
   }
 
   if (!patternAbnormal) {
