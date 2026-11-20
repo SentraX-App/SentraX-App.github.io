@@ -4007,7 +4007,7 @@ let hrFlashDecisionNow = 'on';
 let hrRafId = null, hrVfcId = null;
 let hrBuf = null;
 let hrStartTime = 0, hrLastVerdictAt = 0, hrLastTryAt = 0, hrWeakRun = 0, hrShown = '', hrLastVerdict = null, hrIsGood = false;
-const HR_RUN_MS = 14000;        // finger must stay on the lens this long before the first reading is tried (was 20 s; the engine keeps trying each second after this)
+const HR_RUN_MS = 20000;        // finger must stay on the lens this long before the first reading is tried (14 s was tried and was not repeatable enough on a real phone)
 const HR_MAX_MS = 35000;        // give up here if the signal never settles (the flash limit above outlasts this)
 const HR_ABS_MAX_MS = 75000;     // hard stop, however often the finger moved
 let hrRunStart = null, hrMissSince = null, hrTorchTimers = [], hrSession = 0, hrEverRun = 0;
