@@ -596,7 +596,7 @@
   }
 
   function injectButtons() {
-    const sendRow = document.querySelector('#ai-screen div[style*="display:flex"][style*="gap:8px"]');
+    const sendRow = document.querySelector('#ai-screen .ai-send-row') || document.querySelector('#ai-screen div[style*="display:flex"][style*="gap:8px"]');
     if (!sendRow || document.getElementById('voice-mic-btn')) return;
 
     if (SpeechRecognitionImpl) {
@@ -605,7 +605,7 @@
       micBtn.type = 'button';
       micBtn.textContent = '🎙️';
       micBtn.title = 'Tap to speak';
-      micBtn.style.cssText = 'width:auto;padding:0 14px;';
+      micBtn.className = 'ai-icon-btn';
       micBtn.onclick = toggleMic;
       sendRow.insertBefore(micBtn, sendRow.firstChild);
     }
@@ -614,7 +614,7 @@
       const speakerBtn = document.createElement('button');
       speakerBtn.id = 'voice-readaloud-btn';
       speakerBtn.type = 'button';
-      speakerBtn.style.cssText = 'width:auto;padding:0 14px;';
+      speakerBtn.className = 'ai-icon-btn';
       speakerBtn.onclick = toggleReadAloud;
       sendRow.appendChild(speakerBtn);
     }

@@ -1022,3 +1022,54 @@ nav button.active .icon { filter: none; }
 .hr-bar span { display: block; height: 100%; width: 0; background: var(--hr-c); border-radius: 3px; transition: width .4s linear, background .3s; }
 .hr-status { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: #94a3b8; min-height: 17px; }
 @media (prefers-reduced-motion: reduce) { .hr-line, .hr-line.hr-good .hr-dot { animation: none; } .hr-bar span { transition: none; } }
+
+/* =====================================================================
+   Polish pass (Nov 2026)
+   ===================================================================== */
+
+/* Health Assistant: header no longer collides with the title, input keeps its width */
+.ai-card { display: flex; flex-direction: column; height: min(70vh, 620px); min-height: 380px; }
+.ai-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.ai-head h3 { margin: 0; }
+.ai-head-actions { display: flex; gap: 6px; }
+.ai-head-actions button { width: auto; margin: 0; padding: 8px 12px; font-size: 12px; box-shadow: none; }
+.ai-disclaimer { color: #94a3b8; font-size: 12px; line-height: 1.45; margin: 8px 0 0; }
+#ai-chat-log { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.ai-send-row { align-items: stretch; }
+.ai-send-row input { flex: 1 1 0; min-width: 0; margin: 0; }
+.ai-send-row button { flex: none; width: auto; margin: 0; }
+#ai-send-btn { padding: 0 14px; }
+.ai-send-row .ai-icon-btn { width: 42px; min-width: 42px; padding: 0; font-size: 18px; box-shadow: none; }
+
+/* Touch targets and keyboard focus */
+button, .hr-link, nav button, select, input { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+  outline: 2px solid #93c5fd; outline-offset: 2px;
+}
+input:focus, select:focus { border-color: rgba(147,197,253,0.6); background: rgba(255,255,255,0.09); outline: none; }
+input:focus-visible, select:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(147,197,253,0.25); }
+button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+/* Low-contrast call button on First Aid */
+button.call { background: rgba(248,113,113,0.14); border: 1px solid rgba(248,113,113,0.35); color: #fecaca; }
+
+/* Date/time inputs: consistent height and readable value on dark cards */
+input[type="time"], input[type="date"] { min-height: 48px; color-scheme: dark; }
+input[type="number"] { -moz-appearance: textfield; }
+
+/* Respect users who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  .screen.active { animation: none; }
+  button { transition: none; }
+}
+
+/* Small phones */
+@media (max-width: 360px) {
+  .screen { padding: 12px; }
+  .card { padding: 16px; border-radius: 18px; }
+}
+
+/* Marketplace: a product photo that fails to load (offline, blocked) leaves a tidy tile instead of an empty box */
+.mkt-cover { position: relative; background: linear-gradient(135deg, #334155, #1e293b); }
+.mkt-cover::before { content: "🛍️"; position: absolute; font-size: 34px; opacity: 0.55; }
+.mkt-cover-img { background: #1e293b; }

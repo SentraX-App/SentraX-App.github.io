@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sentrax-release-11';
+const CACHE_NAME = 'sentrax-release-12';
 const OFFLINE_FALLBACK = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sentra-X</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#f1f5f9;font-family:-apple-system,sans-serif;text-align:center;padding:24px;}div{max-width:320px;}h2{margin:0 0 10px;}p{color:#94a3b8;font-size:14px;line-height:1.6;}button{margin-top:18px;background:#3b82f6;color:#fff;border:none;padding:13px 26px;border-radius:12px;font-weight:700;font-size:15px;}</style></head><body><div><h2>Sentra-X</h2><p>Couldn\'t connect this time. Check your signal and try again.</p><button onclick="location.reload()">Retry</button></div></body></html>';
 
 const CORE_ASSETS = [
@@ -37,7 +37,7 @@ self.addEventListener('install', function (event) {
       return Promise.all(
         CORE_ASSETS.map(function (url) {
           return fetch(url, { cache: 'reload' }).then(function (response) {
-            return cache.put(url, response);
+            if (response && response.ok) return cache.put(url, response);
           }).catch(function () {});
         })
       );
@@ -190,8 +190,7 @@ self.addEventListener('fetch', function (event) {
       event.respondWith(
         caches.match(cacheKey, { ignoreSearch: true }).then(function (cached) {
           const networkFetch = fetch(request).then(function (response) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(function (cache) { cache.put(cacheKey, copy); });
+            if (response && response.ok) { const copy = response.clone(); caches.open(CACHE_NAME).then(function (cache) { cache.put(cacheKey, copy); }); }
             return response;
           }).catch(function () { return null; });
 
@@ -208,8 +207,7 @@ self.addEventListener('fetch', function (event) {
 
     event.respondWith(
       fetch(request).then(function (response) {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(function (cache) { cache.put(cacheKey, copy); });
+        if (response && response.ok) { const copy = response.clone(); caches.open(CACHE_NAME).then(function (cache) { cache.put(cacheKey, copy); }); }
         return response;
       }).catch(function () {
         return caches.match(cacheKey, { ignoreSearch: true }).then(function (cached) {
@@ -244,8 +242,7 @@ self.addEventListener('fetch', function (event) {
 
   event.respondWith(
     fetch(request).then(function (response) {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(function (cache) { cache.put(request, copy); });
+      if (response && response.ok) { const copy = response.clone(); caches.open(CACHE_NAME).then(function (cache) { cache.put(request, copy); }); }
       return response;
     }).catch(function () {
       return caches.match(request, { ignoreSearch: true }).then(function (cached) {

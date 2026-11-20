@@ -4041,6 +4041,10 @@ function measureHeartRate() {
 
 function hrOpenCamera() {
   const mySession = hrSession;
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    hrShow('hr-fail', 'This browser cannot open the camera. Try Chrome or Safari over a secure (https) connection.');
+    return;
+  }
   navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 100 }, height: { ideal: 100 }, frameRate: { ideal: 30 } } })
     .then(function (stream) {
       // Cancelled (or restarted) while the camera was still opening: close it again, do not leave the camera or flash running.
@@ -4060,7 +4064,7 @@ function hrOpenCamera() {
       }
 
       video.onloadedmetadata = function () {
-        video.play();
+        try { const pp = video.play(); if (pp && pp.catch) pp.catch(function () {}); } catch (_e) { /* autoplay attribute still applies */ }
         hrShow('hr-bad', 'Weak signal');
         hrStartTime = performance.now();
         hrSchedule();
@@ -4171,8 +4175,10 @@ function finishHeartRateMeasure(res) {
   }
 
   if (!patternAbnormal) {
+    const sessionAtFinish = hrSession;   // stopHeartRateCamera() above bumped it; any later scan or cancel bumps it again
     setTimeout(function () {
-      if (!hrStream) document.getElementById('hr-measure-box').style.display = 'none';   // not if a new scan has already started
+      const box = document.getElementById('hr-measure-box');
+      if (box && sessionAtFinish === hrSession) box.style.display = 'none';   // not if a new scan has already started or is getting ready
     }, res && res.ok ? 3000 : 4000);
   }
 }
@@ -4241,7 +4247,7 @@ function cancelHeartRateMeasure() {
 document.addEventListener('visibilitychange', function () {
   if (document.hidden && (hrStream || hrTorchTimers.length)) {
     stopHeartRateCamera();
-    const st = document.getElementById('hr-status'); if (st) st.textContent = 'Scan stopped while you were away. Tap Check Heart Rate to start again.';
+    hrShown = ''; hrShow('hr-fail', 'Scan stopped while you were away. Tap Check Heart Rate to start again.');
   }
 });
 
