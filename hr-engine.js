@@ -19,7 +19,7 @@
 
   var FS = 30;                 // analysis sample rate (Hz)
   var LO = 0.55, HI = 3.4;     // pulse band (Hz): 33 to 204 bpm
-  var MIN_FPS = 12;            // slower cameras cannot resolve a pulse
+  var MIN_FPS = 10;            // slower cameras cannot resolve a pulse
 
   function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }
   function sd(a) { var m = mean(a), s = 0; for (var i = 0; i < a.length; i++) s += (a[i] - m) * (a[i] - m); return a.length ? Math.sqrt(s / a.length) : 0; }
@@ -192,7 +192,7 @@
     cands.sort(function (a, c) { return c.snr - a.snr; });
     var ch = cands[0];
     if (ch.lowRatio > 14) return { good: false, checking: false, reason: 'motion', text: 'Bad signal', hint: 'Too much movement. Rest your hand and keep still', snr: ch.snr };
-    if (ch.pi > 0.02 || ch.ampCv > 0.6) return { good: false, checking: false, reason: 'motion', text: 'Bad signal', hint: 'Too much movement. Rest your hand and keep still', snr: ch.snr };
+    if (ch.pi > 0.06 || ch.ampCv > 0.6) return { good: false, checking: false, reason: 'motion', text: 'Bad signal', hint: 'Too much movement. Rest your hand and keep still', snr: ch.snr };
     if (ch.pi < 0.0007 || ch.snr < 0.5 || ch.pkRatio < 15) return { good: false, checking: false, reason: 'weak', text: 'Bad signal', hint: 'Pulse is faint. Press lightly and keep your fingertip flat on the lens', snr: ch.snr };
     return { good: true, checking: false, reason: 'good', text: 'Good signal', hint: 'Hold still', snr: ch.snr };
   }
@@ -221,7 +221,7 @@
     if (!infos.length) return { ok: false, reason: 'weak' };
     infos.sort(function (a, b) { return b.snr - a.snr; });
     var ch = infos[0], f0 = ch.f0;
-    if (ch.pi > 0.02) return { ok: false, reason: 'unsteady', snr: ch.snr };
+    if (ch.pi > 0.06) return { ok: false, reason: 'unsteady', snr: ch.snr };
     if (ch.snr < 0.45 || ch.pi < 0.0006 || ch.pkRatio < 10) return { ok: false, reason: 'weak', snr: ch.snr };
     // the two halves of the run must show the same pulse rate (a hand that moved or a finger that slipped changes it)
     var half = Math.floor(ch.filt.length / 2), fa = pulseFreq(powerSpectrum(ch.filt.slice(0, half), FS, 0.005), half / FS), fb = pulseFreq(powerSpectrum(ch.filt.slice(half), FS, 0.005), (ch.filt.length - half) / FS);
