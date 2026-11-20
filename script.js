@@ -3963,11 +3963,12 @@ function cleanAiMarkdown(text) {
 //   4. After a scan that used the flash, the next one starts with the flash resting for HR_FLASH_COOLDOWN_MS (room light).
 //   5. "Flash: on/off" link lets the person switch it off, and the screen says to lift the finger if it feels warm.
 // Software cannot measure fingertip temperature, so 5 matters most.
-const HR_FLASH_IDLE_MS = 10000, HR_FLASH_MAX_MS = 22000, HR_FLASH_COOLDOWN_MS = 60000, HR_FLASH_MIN_USED_MS = 5000;
+const HR_FLASH_IDLE_MS = 10000, HR_FLASH_MAX_MS = 32000, HR_FLASH_COOLDOWN_MS = 10000, HR_FLASH_MIN_USED_MS = 5000;
 let hrTrack = null, hrFlashOn = false, hrFlashSince = 0, hrFlashHasTorch = false, hrCoveredSeen = false, hrFlashNote = '';
 
 function hrFlashPref() { try { return localStorage.getItem('hrFlash') !== 'off'; } catch (_e) { return true; } }
 function hrFlashCooling() { try { const t = Number(localStorage.getItem('hrFlashLast')) || 0; return t > 0 && Date.now() - t < HR_FLASH_COOLDOWN_MS; } catch (_e) { return false; } }
+function hrCoolingLeft() { try { const t = Number(localStorage.getItem('hrFlashLast')) || 0; return t > 0 ? Math.max(0, HR_FLASH_COOLDOWN_MS - (Date.now() - t)) : 0; } catch (_e) { return 0; } }
 // 'unsupported' | 'off' | 'cooling' | 'on'
 function hrFlashDecision(hasTorch) { if (!hasTorch) return 'unsupported'; if (!hrFlashPref()) return 'off'; if (hrFlashCooling()) return 'cooling'; return 'on'; }
 
@@ -3987,10 +3988,11 @@ function hrFlashGuard() {
   if (lit > HR_FLASH_MAX_MS || (!hrCoveredSeen && lit > HR_FLASH_IDLE_MS)) {
     hrSetFlash(false);
     hrFlashNote = 'The flash switched itself off to stop it getting hot. ';
+    hrFlashLabel();
   }
 }
 function hrLensWord() { return hrFlashOn ? 'lens and flash' : 'lens'; }
-function hrFlashLabel() { const b = document.getElementById('hr-flash'); if (!b) return; b.style.display = hrFlashHasTorch ? 'inline' : 'none'; b.textContent = hrFlashPref() ? 'Flash: on' : 'Flash: off'; }
+function hrFlashLabel() { const b = document.getElementById('hr-flash'); if (!b) return; b.style.display = hrFlashHasTorch ? 'inline' : 'none'; b.textContent = !hrFlashPref() ? 'Flash: off' : (hrFlashOn || !hrStream ? 'Flash: on' : 'Flash: resting'); }
 function hrToggleFlash() {
   try { localStorage.setItem('hrFlash', hrFlashPref() ? 'off' : 'on'); } catch (_e) {}
   if (hrStream) measureHeartRate();   // a light change in the middle of a scan would spoil it, so start the scan again
@@ -4005,8 +4007,9 @@ let hrFlashDecisionNow = 'on';
 let hrRafId = null, hrVfcId = null;
 let hrBuf = null;
 let hrStartTime = 0, hrLastVerdictAt = 0, hrLastTryAt = 0, hrWeakRun = 0, hrShown = '', hrLastVerdict = null, hrIsGood = false;
-const HR_DURATION_MS = 20000;   // earliest the reading can finish
-const HR_MAX_MS = 40000;        // give up here if the signal never settles
+const HR_RUN_MS = 20000;        // finger must stay on the lens this long before the reading is taken
+const HR_MAX_MS = 30000;        // give up here if the signal never settles (the flash limit above outlasts this)
+let hrRunStart = null, hrTorchTimers = [], hrSession = 0;
 
 function hrShow(cls, text) {
   const box = document.getElementById('hr-measure-box');
@@ -4024,12 +4027,22 @@ function measureHeartRate() {
   hrShown = ''; hrShow('hr-wait', 'Starting camera…');
   const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = '0%';
   hrBuf = { t: [], r: [], g: [], b: [] };
-  hrLastVerdictAt = 0; hrLastTryAt = 0; hrWeakRun = 0; hrLastVerdict = null; hrIsGood = false;
+  hrLastVerdictAt = 0; hrLastTryAt = -1e9; hrWeakRun = 0; hrLastVerdict = null; hrIsGood = false; hrRunStart = null;
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
 
+  // A scan right after another one: let the flash finish its short rest first, so this scan still gets the flash.
+  const wait = hrFlashPref() ? hrCoolingLeft() : 0;
+  if (wait > 0) { hrShow('hr-wait', 'Getting ready…'); hrTorchTimers = [setTimeout(hrOpenCamera, wait + 50)]; return; }
+  hrOpenCamera();
+}
+
+function hrOpenCamera() {
+  const mySession = hrSession;
   navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 100 }, height: { ideal: 100 }, frameRate: { ideal: 30 } } })
     .then(function (stream) {
+      // Cancelled (or restarted) while the camera was still opening: close it again, do not leave the camera or flash running.
+      if (mySession !== hrSession) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
       hrStream = stream;
       const video = document.getElementById('hr-video');
       video.srcObject = stream;
@@ -4041,8 +4054,7 @@ function measureHeartRate() {
         hrFlashDecisionNow = hrFlashDecision(hrFlashHasTorch);
         hrSetFlash(hrFlashDecisionNow === 'on');
         hrFlashLabel();
-        // one call, so applying the camera settings cannot switch the torch back off (each advanced set is applied if the phone supports it)
-        track.applyConstraints({ advanced: [{ torch: hrFlashOn }, { focusMode: 'fixed' }, { exposureMode: 'manual' }, { whiteBalanceMode: 'manual' }] }).catch(function () {});
+        hrApplyCam();
       }
 
       video.onloadedmetadata = function () {
@@ -4050,11 +4062,21 @@ function measureHeartRate() {
         hrShow('hr-bad', 'Weak signal');
         hrStartTime = performance.now();
         hrSchedule();
+        // On a second scan the first torch request can arrive before the camera is ready, so ask again once it is running.
+        hrTorchTimers = [0, 300, 900, 2000].map(function (ms) { return setTimeout(function () { if (hrStream && hrFlashOn) hrApplyCam(); }, ms); });
       };
     })
     .catch(function () {
+      if (mySession !== hrSession) return;
       hrShow('hr-fail', 'Could not access camera. Check permissions and try again.');
     });
+}
+
+// Torch + fixed camera settings in ONE call, so the settings can never switch the torch back off
+// (each advanced set is applied only if the phone supports it).
+function hrApplyCam() {
+  if (!hrTrack || !hrStream) return;
+  try { hrTrack.applyConstraints({ advanced: [{ torch: !!hrFlashOn }, { focusMode: 'fixed' }, { exposureMode: 'manual' }, { whiteBalanceMode: 'manual' }] }).catch(function () {}); } catch (_e) { /* optional camera control */ }
 }
 
 // One callback per real camera frame where the browser supports it (exact timing = better accuracy), else every screen refresh.
@@ -4085,22 +4107,22 @@ function hrTick(now) {
 function hrOnFrame(r, g, b, t) {
   if (!hrBuf) return;
   hrBuf.t.push(t); hrBuf.r.push(r); hrBuf.g.push(g); hrBuf.b.push(b);
-  if (SXHR.isCovered(r, g, b)) hrCoveredSeen = true;
-  const elapsed = t - hrStartTime;
+  if (SXHR.isCovered(r, g, b)) { hrCoveredSeen = true; if (hrRunStart === null) hrRunStart = t; } else hrRunStart = null;
+  const elapsed = t - hrStartTime, run = hrRunStart === null ? 0 : t - hrRunStart;
 
   // live label, refreshed about 2.5 times a second; it only turns to "Weak" after two weak checks in a row so it does not flicker
   if (elapsed - hrLastVerdictAt >= 400) {
     hrLastVerdictAt = elapsed;
     hrLastVerdict = SXHR.assessLive(hrBuf);
-    let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + hrLastVerdict.reason; } catch (_e) {}
+    let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + hrLastVerdict.reason + ' flash:' + (hrFlashOn ? 'on' : hrFlashDecisionNow); } catch (_e) {}
     if (hrLastVerdict.good) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal' + dbg); }
     else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', 'Weak signal' + dbg); }
-    const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, elapsed / HR_DURATION_MS * 100) + '%';
+    const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, run / HR_RUN_MS * 100) + '%';
   }
 
-  // from 20 s on, try for the final number once a second until it comes out clean
-  if (elapsed >= HR_DURATION_MS && elapsed - hrLastTryAt >= 1000) {
-    hrLastTryAt = elapsed;
+  // once the finger has been on for 20 s, try for the final number once a second until it comes out clean
+  if (run >= HR_RUN_MS && t - hrLastTryAt >= 1000) {
+    hrLastTryAt = t;
     const res = SXHR.analyze(hrBuf);
     if (res && res.ok) { finishHeartRateMeasure(res); return; }
   }
@@ -4178,9 +4200,11 @@ function focusBpFields() {
 }
 
 function stopHeartRateCamera() {
+  hrSession++;
   hrSetFlash(false);   // flash off first, whatever else happens
   hrTrack = null; hrFlashOn = false;
   if (hrRafId) { cancelAnimationFrame(hrRafId); hrRafId = null; }
+  hrTorchTimers.forEach(clearTimeout); hrTorchTimers = []; hrRunStart = null;
   if (hrVfcId) { try { document.getElementById('hr-video').cancelVideoFrameCallback(hrVfcId); } catch (_e) {} hrVfcId = null; }
   if (hrStream) {
     hrStream.getTracks().forEach(function (t) { t.stop(); });
@@ -4198,7 +4222,7 @@ function cancelHeartRateMeasure() {
 
 // Leaving the app mid-scan: turn the flash and camera off straight away.
 document.addEventListener('visibilitychange', function () {
-  if (document.hidden && hrStream) {
+  if (document.hidden && (hrStream || hrTorchTimers.length)) {
     stopHeartRateCamera();
     const st = document.getElementById('hr-status'); if (st) st.textContent = 'Scan stopped while you were away. Tap Check Heart Rate to start again.';
   }
