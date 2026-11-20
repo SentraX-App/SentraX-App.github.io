@@ -198,7 +198,16 @@
   // A very dark channel (the green of a fingertip under the flash is often only 5 to 20 out of 255) is mostly rounding
   // noise, and rounding noise can look like a perfect pulse stuck at the very edge of the band. So a channel only counts
   // when it is bright enough, shows a believable pulse size, and peaks away from the band edges; of those the cleanest wins.
-  var MIN_GREEN = 40, MIN_RED = 12;
+  var MIN_GREEN = 12, MIN_RED = 12;
+  // A channel is usable when it is not black and not clipped. Clipping (value stuck at 255) flattens the pulse, so a channel is dropped when
+  // more than 15% of its frames are clipped. This replaces the old "average must be under 250" rule, which threw away a fingertip under the flash
+  // whenever red sat at 250 to 255, even though green (often only 12 to 40 out of 255) still carried a clean pulse.
+  function usable(v, minMean) {
+    var m = mean(v), clip = 0;
+    if (!(m > minMean) || m > 253) return false;
+    for (var i = 0; i < v.length; i++) if (v[i] >= 254.5) clip++;
+    return clip <= 0.15 * v.length;
+  }
   function plausible(ch) { return !!ch && ch.pi >= 0.0004 && ch.f0 > LO + 0.08 && ch.f0 < HI - 0.15; }
   function bestChannel(list) {
     var ok = list.filter(plausible);
@@ -228,14 +237,14 @@
     var spanS = (ts[ts.length - 1] - ts[0]) / 1000;
     if (spanS < 4) return { good: false, checking: true, reason: 'checking', text: 'Checking signal', hint: 'Hold still', snr: 0 };
     if (fpsOf(ts) < MIN_FPS) return { good: false, checking: false, reason: 'camera', text: 'Bad signal', hint: 'Camera is running too slowly. Move to a brighter place', snr: 0 };
-    var cands = [], rI = mean(r) < 250 && mean(r) > MIN_RED ? channelInfo(ts, r, 0.02) : null, gI = mean(g) > MIN_GREEN && mean(g) < 250 ? channelInfo(ts, g, 0.02) : null;
+    var cands = [], rI = usable(r, MIN_RED) ? channelInfo(ts, r, 0.02) : null, gI = usable(g, MIN_GREEN) ? channelInfo(ts, g, 0.02) : null;
     if (rI) { rI.name = 'r'; cands.push(rI); } if (gI) { gI.name = 'g'; cands.push(gI); }
     if (!cands.length) return { good: false, checking: false, reason: 'bright', text: 'Bad signal', hint: 'Too bright. Press a little lighter, or move away from direct light', snr: 0 };
     var ch = bestChannel(cands);
     if (ch.lowRatio > 14) return { good: false, checking: false, reason: 'motion', text: 'Bad signal', hint: 'Too much movement. Rest your hand and keep still', snr: ch.snr };
     if (ch.pi > 0.06 || ch.ampCv > 0.6) return { good: false, checking: false, reason: 'motion', text: 'Bad signal', hint: 'Too much movement. Rest your hand and keep still', snr: ch.snr };
     if (ch.pi < 0.0007 || ch.snr < 0.5 || ch.pkRatio < 15) return { good: false, checking: false, reason: 'weak', text: 'Bad signal', hint: 'Pulse is faint. Press lightly and keep your fingertip flat on the lens', snr: ch.snr };
-    return { good: true, checking: false, reason: 'good', text: 'Good signal', hint: 'Hold still', snr: ch.snr };
+    return { good: true, checking: false, reason: 'good', text: 'Good signal', hint: 'Hold still', snr: ch.snr, ch: ch.name };
   }
 
   /* FINAL reading from one uninterrupted good-signal run.
@@ -254,8 +263,8 @@
 
     var infos = [];
     ['r', 'g'].forEach(function (c) {
-      var v = buf[c].slice(i0), m = mean(v);
-      if (m < (c === 'r' ? MIN_RED : MIN_GREEN) || m > 250) return;
+      var v = buf[c].slice(i0);
+      if (!usable(v, c === 'r' ? MIN_RED : MIN_GREEN)) return;
       var inf = channelInfo(ts, v, 0.002);
       if (inf) { inf.name = c; infos.push(inf); }
     });

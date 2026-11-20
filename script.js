@@ -4103,6 +4103,7 @@ function hrOpenCamera() {
         hrShow('hr-bad', 'Weak signal');
         hrStartTime = performance.now();
         hrSchedule();
+        hrWatchdog(mySession);
         // On a second scan the first torch request can arrive before the camera is ready, so ask again once it is running.
         hrTorchTimers = [0, 300, 900, 2000].map(function (ms) { return setTimeout(function () { if (hrStream && hrFlashOn) hrApplyCam(); }, ms); });
       };
@@ -4118,6 +4119,20 @@ function hrOpenCamera() {
 function hrApplyCam() {
   if (!hrTrack || !hrStream) return;
   try { hrTrack.applyConstraints({ advanced: [{ torch: !!hrFlashOn }] }).catch(function () {}); } catch (_e) { /* optional camera control */ }
+}
+
+// Some phones never fire requestVideoFrameCallback for this tiny, nearly invisible video, or leave it paused. The scan would then sit on
+// "Weak signal" forever without reading anything. If no frame has arrived after 1.2 s, restart playback and switch to the screen-refresh loop.
+function hrWatchdog(mySession) {
+  hrTorchTimers.push(setTimeout(function () {
+    if (mySession !== hrSession || !hrStream || (hrBuf && hrBuf.t.length > 0)) return;
+    const video = document.getElementById('hr-video');
+    try { if (video) { const pp = video.play(); if (pp && pp.catch) pp.catch(function () {}); } } catch (_e) {}
+    if (video && hrVfcId && typeof video.cancelVideoFrameCallback === 'function') { try { video.cancelVideoFrameCallback(hrVfcId); } catch (_e) {} }
+    hrVfcId = null;
+    if (hrRafId) { try { cancelAnimationFrame(hrRafId); } catch (_e) {} hrRafId = null; }
+    hrRafId = requestAnimationFrame(hrTick);
+  }, 1200));
 }
 
 // One callback per real camera frame where the browser supports it (exact timing = better accuracy), else every screen refresh.
@@ -4142,7 +4157,7 @@ function hrTick(now) {
     try { hrOnFrame(sr / px, sg / px, sb / px, typeof now === 'number' ? now : performance.now()); }
     catch (_e) { finishHeartRateMeasure(null); return; }
   }
-  if (hrStream) hrSchedule();   // finishing a scan stops the camera, which ends the loop
+  if (hrStream) { if (hrVfcId === null && hrRafId !== null) hrRafId = requestAnimationFrame(hrTick); else hrSchedule(); }   // finishing a scan stops the camera, which ends the loop
 }
 
 function hrOnFrame(r, g, b, t) {
@@ -4163,11 +4178,11 @@ function hrOnFrame(r, g, b, t) {
   if (elapsed - hrLastVerdictAt >= 400) {
     hrLastVerdictAt = elapsed;
     hrLastVerdict = SXHR.assessLive(hrBuf);
-    const v = hrLastVerdict, onLens = (SXHR.isCovered(r, g, b) || hrRunStart !== null) && !saturated;   // same finger test as the engine (the old stricter one said "No finger" while the pulse was being read)
-    let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + v.reason; } catch (_e) {}
+    const v = hrLastVerdict, onLens = SXHR.isCovered(r, g, b) || hrRunStart !== null;   // same finger test as the engine (the old stricter one said "No finger" while the pulse was being read)
+    let dbg = ''; try { if (hrDebugOn()) { const nn = hrBuf.t.length, fp = nn > 1 ? Math.round((nn - 1) / ((hrBuf.t[nn - 1] - hrBuf.t[0]) / 1000)) : 0; dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + v.reason + (v.ch ? '/' + v.ch : '') + ' · ' + nn + ' frames ' + fp + 'fps' + (hrFlashOn ? ' · torch' : ''); } } catch (_e) {}
     if (v.good) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal. Hold still' + dbg); }
     else if (v.checking || (onLens && run < 6000)) { hrWeakRun = 0; hrShow('hr-wait', (onLens ? 'Reading your pulse. Hold still' : 'Place your fingertip on the lens') + dbg); }
-    else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', hrHintFor(saturated ? 'bright' : v.reason, onLens) + dbg); }
+    else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', hrHintFor(v.reason, onLens) + dbg); }
     const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, run / HR_RUN_MS * 100) + '%';
   }
 
