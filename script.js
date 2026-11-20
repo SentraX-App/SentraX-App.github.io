@@ -4014,6 +4014,38 @@ let hrRunStart = null, hrMissSince = null, hrTorchTimers = [], hrSession = 0, hr
 let hrFailReason = null;
 let hrSamples = [], hrGoodFrames = 0, hrTotalFrames = 0, hrPrevBpm = null, hrAnalyzeReason = '-', hrFailInfo = '', hrLastRGB = [0, 0, 0];
 
+// ---- Debug capture (only when the page address ends in #hrdebug; normal users never see or trigger any of this) ----
+// After a scan it keeps the raw camera values so they can be copied out and replayed through the engine.
+let hrDebugData = null;
+function hrDebugOn() { try { return /hrdebug/.test(location.hash); } catch (_e) { return false; } }
+function hrDebugPack(res) {
+  const b = hrBuf, t0 = b.t[0];
+  return JSON.stringify({
+    v: 1, ua: navigator.userAgent, shown: res && res.ok ? res.bpm : null, fail: hrFailInfo, analyze: hrAnalyzeReason,
+    flashPref: hrFlashPref(), torch: hrFlashHasTorch, flashWasOn: hrFlashOn,
+    t: b.t.map(function (x) { return Math.round(x - t0); }),
+    r: b.r.map(function (x) { return Math.round(x * 100) / 100; }),
+    g: b.g.map(function (x) { return Math.round(x * 100) / 100; }),
+    b: b.b.map(function (x) { return Math.round(x * 10) / 10; })
+  });
+}
+function hrDebugRemoveUI() { const old = document.getElementById('hr-debug-ui'); if (old && old.parentNode) old.parentNode.removeChild(old); }
+function hrDebugShowUI() {
+  const box = document.getElementById('hr-measure-box');
+  if (!box || !hrDebugData) return;
+  hrDebugRemoveUI();
+  const data = hrDebugData, wrap = document.createElement('div'), btn = document.createElement('button'), ta = document.createElement('textarea');
+  wrap.id = 'hr-debug-ui'; wrap.style.cssText = 'margin-top:8px;';
+  btn.type = 'button'; btn.className = 'hr-link'; btn.textContent = 'Copy scan data (' + Math.round(data.length / 1000) + ' KB)';
+  ta.readOnly = true; ta.value = data; ta.style.cssText = 'width:100%;height:60px;margin-top:6px;font-size:11px;';
+  btn.onclick = function () {
+    let ok = false; try { ta.focus(); ta.select(); ok = document.execCommand('copy'); } catch (_e) {}
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(data).then(function () { btn.textContent = 'Copied. Paste it in the chat'; }, function () { btn.textContent = ok ? 'Copied. Paste it in the chat' : 'Press and hold the box below, Select all, Copy'; });
+    else btn.textContent = ok ? 'Copied. Paste it in the chat' : 'Press and hold the box below, Select all, Copy';
+  };
+  wrap.appendChild(btn); wrap.appendChild(ta); box.appendChild(wrap);
+}
+
 function hrShow(cls, text) {
   const box = document.getElementById('hr-measure-box');
   if (box) box.className = 'hr-line ' + cls;
@@ -4024,6 +4056,7 @@ function hrShow(cls, text) {
 function measureHeartRate() {
   stopHeartRateCamera();   // never leave an earlier camera (or flash) running
   hrCoveredSeen = false; hrFlashNote = '';
+  hrDebugData = null; hrDebugRemoveUI();
   const box = document.getElementById('hr-measure-box');
   box.style.display = 'block';
   if (typeof SXHR === 'undefined') { hrShown = ''; hrShow('hr-fail', 'Could not start. Close and reopen the app.'); return; }
@@ -4183,6 +4216,7 @@ function hrFailMessage() {
 
 function finishHeartRateMeasure(res) {
   const alertBox = document.getElementById('hr-pattern-alert');
+  hrDebugData = null; try { if (hrDebugOn() && hrBuf && hrBuf.t.length) hrDebugData = hrDebugPack(res); } catch (_e) { hrDebugData = null; }
   stopHeartRateCamera();
   hrBuf = null;
   if (alertBox) alertBox.style.display = 'none';
@@ -4206,7 +4240,8 @@ function finishHeartRateMeasure(res) {
     hrShow('hr-fail', hrFailMessage() + dbgInfo);
   }
 
-  if (!patternAbnormal) {
+  if (hrDebugData) hrDebugShowUI();   // debug only: keep the box open so the data can be copied (Cancel closes it)
+  if (!patternAbnormal && !hrDebugData) {
     const sessionAtFinish = hrSession;   // stopHeartRateCamera() above bumped it; any later scan or cancel bumps it again
     setTimeout(function () {
       const box = document.getElementById('hr-measure-box');
@@ -4269,7 +4304,7 @@ function stopHeartRateCamera() {
 
 function cancelHeartRateMeasure() {
   stopHeartRateCamera();
-  hrBuf = null;
+  hrBuf = null; hrDebugData = null; hrDebugRemoveUI();
   document.getElementById('hr-measure-box').style.display = 'none';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
