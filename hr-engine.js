@@ -317,6 +317,10 @@
     else return { ok: false, reason: 'unsteady', snr: ch.snr };
     if (bpm < 40 || bpm > 200) return { ok: false, reason: 'weak', snr: ch.snr };
     var t0s = (ch.t0 - buf.t[0]) / 1000;
+    // A pulse under 50 bpm is rare, while slow swings from finger pressure or a moving hand sit at 40-45 bpm and look like a very
+    // slow pulse. Real recordings showed such a swing accepted as "40 bpm" (signal quality 0.64; genuine slow pulses score about 0.9),
+    // so a reading under 50 bpm is only shown when the signal is very clean.
+    if (bpm < 50 && ch.snr < 0.8) return { ok: false, reason: 'weak', snr: ch.snr };
     return { ok: true, bpm: bpm, peaks: kept.map(function (j) { return Math.round((t0s + pk[j]) * 1000); }), beats: beats, snr: ch.snr, channel: ch.name, method: method, seconds: dur, bpmBeats: bpmTime };
   }
 
