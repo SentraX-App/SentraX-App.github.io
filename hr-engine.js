@@ -157,12 +157,23 @@
     return false;
   };
   // Only frames after the fingertip was last placed count (placing the finger is a big jump, not a pulse).
+  // Real cameras hiccup: a single frame, or a few, can look "uncovered" while the exposure adjusts. Those must NOT restart the
+  // measurement, so only a gap of GLITCH_MS or more counts as the finger having been lifted; shorter ones are dropped from the signal.
+  var GLITCH_MS = 700;
   function trimToCovered(buf) {
-    var i = buf.t.length - 1;
-    while (i >= 0 && isCovered(buf.r[i], buf.g[i], buf.b[i])) i--;
-    if (i < 0) return buf;
-    var k = i + 1;
-    return { t: buf.t.slice(k), r: buf.r.slice(k), g: buf.g.slice(k), b: buf.b.slice(k) };
+    var n = buf.t.length, i = n - 1, cut = -1;
+    while (i >= 0) {
+      if (isCovered(buf.r[i], buf.g[i], buf.b[i])) { i--; continue; }
+      var j = i; while (j > 0 && !isCovered(buf.r[j - 1], buf.g[j - 1], buf.b[j - 1])) j--;
+      if (buf.t[i] - buf.t[j] >= GLITCH_MS) { cut = i; break; }
+      i = j - 1;
+    }
+    var out = { t: [], r: [], g: [], b: [] };
+    for (var k = cut + 1; k < n; k++) {
+      if (!isCovered(buf.r[k], buf.g[k], buf.b[k])) continue;      // drop the glitch frames
+      out.t.push(buf.t[k]); out.r.push(buf.r[k]); out.g.push(buf.g[k]); out.b.push(buf.b[k]);
+    }
+    return out;
   }
 
   function fpsOf(ts) { return ts.length > 1 ? (ts.length - 1) / ((ts[ts.length - 1] - ts[0]) / 1000) : 0; }
@@ -172,7 +183,7 @@
   function assessLive(buf, opts) {
     opts = opts || {};
     var full = buf, n = buf.t.length, winMs = opts.windowMs || 8000;
-    if (n && !isCovered(buf.r[n - 1], buf.g[n - 1], buf.b[n - 1])) return { good: false, checking: false, reason: 'nofinger', text: 'Bad signal', hint: 'Cover the camera lens fully with your fingertip, in a bright room', snr: 0 };
+    var q = Math.max(0, n - 5); if (n && !isCovered(mean(buf.r.slice(q)), mean(buf.g.slice(q)), mean(buf.b.slice(q)))) return { good: false, checking: false, reason: 'nofinger', text: 'Bad signal', hint: 'Cover the camera lens fully with your fingertip, in a bright room', snr: 0 };
     buf = trimToCovered(buf); n = buf.t.length;
     var skip = 0; while (skip < n && buf.t[skip] - buf.t[0] < 1000) skip++;   // camera exposure is still settling
     if (skip < n) { buf = { t: buf.t.slice(skip), r: buf.r.slice(skip), g: buf.g.slice(skip), b: buf.b.slice(skip) }; n = buf.t.length; } else n = 0;

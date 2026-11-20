@@ -4009,7 +4009,7 @@ let hrBuf = null;
 let hrStartTime = 0, hrLastVerdictAt = 0, hrLastTryAt = 0, hrWeakRun = 0, hrShown = '', hrLastVerdict = null, hrIsGood = false;
 const HR_RUN_MS = 20000;        // finger must stay on the lens this long before the reading is taken
 const HR_MAX_MS = 35000;        // give up here if the signal never settles (the flash limit above outlasts this)
-let hrRunStart = null, hrTorchTimers = [], hrSession = 0;
+let hrRunStart = null, hrMissSince = null, hrTorchTimers = [], hrSession = 0;
 let hrSamples = [], hrGoodFrames = 0, hrTotalFrames = 0, hrPrevBpm = null;
 
 function hrShow(cls, text) {
@@ -4029,7 +4029,7 @@ function measureHeartRate() {
   const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = '0%';
   hrBuf = { t: [], r: [], g: [], b: [] };
   hrSamples = []; hrGoodFrames = 0; hrTotalFrames = 0; hrPrevBpm = null;
-  hrLastVerdictAt = 0; hrLastTryAt = -1e9; hrWeakRun = 0; hrLastVerdict = null; hrIsGood = false; hrRunStart = null;
+  hrLastVerdictAt = 0; hrLastTryAt = -1e9; hrWeakRun = 0; hrLastVerdict = null; hrIsGood = false; hrRunStart = null; hrMissSince = null;
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
 
@@ -4113,7 +4113,9 @@ function hrOnFrame(r, g, b, t) {
   // the original scanner's finger test: red-dominant and not washed out
   const covered = r > 60 && r > g * 1.3 && r > b * 1.3, saturated = r >= 250;
   hrTotalFrames++; if (covered && !saturated) hrGoodFrames++;
-  if (SXHR.isCovered(r, g, b)) { hrCoveredSeen = true; if (hrRunStart === null) hrRunStart = t; } else hrRunStart = null;
+  // one odd camera frame must not restart the count: the finger counts as lifted only after 0.7 s of frames that do not look covered
+  if (SXHR.isCovered(r, g, b)) { hrCoveredSeen = true; hrMissSince = null; if (hrRunStart === null) hrRunStart = t; }
+  else { if (hrMissSince === null) hrMissSince = t; if (t - hrMissSince >= 700) hrRunStart = null; }
   const elapsed = t - hrStartTime, run = hrRunStart === null ? 0 : t - hrRunStart;   // run = how long the finger has been steadily on the lens
 
   // live label, about 2.5 times a second
@@ -4215,7 +4217,7 @@ function stopHeartRateCamera() {
   hrSetFlash(false);   // flash off first, whatever else happens
   hrTrack = null; hrFlashOn = false;
   if (hrRafId) { cancelAnimationFrame(hrRafId); hrRafId = null; }
-  hrTorchTimers.forEach(clearTimeout); hrTorchTimers = []; hrRunStart = null;
+  hrTorchTimers.forEach(clearTimeout); hrTorchTimers = []; hrRunStart = null; hrMissSince = null;
   if (hrVfcId) { try { document.getElementById('hr-video').cancelVideoFrameCallback(hrVfcId); } catch (_e) {} hrVfcId = null; }
   if (hrStream) {
     hrStream.getTracks().forEach(function (t) { t.stop(); });
