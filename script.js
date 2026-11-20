@@ -4130,11 +4130,11 @@ function hrOnFrame(r, g, b, t) {
   if (elapsed - hrLastVerdictAt >= 400) {
     hrLastVerdictAt = elapsed;
     hrLastVerdict = SXHR.assessLive(hrBuf);
-    const v = hrLastVerdict, onLens = covered && !saturated;
+    const v = hrLastVerdict, onLens = (SXHR.isCovered(r, g, b) || hrRunStart !== null) && !saturated;   // same finger test as the engine (the old stricter one said "No finger" while the pulse was being read)
     let dbg = ''; try { if (/hrdebug/.test(location.hash)) dbg = ' · ' + [r, g, b].map(Math.round).join('/') + ' ' + v.reason; } catch (_e) {}
     if (v.good) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal. Hold still' + dbg); }
     else if (v.checking || (onLens && run < 6000)) { hrWeakRun = 0; hrShow('hr-wait', (onLens ? 'Reading your pulse. Hold still' : 'Place your fingertip on the lens') + dbg); }
-    else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', hrHintFor(v.reason, onLens) + dbg); }
+    else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', hrHintFor(saturated ? 'bright' : v.reason, onLens) + dbg); }
     const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, run / HR_RUN_MS * 100) + '%';
   }
 
