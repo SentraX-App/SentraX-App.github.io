@@ -172,7 +172,7 @@
   var isCovered = function (r, g, b, u) {
     if (!(r > 18)) return false;                                   // black: lens covered but no light, or no camera light at all
     if (r > g * 1.2 && r > b * 1.2) return true;                   // clearly red
-    if (r > g * 1.05 && r > b * 1.05) return u !== undefined && u < 0.08;   // only with proof of a steady picture: an ordinary room scene must never count as a finger
+    if (r > g * 1.05 && r > b * 1.05) return u === undefined || u < 0.08;   // a flash-lit finger can look washed out, so red only needs to lead a little
     return false;
   };
   // Only frames after the fingertip was last placed count (placing the finger is a big jump, not a pulse).
