@@ -271,7 +271,8 @@
     if (!infos.length) return { ok: false, reason: 'weak' };
     var ch = bestChannel(infos), f0 = ch.f0;
     if (ch.pi > 0.06) return { ok: false, reason: 'unsteady', snr: ch.snr };
-    if (ch.snr < 0.45 || ch.pi < 0.0006 || ch.pkRatio < 10) return { ok: false, reason: 'weak', snr: ch.snr };
+    var relaxed = !!opts.relaxed;   // second, stricter-consensus chance for weaker signals (see script.js)
+    if (ch.snr < (relaxed ? 0.33 : 0.45) || ch.pi < 0.0006 || ch.pkRatio < (relaxed ? 7 : 10)) return { ok: false, reason: 'weak', snr: ch.snr };
     // the two halves of the run must show the same pulse rate (a hand that moved or a finger that slipped changes it)
     var half = Math.floor(ch.filt.length / 2), fa = pulseFreq(powerSpectrum(ch.filt.slice(0, half), FS, 0.005), half / FS), fb = pulseFreq(powerSpectrum(ch.filt.slice(half), FS, 0.005), (ch.filt.length - half) / FS);
     if (Math.abs(fa - fb) * 60 > 3.5) return { ok: false, reason: 'unsteady', snr: ch.snr };

@@ -1081,3 +1081,21 @@ input[type="number"] { -moz-appearance: textfield; }
 #hr-status { overflow-wrap: anywhere; }
 .hr-right { flex: none; gap: 12px; }
 .hr-right .hr-link { white-space: nowrap; padding: 4px 2px; }
+
+/* --- Heart rate scan card: calmer, easier to read and tap (Nov 2026) ---------------------------------
+   Same markup and state classes as before; only spacing, type size and tap targets change. */
+.hr-line { margin: 12px 0 6px; padding: 12px 14px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); border-radius: 14px; transition: border-color .3s; }
+.hr-line.hr-good, .hr-line.hr-done { border-color: rgba(74,222,128,0.4); }
+.hr-line.hr-bad { border-color: rgba(251,191,36,0.32); }
+.hr-line.hr-fail { border-color: rgba(248,113,113,0.45); }
+.hr-row { align-items: flex-start; gap: 10px; min-height: 34px; }
+.hr-signal { flex: 1 1 auto; min-width: 0; align-items: flex-start; font-size: 14.5px; line-height: 1.4; }
+#hr-status { overflow-wrap: anywhere; }
+.hr-dot { width: 10px; height: 10px; margin-top: 6px; }
+.hr-right { flex: none; gap: 6px; }
+.hr-right .hr-link { display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border-radius: 999px; background: rgba(255,255,255,0.08); color: #cbd5e1; font-size: 12.5px; text-decoration: none; }
+.hr-right .hr-link:active { background: rgba(255,255,255,0.16); }
+.hr-bar { height: 4px; margin: 10px 0 0; }
+.hr-line .hr-status { margin: 8px 0 0; }
+#hr-warm { margin-top: 8px !important; }
+.hr-line.hr-fail .hr-signal { font-size: 13.5px; font-weight: 500; color: #fca5a5; }
