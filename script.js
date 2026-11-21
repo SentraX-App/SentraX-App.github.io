@@ -825,9 +825,23 @@ function checkBP() {
     return;
   }
 
+  if (sys < 60 || sys > 260 || dia < 30 || dia > 160 || sys <= dia) {
+    result.style.display = "block"; result.style.background = "#eee";
+    result.textContent = sys <= dia && sys >= 60 && dia >= 30
+      ? "The top number (systolic) should be higher than the bottom number (diastolic). Please check both numbers."
+      : "These numbers look unusual (top number 60 to 260, bottom number 30 to 160). Please check them and measure again. Nothing was saved.";
+    return;
+  }
+
   if (hr !== '' && !(Number(hr) >= 30 && Number(hr) <= 220)) {
     result.style.display = "block"; result.style.background = "#eee";
     result.textContent = "Heart rate should be between 30 and 220 beats per minute. Please check it, or clear the box to skip it.";
+    return;
+  }
+
+  if (weight !== '' && !(Number(weight) >= 20 && Number(weight) <= 400)) {
+    result.style.display = "block"; result.style.background = "#eee";
+    result.textContent = "Weight should be between 20 and 400 kg. Please check it, or clear the box to skip it. Nothing was saved.";
     return;
   }
 
