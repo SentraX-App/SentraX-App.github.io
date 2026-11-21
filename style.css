@@ -268,11 +268,6 @@ button.call { background: rgba(255,255,255,0.10); color: #fca5a5; box-shadow: no
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   padding: 24px;
 }
-#hr-pattern-alert .alert-banner {
-  background-color: #241a08 !important;
-  background-image: linear-gradient(165deg, #2b1f0a, #1a1305) !important;
-  border-color: rgba(251,191,36,0.45) !important;
-}
 .top-banner {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 11px 20px; font-size: 13px; font-weight: 600; line-height: 1.45;
@@ -998,30 +993,6 @@ nav button.active .icon { filter: none; }
 #vitals-screen input::placeholder { font-size: 14px; }
 .emergency-card button.call { font-size: 15px; }
 
-/* --- Camera heart rate scan (quiet line under "Check Heart Rate") --------------
-   Just a small status line: a dot and "Good signal" / "Weak signal", a thin progress bar and one line of help.
-   The class on #hr-measure-box (hr-wait | hr-good | hr-bad | hr-done | hr-fail) sets the colour. */
-.hr-line { --hr-c: #93c5fd; margin: 10px 2px 0; padding: 0; text-align: left; animation: hrIn .25s ease; }
-.hr-line.hr-good, .hr-line.hr-done { --hr-c: #4ade80; }
-.hr-line.hr-bad { --hr-c: #fbbf24; }
-.hr-line.hr-fail { --hr-c: #f87171; }
-@keyframes hrIn { from { opacity: 0; } to { opacity: 1; } }
-.hr-video { position: absolute; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
-.hr-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; }
-.hr-signal { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--hr-c); transition: color .3s; }
-.hr-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hr-c); transition: background .3s; flex: none; }
-.hr-line.hr-good .hr-dot { animation: hrPulse 1s ease-in-out infinite; }
-@keyframes hrPulse { 50% { transform: scale(1.5); opacity: .55; } }
-.hr-right { display: inline-flex; align-items: center; gap: 14px; }
-.hr-time { font-size: 13px; font-weight: 700; color: var(--hr-c); font-variant-numeric: tabular-nums; min-width: 2.2em; text-align: right; transition: color .3s; }
-.hr-wave { display: block; width: 100%; height: 26px; margin: 2px 0 4px; }
-.hr-right .hr-link { all: unset; box-sizing: border-box; cursor: pointer; font-size: 12px; font-weight: 600; color: #94a3b8; padding: 6px 2px; text-decoration: underline; text-underline-offset: 3px; }
-.hr-right .hr-link:hover { color: #e5e7eb; }
-.hr-right .hr-link:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; border-radius: 4px; }
-.hr-bar { height: 3px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 2px 0 0; }
-.hr-bar span { display: block; height: 100%; width: 0; background: var(--hr-c); border-radius: 3px; transition: width .4s linear, background .3s; }
-.hr-status { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: #94a3b8; min-height: 17px; }
-@media (prefers-reduced-motion: reduce) { .hr-line, .hr-line.hr-good .hr-dot { animation: none; } .hr-bar span { transition: none; } }
 
 /* =====================================================================
    Polish pass (Nov 2026)
@@ -1074,28 +1045,56 @@ input[type="number"] { -moz-appearance: textfield; }
 .mkt-cover::before { content: "🛍️"; position: absolute; font-size: 34px; opacity: 0.55; }
 .mkt-cover-img { background: #1e293b; }
 
-/* Heart-rate scan status row: message gets the room, the two links stay on one line */
-.hr-row { align-items: flex-start; }
-.hr-signal { flex: 1 1 auto; min-width: 0; align-items: flex-start; line-height: 1.4; }
-.hr-signal .hr-dot { margin-top: 5px; }
-#hr-status { overflow-wrap: anywhere; }
-.hr-right { flex: none; gap: 12px; }
-.hr-right .hr-link { white-space: nowrap; padding: 4px 2px; }
 
-/* --- Heart rate scan card: calmer, easier to read and tap (Nov 2026) ---------------------------------
-   Same markup and state classes as before; only spacing, type size and tap targets change. */
-.hr-line { margin: 12px 0 6px; padding: 12px 14px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); border-radius: 14px; transition: border-color .3s; }
-.hr-line.hr-good, .hr-line.hr-done { border-color: rgba(74,222,128,0.4); }
-.hr-line.hr-bad { border-color: rgba(251,191,36,0.32); }
-.hr-line.hr-fail { border-color: rgba(248,113,113,0.45); }
-.hr-row { align-items: flex-start; gap: 10px; min-height: 34px; }
-.hr-signal { flex: 1 1 auto; min-width: 0; align-items: flex-start; font-size: 14.5px; line-height: 1.4; }
-#hr-status { overflow-wrap: anywhere; }
-.hr-dot { width: 10px; height: 10px; margin-top: 6px; }
-.hr-right { flex: none; gap: 6px; }
-.hr-right .hr-link { display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border-radius: 999px; background: rgba(255,255,255,0.08); color: #cbd5e1; font-size: 12.5px; text-decoration: none; }
+
+
+/* =====================================================================
+   Camera heart-rate card (one place for every state)
+   Layout: [dot] title + one plain sentence ........ [Flash] [Cancel]
+           progress bar while scanning, or two buttons when it has finished.
+   State class on #hr-measure-box: hr-wait | hr-good | hr-bad | hr-done | hr-fail
+   ===================================================================== */
+.hr-line { --hr-c: #93c5fd; margin: 12px 0 6px; padding: 14px; text-align: left; border-radius: 16px;
+  background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.1); transition: border-color .3s; animation: hrIn .25s ease; }
+.hr-line.hr-good, .hr-line.hr-done { --hr-c: #4ade80; border-color: rgba(74,222,128,0.4); }
+.hr-line.hr-bad { --hr-c: #fbbf24; border-color: rgba(251,191,36,0.35); }
+.hr-line.hr-fail { --hr-c: #f87171; border-color: rgba(248,113,113,0.45); }
+.hr-video { position: absolute; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
+.hr-row { display: flex; align-items: flex-start; gap: 12px; }
+.hr-dot { flex: none; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--hr-c); transition: background .3s; }
+.hr-line.hr-good .hr-dot { animation: hrPulse 1s ease-in-out infinite; }
+.hr-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hr-title { font-size: 15px; line-height: 1.3; font-weight: 700; color: var(--hr-c); overflow-wrap: anywhere; transition: color .3s; }
+.hr-detail { font-size: 13px; line-height: 1.5; font-weight: 400; color: #94a3b8; overflow-wrap: anywhere; }
+.hr-detail:empty { display: none; }
+.hr-right { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.hr-right .hr-link { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border-radius: 999px;
+  background: rgba(255,255,255,0.08); color: #cbd5e1; font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .hr-right .hr-link:active { background: rgba(255,255,255,0.16); }
-.hr-bar { height: 4px; margin: 10px 0 0; }
-.hr-line .hr-status { margin: 8px 0 0; }
-#hr-warm { margin-top: 8px !important; }
-.hr-line.hr-fail .hr-signal { font-size: 13.5px; font-weight: 500; color: #fca5a5; }
+.hr-right .hr-link:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+.hr-bar { height: 4px; margin: 12px 0 0; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.hr-bar span { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--hr-c); transition: width .4s linear, background .3s; }
+.hr-warm { margin: 10px 0 0; font-size: 12.5px; line-height: 1.45; color: #fbbf24; }
+.hr-actions { display: flex; gap: 8px; margin-top: 14px; }
+.hr-btn { all: unset; box-sizing: border-box; flex: 1 1 0; min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 0 12px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #e2e8f0; font-size: 14px; font-weight: 600; cursor: pointer; }
+.hr-btn:active { background: rgba(255,255,255,0.16); }
+.hr-btn.hr-btn-main { background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; }
+.hr-btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+/* finished states: no progress bar, no Flash/Cancel pills (the two buttons take over) */
+.hr-line.hr-done .hr-bar, .hr-line.hr-fail .hr-bar,
+.hr-line.hr-done .hr-right, .hr-line.hr-fail .hr-right { display: none; }
+.hr-line.hr-done .hr-title { font-size: 20px; }
+@keyframes hrIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hrPulse { 50% { transform: scale(1.5); opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .hr-line, .hr-line.hr-good .hr-dot { animation: none; } .hr-bar span { transition: none; } }
+@media (max-width: 360px) { .hr-row { flex-wrap: wrap; } .hr-right { margin-left: 22px; } }
+
+/* Pulse-pattern popup: sits at the top level of the page so it covers the whole screen, not just the card it was opened from */
+.hr-alert-card { width: 100%; max-width: 340px; padding: 20px; border-radius: 18px; text-align: left;
+  background: linear-gradient(165deg, #2b1f0a, #1a1305); border: 1px solid rgba(251,191,36,0.45); box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+.hr-alert-card h4 { margin: 0 0 8px; font-size: 17px; line-height: 1.3; color: #fde68a; }
+.hr-alert-text { margin: 0 0 10px; font-size: 14.5px; line-height: 1.55; color: #fef3c7; }
+.hr-alert-note { margin: 0 0 16px; font-size: 12.5px; line-height: 1.5; color: #d6c58f; }
+.hr-alert-actions { display: flex; flex-direction: column; gap: 8px; }
+.hr-alert-actions .hr-btn { flex: none; width: 100%; }

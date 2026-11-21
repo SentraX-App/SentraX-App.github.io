@@ -263,20 +263,21 @@
         <video id="hr-video" class="hr-video" autoplay playsinline muted></video>
         <canvas id="hr-canvas" width="40" height="40" style="display:none;"></canvas>
         <div class="hr-row">
-          <span class="hr-signal"><span class="hr-dot" aria-hidden="true"></span><span id="hr-status" role="status" aria-live="polite"></span></span>
+          <span class="hr-dot" aria-hidden="true"></span>
+          <div class="hr-text" role="status" aria-live="polite">
+            <strong id="hr-status" class="hr-title"></strong>
+            <span id="hr-detail" class="hr-detail"></span>
+          </div>
           <span class="hr-right">
             <button type="button" id="hr-flash" class="hr-link" style="display:none;" onclick="hrToggleFlash()">Flash: on</button>
             <button type="button" id="hr-cancel" class="hr-link" onclick="cancelHeartRateMeasure()">Cancel</button>
           </span>
         </div>
         <div class="hr-bar" aria-hidden="true"><span id="hr-bar-fill"></span></div>
-        <p id="hr-warm" class="hr-status" style="display:none;margin:6px 0 0;color:#fbbf24;font-size:12px;">Flash is on. Lift your finger if it feels warm.</p>
-      </div>
-      <div id="hr-pattern-alert" class="modal-backdrop" style="display:none;">
-        <div class="alert-banner caution" style="margin:0;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
-          <p id="hr-pattern-text" style="margin:0 0 8px;"></p>
-          <p style="font-size:11px;opacity:0.8;font-weight:400;margin:0 0 8px;">This is based on your pulse rate/rhythm only — it is not a blood pressure reading. If you feel unwell, seek medical care.</p>
-          <button type="button" class="secondary" onclick="document.getElementById('hr-pattern-alert').style.display='none';focusBpFields()">Check Blood Pressure Now</button>
+        <p id="hr-warm" class="hr-warm" style="display:none;">Flash is on. Lift your finger if it feels warm.</p>
+        <div id="hr-actions" class="hr-actions" style="display:none;">
+          <button type="button" id="hr-retry" class="hr-btn hr-btn-main" onclick="measureHeartRate()">Try again</button>
+          <button type="button" id="hr-manual" class="hr-btn" onclick="hrManualEntry()">Type it in</button>
         </div>
       </div>
       <button onclick="checkBP()">Save &amp; Check My Risk</button>
@@ -709,5 +710,16 @@
   <script src="voice.js"></script>
   <script src="sw-update.js"></script>
 <script src="auth.js"></script>
+<div id="hr-pattern-alert" class="modal-backdrop" style="display:none;" role="alertdialog" aria-modal="true" aria-labelledby="hr-pattern-title">
+  <div class="hr-alert-card">
+    <h4 id="hr-pattern-title">Your pulse looked unusual</h4>
+    <p id="hr-pattern-text" class="hr-alert-text"></p>
+    <p class="hr-alert-note">This is based on your pulse rate and rhythm only. It is not a blood pressure reading. If you feel unwell, seek medical care.</p>
+    <div class="hr-alert-actions">
+      <button type="button" class="hr-btn hr-btn-main" onclick="document.getElementById('hr-pattern-alert').style.display='none';focusBpFields()">Check blood pressure now</button>
+      <button type="button" class="hr-btn" onclick="document.getElementById('hr-pattern-alert').style.display='none'">Not now</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

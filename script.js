@@ -809,6 +809,7 @@ function renderTipsScreen() {
 }
 
 function checkBP() {
+  { const hb = document.getElementById('hr-measure-box'); if (hb && !hrStream) hb.style.display = 'none'; }   // a finished scan card has done its job once the reading is saved
   const sys = parseInt(document.getElementById('systolic').value);
   const dia = parseInt(document.getElementById('diastolic').value);
   const hr = document.getElementById('heartrate').value;
@@ -4014,24 +4015,46 @@ let hrStartTime = 0;
 const HR_DURATION_MS = 20000;  // the original 20 seconds of steady finger before a result is tried
 const HR_MAX_MS = 35000;       // keep trying until here if the first 20 seconds were not clean
 let hrSession = 0, hrTorchTimers = [], hrRunStart = null, hrMissSince = null, hrRecent = [], hrRecentWeak = [], hrLastTryAt = 0, hrLastLabelAt = 0;
+const HR_TIGHT_MS = 24000;     // earliest moment a number may be shown: 24 s of steady finger
+const HR_ABS_MAX_MS = 75000;   // hard stop, however often the finger moved
+let hrEverRun = 0, hrLastReason = '-', hrFailNote = '';
 let hrIsGood = false, hrWeakRun = 0, hrShown = '', hrGoodFrames = 0, hrTotalFrames = 0, hrLastMean = 0;
 
-function hrShow(cls, text) {
+// One card, three parts: a short title, one plain sentence under it, and (once the scan has finished) two buttons.
+function hrShow(cls, title, detail) {
   const box = document.getElementById('hr-measure-box');
   if (box) box.className = 'hr-line ' + cls;
-  const status = document.getElementById('hr-status');
-  if (status && hrShown !== text) { status.textContent = text; hrShown = text; }
+  const key = title + '|' + (detail || '');
+  if (hrShown !== key) {
+    const t = document.getElementById('hr-status'), d = document.getElementById('hr-detail');
+    if (t) t.textContent = title;
+    if (d) d.textContent = detail || '';
+    hrShown = key;
+  }
+  const act = document.getElementById('hr-actions');
+  if (act) act.style.display = (cls === 'hr-fail' || cls === 'hr-done') ? 'flex' : 'none';
+  const retry = document.getElementById('hr-retry');
+  if (retry) { retry.textContent = cls === 'hr-done' ? 'Measure again' : 'Try again'; retry.classList.toggle('hr-btn-main', cls !== 'hr-done'); }
+  const manual = document.getElementById('hr-manual');
+  if (manual) manual.style.display = cls === 'hr-done' ? 'none' : '';
+}
+
+// "Type it in": close the card and put the cursor in the Heart rate box.
+function hrManualEntry() {
+  cancelHeartRateMeasure();
+  const el = document.getElementById('heartrate');
+  if (el) { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_e) {} el.focus(); }
 }
 
 function measureHeartRate() {
   stopHeartRateCamera();   // never leave an earlier camera (or flash) running
   const box = document.getElementById('hr-measure-box');
   box.style.display = 'block';
-  hrShown = ''; hrShow('hr-wait', 'Starting camera…');
+  hrShown = ''; hrShow('hr-wait', 'Starting camera…', 'Allow camera access if your phone asks.');
   const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = '0%';
   hrBuf = { t: [], r: [], g: [], b: [] };
   hrRunStart = null; hrMissSince = null; hrRecent = []; hrRecentWeak = []; hrLastTryAt = 0; hrLastLabelAt = 0;
-  hrIsGood = false; hrWeakRun = 0; hrGoodFrames = 0; hrTotalFrames = 0; hrLastMean = 0; hrCoveredSeen = false;
+  hrIsGood = false; hrWeakRun = 0; hrGoodFrames = 0; hrTotalFrames = 0; hrLastMean = 0; hrCoveredSeen = false; hrEverRun = 0; hrLastReason = '-';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
   hrOpenCamera();
@@ -4039,6 +4062,10 @@ function measureHeartRate() {
 
 function hrOpenCamera() {
   const mySession = hrSession;
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    hrShown = ''; hrShow('hr-fail', 'Camera not available', 'This browser cannot open the camera here. Try Chrome or Safari, or type your heart rate in.');
+    return;
+  }
   navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 100 }, height: { ideal: 100 }, frameRate: { ideal: 30 } } })
     .then(function (stream) {
       // Cancelled while the camera was still opening: close it again, never leave the camera or flash running.
@@ -4057,8 +4084,8 @@ function hrOpenCamera() {
       }
 
       video.onloadedmetadata = function () {
-        video.play();
-        hrShow('hr-bad', 'Weak signal');
+        try { const pp = video.play(); if (pp && pp.catch) pp.catch(function () {}); } catch (_e) { /* autoplay attribute still applies */ }
+        hrShow('hr-wait', 'Place your fingertip on the lens', 'Cover the camera ' + hrLensWord() + ' fully and press lightly.');
         hrStartTime = performance.now();
         hrSchedule();
         // some phones ignore the first torch request, so ask again once the camera is running
@@ -4067,7 +4094,7 @@ function hrOpenCamera() {
     })
     .catch(function () {
       if (mySession !== hrSession) return;
-      hrShown = ''; hrShow('hr-fail', 'Could not access camera. Check permissions and try again.');
+      hrShown = ''; hrShow('hr-fail', 'Camera unavailable', 'Allow camera access in your browser settings, then try again.');
     });
 }
 
@@ -4121,39 +4148,64 @@ function hrOnFrame(r, g, b, t) {
   else { if (hrMissSince === null) hrMissSince = t; if (t - hrMissSince >= 700) hrRunStart = null; }
   const elapsed = t - hrStartTime, run = hrRunStart === null ? 0 : t - hrRunStart;
 
-  // Live label, about 2.5 times a second: only "Good signal" or "Weak signal".
+  if (run > hrEverRun) hrEverRun = run;
+
+  // Live label, about 2.5 times a second. Title says how the signal is, the line under it says what to do.
   if (elapsed - hrLastLabelAt >= 400) {
     hrLastLabelAt = elapsed;
     let live = false; try { live = SXHR.assessLive(hrBuf).good; } catch (_e) { live = false; }
-    if ((covered && !saturated) || live) { hrWeakRun = 0; hrIsGood = true; hrShow('hr-good', 'Good signal'); }
-    else if (++hrWeakRun >= 2 || !hrIsGood) { hrIsGood = false; hrShow('hr-bad', 'Weak signal'); }
-    const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, run / (HR_DURATION_MS + 3000) * 100) + '%';
+    if ((covered && !saturated) || live) {
+      hrWeakRun = 0; hrIsGood = true;
+      const left = Math.ceil((HR_TIGHT_MS - run) / 1000);
+      hrShow('hr-good', 'Good signal', left > 0 ? 'Hold still. About ' + left + ' s left.' : 'Finishing up…');
+    } else if (!onLens) {
+      hrWeakRun = 0; hrIsGood = false; hrShow('hr-wait', 'Place your fingertip on the lens', 'Cover the camera ' + hrLensWord() + ' fully and press lightly.');
+    } else if (++hrWeakRun >= 2 || !hrIsGood) {
+      hrIsGood = false; hrShow('hr-bad', 'Weak signal', 'Press a little lighter, keep your fingertip flat and hold still.');
+    }
+    const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, run / HR_TIGHT_MS * 100) + '%';
   }
 
-  // Once the finger has been steadily on for 20 s, ask the precise engine once a second. A number is shown only when the last four
-  // answers all lie within 2 bpm of each other (the middle value is shown), so a moved hand or a slipped finger cannot become a result.
-  if (run >= HR_DURATION_MS && t - hrLastTryAt >= 1000) {
+  // From 20 s of steady finger the precise engine is asked once a second (the first answers are only collected). A number is shown
+  // only when the last SIX answers agree: within 1 bpm once the finger has been on for 24 s, or within 2 bpm after 32 s if the pulse
+  // is a little less steady. The middle value is shown, so one odd answer can never move the result, and a moved hand cannot become a result.
+  if (run >= HR_DURATION_MS - 2000 && t - hrLastTryAt >= 1000) {
     hrLastTryAt = t;
     const res = SXHR.analyze(hrBuf);
     if (res && res.ok) {
-      hrRecent.push(res.bpm); if (hrRecent.length > 4) hrRecent.shift();
-      if (hrRecent.length === 4 && Math.max.apply(null, hrRecent) - Math.min.apply(null, hrRecent) <= 2) {
-        const sorted = hrRecent.slice().sort(function (x, y) { return x - y; });
-        finishHeartRateMeasure({ bpm: (sorted[1] + sorted[2]) / 2, peaks: res.peaks, approx: false }); return;
+      hrRecent.push(res.bpm); if (hrRecent.length > 6) hrRecent.shift();
+      if (hrRecent.length === 6) {
+        const spread = Math.max.apply(null, hrRecent) - Math.min.apply(null, hrRecent);
+        if ((run >= HR_TIGHT_MS && spread <= 1.0) || (run >= 32000 && spread <= 2.0)) {
+          const sorted = hrRecent.slice().sort(function (x, y) { return x - y; });
+          finishHeartRateMeasure({ bpm: (sorted[2] + sorted[3]) / 2, peaks: res.peaks, approx: false }); return;
+        }
       }
-    } else hrRecent = [];
-    // Weaker signal: from 28 s on, the engine gets a second, stricter chance. Its quality limits are a little lower, so six answers in a
+    } else { hrRecent = []; hrLastReason = (res && res.reason) || 'weak'; }
+    // Weaker signal: after 28 s of steady finger the engine gets a second, stricter chance. Its quality limits are a little lower, so six answers in a
     // row must lie within 1.5 bpm of each other, and the result is marked "Weak signal".
     const weak = SXHR.analyze(hrBuf, { relaxed: true });
     if (weak && weak.ok) {
       hrRecentWeak.push(weak.bpm); if (hrRecentWeak.length > 6) hrRecentWeak.shift();
-      if (elapsed >= HR_MAX_MS - 7000 && hrRecentWeak.length === 6 && Math.max.apply(null, hrRecentWeak) - Math.min.apply(null, hrRecentWeak) <= 1.5) {
+      if (run >= HR_DURATION_MS + 8000 && hrRecentWeak.length === 6 && Math.max.apply(null, hrRecentWeak) - Math.min.apply(null, hrRecentWeak) <= 1.5) {
         const sw = hrRecentWeak.slice().sort(function (x, y) { return x - y; });
         finishHeartRateMeasure({ bpm: (sw[2] + sw[3]) / 2, peaks: weak.peaks, approx: true }); return;
       }
     } else hrRecentWeak = [];
   }
-  if (elapsed >= HR_MAX_MS) finishHeartRateMeasure(null);
+  // Give up 35 s after the start, but never while the finger is steadily on the lens and its own time is not used up (someone who places a
+  // finger late used to run out of time before the 20 s were over).
+  const deadline = hrRunStart === null ? HR_MAX_MS : Math.min(HR_ABS_MAX_MS, Math.max(HR_MAX_MS, (hrRunStart - hrStartTime) + HR_DURATION_MS + 15000));
+  if (elapsed >= deadline || (!hrCoveredSeen && elapsed >= 15000)) finishHeartRateMeasure(null);   // no finger at all after 15 s: say so now, not after 35 s
+}
+
+// The reason a scan could not finish, in one plain sentence that says what to change.
+function hrFailDetail() {
+  if (!hrCoveredSeen) return 'No finger was detected. Cover the camera ' + hrLensWord() + ' fully with your fingertip.';
+  if (hrEverRun < HR_DURATION_MS) return 'Your finger lifted too soon. Keep it on the lens for the full 20 seconds.';
+  if (hrLastReason === 'unsteady') return 'There was too much movement. Rest your hand on a table and stay still.';
+  if (hrLastReason === 'camera') return 'The camera is running too slowly here. Try a brighter room.';
+  return 'The pulse was too faint to read. Press lightly, keep your fingertip flat and hold still.';
 }
 
 function finishHeartRateMeasure(res) {
@@ -4165,33 +4217,32 @@ function finishHeartRateMeasure(res) {
 
   let patternAbnormal = false;
   if (res) {
-    const bpm = Math.round(res.bpm * 10) / 10;   // one decimal keeps the full accuracy of the measurement
+    const bpm = Math.round(res.bpm);   // whole beats per minute: a camera cannot honestly tell 66.3 from 65.9
     document.getElementById('heartrate').value = bpm;
     // Two scans a few minutes apart should be close. If this one is far from the last one, say so instead of passing either off as certain.
     let differs = '';
     try {
       const last = JSON.parse(localStorage.getItem('hrLast') || 'null');
-      if (last && Date.now() - last.t < 10 * 60 * 1000 && Math.abs(last.bpm - bpm) > 15) differs = ' · Differs from your last scan (' + Math.round(last.bpm) + '). Scan again to confirm';
+      if (last && Date.now() - last.t < 10 * 60 * 1000 && Math.abs(last.bpm - bpm) > 15) differs = 'Differs from your last scan (' + Math.round(last.bpm) + ' bpm). Scan again to confirm.';
       localStorage.setItem('hrLast', JSON.stringify({ bpm: bpm, t: Date.now() }));
     } catch (_e) { /* storage unavailable: just no comparison */ }
-    hrShown = ''; hrShow('hr-done', 'Heart rate: ' + bpm + ' bpm' + (res.approx ? ' · Weak signal' : '') + differs);
+    const notes = [];
+    if (res.approx) notes.push('The signal was weak, so scan again for a more reliable number.');
+    if (differs) notes.push(differs);
+    hrShown = ''; hrShow('hr-done', bpm + ' bpm', notes.length ? notes.join(' ') : 'Added to the Heart rate box above.');
     if (bar) bar.style.width = '100%';
     const pattern = analyzeHeartRatePattern(Math.round(bpm), res.peaks);
     patternAbnormal = pattern.abnormal;
     if (patternAbnormal && alertBox) {
       document.getElementById('hr-pattern-text').textContent =
-        'Your pulse looked ' + pattern.reasons.join(' and ') + ' during this reading. It could be nothing — activity, caffeine, or just holding the phone can cause this — but it\'s worth checking your blood pressure manually to be safe.';
+        'Your pulse looked ' + pattern.reasons.join(' and ') + ' during this reading. It could be nothing: activity, caffeine or just holding the phone can cause this. It is still worth checking your blood pressure to be safe.';
       alertBox.style.display = 'flex';
     }
   } else {
-    hrShown = ''; hrShow('hr-fail', 'Weak signal. Try again, or count your pulse for 30 seconds, double it and type it in the Heart rate box.');
+    hrShown = ''; hrShow('hr-fail', 'Could not read your pulse', hrFailDetail());
   }
 
-  if (!patternAbnormal) {
-    setTimeout(function () {
-      if (!hrStream) document.getElementById('hr-measure-box').style.display = 'none';   // not if a new scan has already started
-    }, res ? (hrShown.indexOf('Differs') >= 0 ? 8000 : 3000) : 6000);
-  }
+  // The finished card now stays until the person taps a button or starts a new scan: it holds the number and the next steps.
 }
 
 // ---- Original beat counter (unchanged from the original scanner) ----
@@ -4353,7 +4404,7 @@ function cancelHeartRateMeasure() {
 document.addEventListener('visibilitychange', function () {
   if (document.hidden && (hrStream || hrTorchTimers.length)) {
     stopHeartRateCamera();
-    hrShown = ''; hrShow('hr-fail', 'Scan stopped while you were away. Tap Check Heart Rate to start again.');
+    hrShown = ''; hrShow('hr-fail', 'Scan stopped', 'You left the app, so the camera and flash were switched off. Tap Try again when you are ready.');
   }
 });
 
