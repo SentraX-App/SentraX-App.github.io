@@ -302,19 +302,31 @@
       var r = d[i], g = d[i + 1], b = d[i + 2];
       sr += r; sg += g; sb += b;
       l = 0.299 * r + 0.587 * g + 0.114 * b; sl += l; sl2 += l * l;
-      if (r >= 60 && g <= 0.75 * r && b <= 0.65 * r) redPx++;
+      if (r >= 30 && g <= 0.88 * r && b <= 0.78 * r) redPx++;
       if (r >= 250) clip++;
     }
     var ml = sl / n, v = sl2 / n - ml * ml;
     return { r: sr / n, g: sg / n, b: sb / n, lumCv: ml > 1 ? Math.sqrt(Math.max(0, v)) / ml : 9, redFrac: redPx / n, clipFrac: clip / n };
   }
-  function fingerOn(s, torchOn) {
+  // Two tiers. Strict is used to START a run; relaxed is used to KEEP a run going (a finger that is already confirmed must not be
+  // dropped because auto-exposure or auto white balance wobbled for a moment) and to rescue phones where the strict test never
+  // fires (pale or thin fingertips that overexpose under the flash, auto white balance that dulls the red, dim rooms with no flash).
+  // A wrong "finger" here can never produce a wrong number: analyze() still demands a real, steady pulse before anything is shown.
+  function fingerOn(s, torchOn, relaxed) {
     if (!s) return false;
-    if (s.r < (torchOn ? 110 : 70)) return false;
-    if (s.g > 0.68 * s.r || s.b > 0.55 * s.r) return false;
-    if (s.redFrac < 0.85) return false;
-    if (s.lumCv > 0.4) return false;
+    var minR = torchOn ? (relaxed ? 55 : 70) : (relaxed ? 28 : 35);
+    if (s.r < minR) return false;
+    // With the flash lit, a pale or thin fingertip overexposes and looks less red, so more green and blue is allowed. Without a confirmed
+    // flash, light has to pass through the tissue, which makes a real fingertip deep red, so the limits stay tight (skin-coloured tables fail).
+    var gMax = torchOn ? (relaxed ? 0.88 : 0.82) : (relaxed ? 0.68 : 0.62), bMax = torchOn ? (relaxed ? 0.78 : 0.72) : (relaxed ? 0.58 : 0.52);
+    if (s.g > gMax * s.r || s.b > bMax * s.r) return false;
+    if (s.redFrac < (relaxed ? 0.6 : 0.7)) return false;
+    if (s.lumCv > (relaxed ? 0.38 : 0.5)) return false;
     return true;
+  }
+  // Lens is covered by something very uniform and dark (a finger in a dim room with no flash): tell the person what to do.
+  function lensCoveredDark(s) {
+    return !!s && s.r < 28 && s.g < 28 && s.b < 28 && s.lumCv < 0.3;
   }
 
   function fpsOf(ts) { return ts.length > 1 ? (ts.length - 1) / ((ts[ts.length - 1] - ts[0]) / 1000) : 0; }
@@ -329,7 +341,7 @@
     var tEnd = buf.t[n - 1], i0 = n - 1;
     while (i0 > skip && tEnd - buf.t[i0 - 1] <= winMs) i0--;
     var ts = buf.t.slice(i0), r = buf.r.slice(i0), g = buf.g.slice(i0);
-    if ((ts[ts.length - 1] - ts[0]) / 1000 < 4) return { good: false, checking: true, reason: 'checking', hint: 'Hold still while we find your pulse.' };
+    if ((ts[ts.length - 1] - ts[0]) / 1000 < 6) return { good: false, checking: true, reason: 'checking', hint: 'Hold still while we find your pulse.' };
     if (fpsOf(ts) < MIN_FPS) return { good: false, checking: false, reason: 'camera', hint: 'The camera is running slowly. Try a brighter room.' };
     var cands = [], rI = usable(r, MIN_RED) ? channelInfo(ts, r, 0.02) : null, gI = usable(g, MIN_GREEN) ? channelInfo(ts, g, 0.02) : null;
     if (rI) { rI.name = 'r'; cands.push(rI); } if (gI) { gI.name = 'g'; cands.push(gI); }
@@ -359,7 +371,7 @@
     } catch (e) { return 'diag error'; }
   }
 
-  return { analyze: analyze, assessLive: assessLive, consensus: consensus, diagnose: diagnose, frameStats: frameStats, fingerOn: fingerOn, _x: { resample: resample, bandpass: bandpass, powerSpectrum: powerSpectrum, channelInfo: channelInfo, FS: FS } };
+  return { analyze: analyze, assessLive: assessLive, consensus: consensus, diagnose: diagnose, frameStats: frameStats, fingerOn: fingerOn, lensCoveredDark: lensCoveredDark, _x: { resample: resample, bandpass: bandpass, powerSpectrum: powerSpectrum, channelInfo: channelInfo, FS: FS } };
 });
 
 /* =====================================================================================================================
@@ -375,10 +387,11 @@
 //   4. "Flash on/off" link lets the person switch it off; the card says to lift the finger if it feels warm.
 const HR_NOFINGER_MS = 12000, HR_FLASH_MAX_MS = 36000, HR_MAX_MS = 36000;
 const HR_TIGHT_MS = 20000;    // a number is shown after 20 s of steady finger at the earliest
+const HR_NOPULSE_MS = 24000;  // lens covered this long and still no pulse of any quality: end the scan
 const HR_CONFIRM_MS = 400;    // finger must look right for this long before the run starts
 const HR_LOST_MS = 500;       // finger counts as lifted after this long without looking right
 
-let hrStream = null, hrTrack = null, hrFlashOn = false, hrFlashSince = 0, hrFlashHasTorch = false;
+let hrStream = null, hrTrack = null, hrFlashOn = false, hrFlashSince = 0, hrFlashHasTorch = false, hrTorchConfirmed = false;
 let hrRafId = null, hrVfcId = null, hrSession = 0, hrTorchTimers = [], hrShown = '';
 let hrS = null;               // state of the scan in progress
 let hrCanvas = null, hrCtx = null;
@@ -426,7 +439,7 @@ function hrManualEntry() {
 function hrNewState() {
   return { start: 0, buf: { t: [], r: [], g: [], b: [] }, candSince: null, runStart: null, missSince: null, coveredSeen: false, everRun: 0,
            results: [], lastTry: 0, lastLabel: -1e9, weakRun: 0, lastReason: '-', satFrames: 0, satSeen: 0, satStage: 0, flashNote: '',
-           lastRGB: '', lastGood: false, diagBuf: null, fingerFrames: 0, totalFrames: 0 };
+           lastRGB: '', lastGood: false, everGood: false, goodStreak: 0, dark: false, diagBuf: null, fingerFrames: 0, totalFrames: 0 };
 }
 
 function measureHeartRate() {
@@ -456,7 +469,7 @@ function hrOpenCamera() {
       const track = stream.getVideoTracks()[0];
       if (track && track.applyConstraints) {
         hrTrack = track;
-        try { const caps = track.getCapabilities ? track.getCapabilities() : null; hrFlashHasTorch = caps ? !!caps.torch : true; } catch (_e) { hrFlashHasTorch = true; }
+        try { const caps = track.getCapabilities ? track.getCapabilities() : null; hrFlashHasTorch = caps ? !!caps.torch : true; hrTorchConfirmed = !!(caps && caps.torch); } catch (_e) { hrFlashHasTorch = true; hrTorchConfirmed = false; }
         hrSetFlash(hrFlashHasTorch && hrFlashPref());
         hrFlashLabel();
         hrApplyCam();
@@ -483,7 +496,7 @@ function hrApplyCam() {
   const on = !!hrFlashOn;
   try {
     const caps = hrTrack.getCapabilities ? hrTrack.getCapabilities() : null;
-    if (caps && caps.exposureCompensation && typeof caps.exposureCompensation.min === 'number') {
+    if (on && caps && caps.exposureCompensation && typeof caps.exposureCompensation.min === 'number') {   // darken only when the flash is lit; in room light it would hide the finger
       const ec = caps.exposureCompensation;
       hrTrack.applyConstraints({ advanced: [{ exposureCompensation: ec.min + (ec.max - ec.min) * 0.2 }] }).catch(function () {});
     }
@@ -540,13 +553,15 @@ function hrOnFrame(st, t) {
   // ---- finger test, every frame ----
   s.totalFrames++;
   s.lastRGB = Math.round(st.r) + '/' + Math.round(st.g) + '/' + Math.round(st.b);
-  const on = SXHR.fingerOn(st, hrFlashOn);
+  const torchLit = hrFlashOn && hrTorchConfirmed;
+  const on = SXHR.fingerOn(st, torchLit, false) || ((s.runStart !== null || s.candSince !== null || (!s.coveredSeen && elapsed >= 3000)) && SXHR.fingerOn(st, torchLit, true));
+  s.dark = !on && SXHR.lensCoveredDark(st);
   if (on) {
     s.missSince = null;
     if (s.candSince === null) s.candSince = t;
     if (s.runStart === null && t - s.candSince >= HR_CONFIRM_MS) {   // finger confirmed: a fresh run starts here
       s.runStart = t; s.coveredSeen = true;
-      s.buf = { t: [], r: [], g: [], b: [] }; s.results = []; s.lastTry = 0; s.weakRun = 0; s.lastGood = false; s.satFrames = 0; s.satSeen = 0;
+      s.buf = { t: [], r: [], g: [], b: [] }; s.results = []; s.lastTry = 0; s.weakRun = 0; s.lastGood = false; s.everGood = false; s.goodStreak = 0; s.satFrames = 0; s.satSeen = 0;
     }
     if (s.runStart !== null) {
       s.buf.t.push(t); s.buf.r.push(st.r); s.buf.g.push(st.g); s.buf.b.push(st.b); s.fingerFrames++;
@@ -579,17 +594,19 @@ function hrOnFrame(st, t) {
     s.lastLabel = elapsed;
     const bar = document.getElementById('hr-bar-fill');
     if (s.runStart === null) {
-      if (s.coveredSeen) hrShow('hr-wait', 'Finger lifted', 'Place it back on the lens and hold still.');
+      if (s.coveredSeen && !s.dark) hrShow('hr-wait', 'Finger lifted', 'Place it back on the lens and hold still.');
+      else if (s.dark) hrShow('hr-wait', 'Too dark', hrFlashOn ? 'Press a little lighter so light gets through, or move to a brighter room.' : 'Move to a brighter room or turn the flash on, then keep your fingertip on the lens.');
       else hrShow('hr-wait', 'Place your fingertip on the lens', 'Cover the camera ' + hrLensWord() + ' fully and press lightly.');
       if (bar) bar.style.width = '0%';
     } else {
       let live = { good: false, checking: true, hint: '' };
       try { live = SXHR.assessLive(s.buf); } catch (_e) { /* keep default */ }
       const left = Math.ceil((HR_TIGHT_MS - run) / 1000);
-      if (live.good) { s.weakRun = 0; s.lastGood = true; hrShow('hr-good', 'Good signal', left > 0 ? 'Hold still. About ' + left + (left === 1 ? ' second left.' : ' seconds left.') : 'Finishing up…'); }
-      else if (live.checking) { s.weakRun = 0; if (!s.lastGood) hrShow('hr-wait', 'Finger detected', 'Hold still while we find your pulse.'); }
-      else if (++s.weakRun >= 2 || !s.lastGood) { s.lastGood = false; hrShow('hr-bad', 'Weak signal', live.hint || 'Press a little lighter, keep your fingertip flat and hold still.'); }
-      if (bar) bar.style.width = Math.min(100, run / HR_TIGHT_MS * 100) + '%';
+      if (live.good && ++s.goodStreak >= 6) { s.weakRun = 0; s.lastGood = true; s.everGood = true; hrShow('hr-good', 'Good signal', left > 0 ? 'Hold still. About ' + left + (left === 1 ? ' second left.' : ' seconds left.') : 'Finishing up…'); }
+      else if (live.good) { /* first good checks: wait for a steady streak before saying Good signal */ }
+      else if (live.checking) { s.goodStreak = 0; s.weakRun = 0; if (!s.lastGood) hrShow('hr-wait', 'Looking for your pulse', 'Keep your fingertip still on the lens.'); }
+      else if (++s.weakRun >= 2 || !s.lastGood) { s.goodStreak = 0; s.lastGood = false; hrShow('hr-bad', 'Weak signal', live.hint || 'Press a little lighter, keep your fingertip flat and hold still.'); }
+      if (bar) bar.style.width = Math.min(s.everGood ? 100 : 30, run / HR_TIGHT_MS * 100) + '%';   // the bar only fills past 30% once a real pulse has been seen
     }
   }
 
@@ -611,6 +628,7 @@ function hrOnFrame(st, t) {
     if (last) { finishHeartRateMeasure({ bpm: last.bpm, peaks: last.peaks, approx: true }); return; }
     finishHeartRateMeasure(null); return;
   }
+  if (s.runStart !== null && run >= HR_NOPULSE_MS && !s.everGood) { finishHeartRateMeasure(null); return; }   // covered but no pulse at all: stop instead of scanning to the end
   if (!s.coveredSeen && elapsed >= HR_NOFINGER_MS) finishHeartRateMeasure(null);   // no finger at all: say so now
 }
 
@@ -623,6 +641,7 @@ function hrFailInfo() {
   else if (s.satSeen > 30 && s.satFrames / s.satSeen > 0.5) r = ['Camera too bright', 'Press a little lighter, or turn the flash off and use a bright room.'];
   else if (s.lastReason === 'unsteady') r = ['Pulse not steady', 'Rest your elbow on a table, press lightly and stay still without talking.'];
   else if (s.lastReason === 'camera') r = ['Camera too slow', 'Move to a brighter room and try again.'];
+  else if (!s.everGood) r = ['No pulse found', 'Cover the lens fully with the soft pad of your fingertip, press lightly and try again.'];
   else r = ['Pulse too faint', 'Press lightly, keep your fingertip flat and stay still.'];
   if (s.flashNote) r[1] = s.flashNote + r[1];
   return r;
@@ -650,12 +669,15 @@ function finishHeartRateMeasure(res) {
     const notes = [];
     if (res.approx) notes.push('The signal was weak. Measure again for a more reliable result.');
     if (differs) notes.push(differs);
-    hrShown = ''; hrShow('hr-done', bpm + ' bpm', notes.length ? notes.join(' ') : 'Added to the Heart rate box above.');
+    notes.push('Camera estimate, not a medical test.');
+    hrShown = ''; hrShow('hr-done', (res.approx ? 'About ' : '') + bpm + ' bpm', (notes.length > 1 ? notes.join(' ') : 'Added to the Heart rate box. ' + notes[0]));
     if (bar) bar.style.width = '100%';
     const pattern = analyzeHeartRatePattern(bpm, res.peaks);
-    if (pattern.abnormal && alertBox) {
-      document.getElementById('hr-pattern-text').textContent =
-        'Your pulse looked ' + pattern.reasons.join(' and ') + ' during this reading. It could be nothing: activity, caffeine or just holding the phone can cause this. It is still worth checking your blood pressure to be safe.';
+    if (pattern.abnormal && alertBox && !res.approx) {   // a weak, approximate reading never raises an alert: it just asks for another scan
+      const ttl = document.getElementById('hr-pattern-title'), note = alertBox.querySelector('.hr-alert-note');
+      if (ttl) ttl.textContent = 'Your pulse is outside the usual range';
+      document.getElementById('hr-pattern-text').textContent = pattern.text;
+      if (note) note.textContent = 'This is a camera estimate of pulse rate only. It is not a blood pressure reading or a medical test. If you feel dizzy, faint, short of breath or have chest pain, get medical care now.';
       alertBox.style.display = 'flex';
     }
   } else {
@@ -666,13 +688,18 @@ function finishHeartRateMeasure(res) {
 
 // ---- Heart rate PATTERN analysis (rate only). Flags a fast or slow pulse and nudges toward a real manual BP reading.
 // Never estimates blood pressure itself. Rhythm irregularity is intentionally not judged (it needs real-device tuning).
-const HR_TACHY_BPM = 100;
-const HR_BRADY_BPM = 60;
+const HR_TACHY_BPM = 100;   // above the usual resting range of 60 to 100
+const HR_BRADY_BPM = 50;    // a pulse in the 50s is common in fit people, so only below 50 interrupts the person
 function analyzeHeartRatePattern(bpm, peakTimes) {
-  const reasons = [];
-  if (bpm >= HR_TACHY_BPM) reasons.push('unusually fast (' + bpm + ' bpm)');
-  if (bpm > 0 && bpm < HR_BRADY_BPM) reasons.push('unusually slow (' + bpm + ' bpm)');
-  return { abnormal: reasons.length > 0, reasons: reasons };
+  const reasons = []; let text = '';
+  if (bpm > HR_TACHY_BPM) {
+    reasons.push('fast');
+    text = 'Your reading was ' + bpm + ' bpm, faster than the usual resting range of 60 to 100. If you just walked, climbed stairs or had caffeine, rest for 5 minutes and measure again. Checking your blood pressure is still a good idea.';
+  } else if (bpm > 0 && bpm < HR_BRADY_BPM) {
+    reasons.push('slow');
+    text = 'Your reading was ' + bpm + ' bpm, slower than the usual resting range. Some healthy people, such as athletes, have a slow pulse. Rest and measure again, and check your blood pressure.';
+  }
+  return { abnormal: reasons.length > 0, reasons: reasons, text: text };
 }
 
 function focusBpFields() {
@@ -683,7 +710,7 @@ function focusBpFields() {
 function stopHeartRateCamera() {
   hrSession++;
   hrSetFlash(false);   // flash off first, whatever else happens
-  hrTrack = null; hrFlashOn = false;
+  hrTrack = null; hrFlashOn = false; hrTorchConfirmed = false;
   hrTorchTimers.forEach(clearTimeout); hrTorchTimers = [];
   if (hrRafId) { cancelAnimationFrame(hrRafId); hrRafId = null; }
   if (hrVfcId) { try { document.getElementById('hr-video').cancelVideoFrameCallback(hrVfcId); } catch (_e) {} hrVfcId = null; }
@@ -697,6 +724,9 @@ function cancelHeartRateMeasure() {
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
 }
+
+// Closing or leaving the page also turns the camera and flash off.
+window.addEventListener('pagehide', function () { if (hrStream || hrTorchTimers.length) stopHeartRateCamera(); });
 
 // Leaving the app mid-scan: turn the flash and camera off straight away.
 document.addEventListener('visibilitychange', function () {

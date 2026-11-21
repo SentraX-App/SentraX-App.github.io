@@ -29,6 +29,7 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 function showScreen(name) {
+  if (name !== 'vitals' && typeof cancelHeartRateMeasure === 'function') { try { cancelHeartRateMeasure(); } catch (_e) { /* scanner not loaded */ } }   // leaving Vitals mid-scan must switch the camera and flash off
   expireOldMeds();
 
   // One-time notification prompt for existing users who never got asked.
@@ -655,7 +656,7 @@ function renderBpBreakdown(sys, dia, hr, risk, pulseStatus) {
         '<div>' +
           '<p class="bp-metric-label">Pulse</p>' +
           '<p class="bp-metric-sub">Heart rate (beats per minute)</p>' +
-          '<p class="bp-metric-text">Your pulse is ' + bpm + ' bpm, which is ' + (pOk === 'ok' ? 'within the normal range.' : (bpm < 60 ? 'below the normal range.' : 'above the normal range.')) + '</p>' +
+          '<p class="bp-metric-text">Your pulse is ' + bpm + ' bpm, which is ' + (pOk === 'ok' ? 'within the usual resting range of 60 to 100.' : (bpm < 60 ? 'below the usual resting range. This can be normal for very fit people, but tell a doctor if you feel dizzy or faint.' : 'above the usual resting range. Rest, avoid caffeine and measure again. See a doctor if it stays high or you feel unwell.')) + '</p>' +
         '</div>' +
         '<span class="bp-status-pill ' + bpPillClass(pOk) + '">' + pLabel + '</span>' +
       '</div>';
@@ -821,6 +822,12 @@ function checkBP() {
   if (!sys || !dia) {
     result.style.display = "block"; result.style.background = "#eee";
     result.textContent = "Please enter both blood pressure numbers.";
+    return;
+  }
+
+  if (hr !== '' && !(Number(hr) >= 30 && Number(hr) <= 220)) {
+    result.style.display = "block"; result.style.background = "#eee";
+    result.textContent = "Heart rate should be between 30 and 220 beats per minute. Please check it, or clear the box to skip it.";
     return;
   }
 
@@ -4374,7 +4381,7 @@ const SX_HELP_POSTER = 'help/sentrax-tour.jpg';
 function sxHelpSections() {
   return [
     ['Log a blood pressure reading', ['Open the Vitals tab.', 'Type the top number (Systolic) and the bottom number (Diastolic). Heart rate and weight are optional.', 'Tap Save & Check My Risk. The colour shows your risk level, and the reading is saved in History.']],
-    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Rest the soft pad of your fingertip over the back camera lens and flash. Press lightly, and lift your finger if it feels warm. If the flash is too warm for you, tap Flash on to turn it off and use a bright room instead. Press lightly, like touching a screen.', 'Sit down, rest your hand on a table and keep still. Do not talk.', 'Watch the label: Good signal (green) means hold still. Weak signal (amber) means press lighter, cover the lens fully and keep still.', 'The reading is added to your reading form when it finishes. If it says Weak signal, rest, warm your hands and tap Check Heart Rate again.', 'This is an estimate for everyday tracking, not a medical test.']],
+    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Sit down and rest your hand on a table. Stay still and do not talk.', 'Cover the back camera lens and flash fully with the soft pad of your fingertip. Press lightly, like touching a screen.', 'Hold for about 20 seconds. Green Good signal means keep still. Amber Weak signal means press lighter and cover the lens fully.', 'The number is added to the Heart rate box when the scan finishes. If a scan fails, rest, warm your hands and try again, or type your pulse in yourself.', 'Lift your finger if the flash feels warm. You can tap Flash on to turn it off and scan in a bright room instead.', 'This is a camera estimate for everyday tracking, not a medical test.']],
     ['Medicines and reminders', ['Open the Meds tab and add the name, time and how long you take it.', 'You get a reminder at that time. Tap to mark each dose as taken.', 'If a caregiver is linked, they are alerted only if a dose is still missed after your reminder.']],
     ['Add a caregiver', ['Open the Family tab.', 'Add Caregiver saves a phone number or email so they get SMS and email alerts. Please ask them first.', 'Generate Invite Code lets someone create their own account and see your readings. You can remove their access at any time under Linked caregivers.']],
     ['Emergency SOS', ['On the Vitals tab, the Emergency card has the SOS button. It asks you to confirm, then sends your location to your caregivers by SMS and email and prepares a WhatsApp message.', 'Call Emergency Line shows the number for where you are. Use it for real emergencies only.']],
