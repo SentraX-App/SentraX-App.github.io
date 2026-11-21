@@ -4214,7 +4214,7 @@ function hrFailDetail() {
   if (!hrCoveredSeen) return 'No finger was detected. Cover the camera ' + hrLensWord() + ' fully with your fingertip.';
   if (hrEverRun < HR_DURATION_MS) return 'Your finger lifted too soon. Keep it on the lens for the full 20 seconds.';
   if (hrSatSeen > 30 && hrSatFrames / hrSatSeen > 0.5) return 'The camera was too bright. Press a little lighter, or tap Flash: on to switch the flash off and use a bright room.';
-  if (hrLastReason === 'unsteady') return 'There was too much movement. Rest your hand on a table and stay still.';
+  if (hrLastReason === 'unsteady') return 'The pulse signal kept shifting. Rest your elbow on a table, press very lightly, breathe normally and do not talk.';
   if (hrLastReason === 'camera') return 'The camera is running too slowly here. Try a brighter room.';
   return 'The pulse was too faint to read. Press lightly, keep your fingertip flat and hold still.';
 }

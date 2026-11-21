@@ -274,12 +274,12 @@
     });
     if (!infos.length) return { ok: false, reason: 'weak' };
     var ch = bestChannel(infos), f0 = ch.f0;
-    if (ch.pi > 0.06) return { ok: false, reason: 'unsteady', snr: ch.snr };
+    if (ch.pi > 0.12) return { ok: false, reason: 'unsteady', snr: ch.snr };
     var relaxed = !!opts.relaxed;   // second, stricter-consensus chance for weaker signals (see script.js)
     if (ch.snr < (relaxed ? 0.33 : 0.45) || ch.pi < 0.0006 || ch.pkRatio < (relaxed ? 7 : 10)) return { ok: false, reason: 'weak', snr: ch.snr };
     // the two halves of the run must show the same pulse rate (a hand that moved or a finger that slipped changes it)
     var half = Math.floor(ch.filt.length / 2), fa = pulseFreq(powerSpectrum(ch.filt.slice(0, half), FS, 0.005), half / FS), fb = pulseFreq(powerSpectrum(ch.filt.slice(half), FS, 0.005), (ch.filt.length - half) / FS);
-    if (Math.abs(fa - fb) * 60 > 3.5) return { ok: false, reason: 'unsteady', snr: ch.snr };
+    if (Math.abs(fa - fb) * 60 > 9) return { ok: false, reason: 'unsteady', snr: ch.snr };
 
     // Tight band around the pulse frequency removes the second bump of the pulse wave, leaving one clean peak per beat.
     var tight = bandpass(ch.x, FS, Math.max(0.5, f0 * 0.62), Math.min(HI + 0.5, f0 * 1.55)), x = tight;
@@ -313,11 +313,11 @@
       var mx = mean(xs), my = mean(ys), sxx = 0, sxy = 0;
       for (i = 0; i < xs.length; i++) { sxx += (xs[i] - mx) * (xs[i] - mx); sxy += (xs[i] - mx) * (ys[i] - my); }
       var slope = sxy / sxx, icpt = my - slope * mx, changed = false;
-      for (i = 0; i < pk.length; i++) { var bad = Math.abs(pk[i] - (icpt + slope * idx[i])) > 0.3 * m; if (keep[i] && bad) { keep[i] = false; changed = true; } }
+      for (i = 0; i < pk.length; i++) { var bad = Math.abs(pk[i] - (icpt + slope * idx[i])) > 0.4 * m; if (keep[i] && bad) { keep[i] = false; changed = true; } }
       if (!changed) break;
     }
     var kept = []; for (i = 0; i < pk.length; i++) if (keep[i]) kept.push(i);
-    if (kept.length < 8 || kept.length < 0.75 * pk.length) return { ok: false, reason: 'unsteady', snr: ch.snr };
+    if (kept.length < 8 || kept.length < 0.6 * pk.length) return { ok: false, reason: 'unsteady', snr: ch.snr };
     var a = kept[0], z = kept[kept.length - 1], beats = idx[z] - idx[a], dur = pk[z] - pk[a];
     if (beats < 7 || dur < 8) return { ok: false, reason: 'unsteady', snr: ch.snr };
     var lx = [], ly = []; for (i = 0; i < kept.length; i++) { lx.push(idx[kept[i]]); ly.push(pk[kept[i]]); }
@@ -326,8 +326,8 @@
     // comes from the fine frequency search over the whole window, which uses every sample instead of only the first and last beat.
     var fRef = refineFreq(ch.filt, FS, f0, ch.T);
     var bpmTime = 0.5 * (60 * beats / dur) + 0.5 * (60 * lxx / lxy), bpmSpec = 60 * fRef, diff = Math.abs(bpmTime - bpmSpec), bpm, method;
-    if (diff <= 3) { bpm = bpmSpec; method = 'spectrum+beats'; }
-    else if (diff <= 6 && ch.snr >= 0.6) { bpm = bpmSpec; method = 'spectrum'; }
+    if (diff <= 5) { bpm = bpmSpec; method = 'spectrum+beats'; }
+    else if (diff <= 10 && ch.snr >= 0.5) { bpm = bpmSpec; method = 'spectrum'; }
     else return { ok: false, reason: 'unsteady', snr: ch.snr };
     if (bpm < 40 || bpm > 200) return { ok: false, reason: 'weak', snr: ch.snr };
     var t0s = (ch.t0 - buf.t[0]) / 1000;
