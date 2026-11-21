@@ -269,15 +269,15 @@
             <span id="hr-detail" class="hr-detail"></span>
           </div>
           <span class="hr-right">
-            <button type="button" id="hr-flash" class="hr-link" style="display:none;" onclick="hrToggleFlash()">Flash: on</button>
+            <button type="button" id="hr-flash" class="hr-link" style="display:none;" onclick="hrToggleFlash()">Flash on</button>
             <button type="button" id="hr-cancel" class="hr-link" onclick="cancelHeartRateMeasure()">Cancel</button>
           </span>
         </div>
         <div class="hr-bar" aria-hidden="true"><span id="hr-bar-fill"></span></div>
-        <p id="hr-warm" class="hr-warm" style="display:none;">Flash is on. Lift your finger if it feels warm.</p>
+        <p id="hr-warm" class="hr-warm" style="display:none;">Lift your finger if the flash feels warm.</p>
         <div id="hr-actions" class="hr-actions" style="display:none;">
           <button type="button" id="hr-retry" class="hr-btn hr-btn-main" onclick="measureHeartRate()">Try again</button>
-          <button type="button" id="hr-manual" class="hr-btn" onclick="hrManualEntry()">Type it in</button>
+          <button type="button" id="hr-manual" class="hr-btn" onclick="hrManualEntry()">Enter manually</button>
         </div>
       </div>
       <button onclick="checkBP()">Save &amp; Check My Risk</button>
@@ -702,7 +702,7 @@
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <div id="passport-print-area" class="print-only"></div>
-  <script src="hr-engine.js"></script>
+  <script src="hr-scanner.js"></script>
   <script src="script.js"></script>
   <script src="quest-sync.js"></script>
   <script src="med-final-warning.js"></script>
