@@ -1098,3 +1098,5 @@ input[type="number"] { -moz-appearance: textfield; }
 .hr-alert-note { margin: 0 0 16px; font-size: 12.5px; line-height: 1.5; color: #d6c58f; }
 .hr-alert-actions { display: flex; flex-direction: column; gap: 8px; }
 .hr-alert-actions .hr-btn { flex: none; width: 100%; }
+
+.hr-detail { white-space: pre-line; }

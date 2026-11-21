@@ -942,6 +942,10 @@ const SHORT_TERM_MED_MS = 60 * 60 * 1000;
 
 // Returns the Date a medication expires on, or null if it can't be determined.
 function getMedExpiry(m) {
+  if (m.durationDays && !m.startDate) {   // an old record with no start date: count from when it was created, so it can still expire
+    const made = m.createdAt || parseInt(m.id, 10) || null;
+    if (made) { const e0 = new Date(made); e0.setDate(e0.getDate() + m.durationDays); return e0; }
+  }
   if (m.durationDays && m.startDate) {
     const end = new Date(m.startDate);
     end.setDate(end.getDate() + m.durationDays);
@@ -4018,7 +4022,7 @@ let hrSession = 0, hrTorchTimers = [], hrRunStart = null, hrMissSince = null, hr
 const HR_TIGHT_MS = 20000;     // earliest moment a number may be shown: 20 s of steady finger
 const HR_ABS_MAX_MS = 75000;   // hard stop, however often the finger moved
 let hrEverRun = 0, hrLastReason = '-', hrFailNote = '';
-let hrResults = [], hrSatFrames = 0, hrSatSeen = 0, hrAutoFlashOff = false;
+let hrResults = [], hrSatFrames = 0, hrSatSeen = 0, hrAutoFlashOff = false, hrSatStage = 0, hrDiag = '';
 let hrIsGood = false, hrWeakRun = 0, hrShown = '', hrGoodFrames = 0, hrTotalFrames = 0, hrLastMean = 0;
 
 // One card, three parts: a short title, one plain sentence under it, and (once the scan has finished) two buttons.
@@ -4055,7 +4059,7 @@ function measureHeartRate() {
   const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = '0%';
   hrBuf = { t: [], r: [], g: [], b: [] };
   hrRunStart = null; hrMissSince = null; hrRecent = []; hrRecentWeak = []; hrLastTryAt = 0; hrLastLabelAt = 0;
-  hrResults = []; hrSatFrames = 0; hrSatSeen = 0; hrAutoFlashOff = false;
+  hrResults = []; hrSatFrames = 0; hrSatSeen = 0; hrAutoFlashOff = false; hrSatStage = 0; hrDiag = '';
   hrIsGood = false; hrWeakRun = 0; hrGoodFrames = 0; hrTotalFrames = 0; hrLastMean = 0; hrCoveredSeen = false; hrEverRun = 0; hrLastReason = '-';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
@@ -4120,6 +4124,23 @@ function hrApplyCam() {
   } catch (_e) { /* optional camera control */ }
 }
 
+// Shorter exposure and lowest ISO, each as its own request so a phone that refuses one still accepts the other.
+function hrDarken() {
+  if (!hrTrack) return;
+  try {
+    const caps = hrTrack.getCapabilities ? hrTrack.getCapabilities() : {};
+    const tries = [];
+    if (caps.exposureMode && caps.exposureMode.indexOf && caps.exposureMode.indexOf('manual') >= 0) {
+      const adv = { exposureMode: 'manual' };
+      if (caps.exposureTime) adv.exposureTime = caps.exposureTime.min + (caps.exposureTime.max - caps.exposureTime.min) * 0.05;
+      if (caps.iso) adv.iso = caps.iso.min;
+      tries.push(adv);
+    }
+    if (caps.exposureCompensation) tries.push({ exposureCompensation: caps.exposureCompensation.min });
+    tries.forEach(function (adv) { hrTrack.applyConstraints({ advanced: [adv] }).catch(function () {}); });
+  } catch (_e) { /* optional camera control */ }
+}
+
 // One callback per real camera frame where the browser supports it (exact timing), otherwise every screen refresh.
 function hrSchedule() {
   const video = document.getElementById('hr-video');
@@ -4162,11 +4183,13 @@ function hrOnFrame(r, g, b, t) {
 
   if (run > hrEverRun) hrEverRun = run;
 
-  // If the flash drives the red channel to pure 255 for most of the first seconds, no pulse can be seen. Switch the flash off once
-  // (room light is then used) and restart the clean run from this moment, instead of failing 30 seconds later.
-  if (!hrAutoFlashOff && hrFlashOn && run >= 4000 && hrSatSeen >= 60 && hrSatFrames / hrSatSeen > 0.6) {
-    hrAutoFlashOff = true; hrSetFlash(false); hrFlashNote = 'Your camera was too bright with the flash, so it was switched off. Use a bright room. ';
-    hrFlashLabel(); hrBuf = { t: [t], r: [r], g: [g], b: [b] }; hrRunStart = t; hrResults = []; hrSatFrames = 0; hrSatSeen = 0; hrShown = '';
+  // If the flash drives the red channel to pure 255 for most of a few seconds, no pulse can be seen. Stage 1: ask the camera for a shorter
+  // exposure and lowest ISO (where the phone allows it). Stage 2, if still too bright: switch the flash off once (room light is then used).
+  // Either way the clean run restarts from this moment.
+  if (hrSatStage < 2 && hrFlashOn && run >= 3000 && hrSatSeen >= 60 && hrSatFrames / hrSatSeen > 0.6) {
+    hrSatStage++;
+    if (hrSatStage === 1) hrDarken(); else { hrAutoFlashOff = true; hrSetFlash(false); hrFlashNote = 'Your camera was too bright with the flash, so it was switched off. Use a bright room. '; hrFlashLabel(); }
+    hrBuf = { t: [t], r: [r], g: [g], b: [b] }; hrRunStart = t; hrResults = []; hrSatFrames = 0; hrSatSeen = 0; hrShown = '';
   }
 
   // Live label, about 2.5 times a second. Title says how the signal is, the line under it says what to do.
@@ -4221,6 +4244,7 @@ function hrFailDetail() {
 
 function finishHeartRateMeasure(res) {
   const alertBox = document.getElementById('hr-pattern-alert');
+  try { hrDiag = (!res && hrBuf) ? SXHR.diagnose(hrBuf) : ''; } catch (_e) { hrDiag = ''; }
   stopHeartRateCamera();
   hrBuf = null;
   if (alertBox) alertBox.style.display = 'none';
@@ -4250,7 +4274,7 @@ function finishHeartRateMeasure(res) {
       alertBox.style.display = 'flex';
     }
   } else {
-    hrShown = ''; hrShow('hr-fail', 'Could not read your pulse', hrFailDetail());
+    hrShown = ''; hrShow('hr-fail', 'Could not read your pulse', hrFailDetail() + (hrDiag ? '\n[' + hrDiag + ' | ' + hrLastReason + (hrAutoFlashOff ? ' | flash auto-off' : '') + ']' : ''));
   }
 
   // The finished card now stays until the person taps a button or starts a new scan: it holds the number and the next steps.

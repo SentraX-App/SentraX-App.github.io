@@ -172,7 +172,7 @@
   var isCovered = function (r, g, b, u) {
     if (!(r > 18)) return false;                                   // black: lens covered but no light, or no camera light at all
     if (r > g * 1.2 && r > b * 1.2) return true;                   // clearly red
-    if (r > g * 1.05 && r > b * 1.05) return u === undefined || u < 0.08;
+    if (r > g * 1.05 && r > b * 1.05) return u !== undefined && u < 0.08;   // only with proof of a steady picture: an ordinary room scene must never count as a finger
     return false;
   };
   // Only frames after the fingertip was last placed count (placing the finger is a big jump, not a pulse).
@@ -198,15 +198,15 @@
   // A very dark channel (the green of a fingertip under the flash is often only 5 to 20 out of 255) is mostly rounding
   // noise, and rounding noise can look like a perfect pulse stuck at the very edge of the band. So a channel only counts
   // when it is bright enough, shows a believable pulse size, and peaks away from the band edges; of those the cleanest wins.
-  var MIN_GREEN = 8, MIN_RED = 12;
+  var MIN_GREEN = 5, MIN_RED = 12;
   // A channel is usable when it is not black and not clipped. Clipping (value stuck at 255) flattens the pulse, so a channel is dropped when
   // more than 15% of its frames are clipped. This replaces the old "average must be under 250" rule, which threw away a fingertip under the flash
   // whenever red sat at 250 to 255, even though green (often only 12 to 40 out of 255) still carried a clean pulse.
   function usable(v, minMean) {
     var m = mean(v), clip = 0;
-    if (!(m > minMean) || m > 253) return false;
+    if (!(m > minMean) || m > 254.6) return false;
     for (var i = 0; i < v.length; i++) if (v[i] >= 254.5) clip++;
-    return clip <= 0.35 * v.length;
+    return clip <= 0.6 * v.length;
   }
   function plausible(ch) { return !!ch && ch.pi >= 0.0004 && ch.f0 > LO + 0.08 && ch.f0 < HI - 0.15; }
   function bestChannel(list) {
@@ -276,7 +276,7 @@
     var ch = bestChannel(infos), f0 = ch.f0;
     if (ch.pi > 0.12) return { ok: false, reason: 'unsteady', snr: ch.snr };
     var relaxed = !!opts.relaxed;   // second, stricter-consensus chance for weaker signals (see script.js)
-    if (ch.snr < (relaxed ? 0.33 : 0.45) || ch.pi < 0.0006 || ch.pkRatio < (relaxed ? 7 : 10)) return { ok: false, reason: 'weak', snr: ch.snr };
+    if (ch.snr < (relaxed ? 0.33 : 0.45) || ch.pi < 0.0004 || ch.pkRatio < (relaxed ? 7 : 10)) return { ok: false, reason: 'weak', snr: ch.snr };
     // the two halves of the run must show the same pulse rate (a hand that moved or a finger that slipped changes it)
     var half = Math.floor(ch.filt.length / 2), fa = pulseFreq(powerSpectrum(ch.filt.slice(0, half), FS, 0.005), half / FS), fb = pulseFreq(powerSpectrum(ch.filt.slice(half), FS, 0.005), (ch.filt.length - half) / FS);
     if (Math.abs(fa - fb) * 60 > 9) return { ok: false, reason: 'unsteady', snr: ch.snr };
@@ -342,7 +342,8 @@
      list: [{bpm, weak, peaks}] oldest first. final=true is the last chance at the end of the scan (a little more tolerance).
      One failed or odd answer no longer throws everything away: the middle value of the agreeing majority is used. */
   function consensus(list, final) {
-    var L = list.slice(-6), need = final ? 3 : 4, tol = final ? 3 : 2;
+    var L = list.slice(-6), need = final ? 4 : 4, tol = final ? 3 : 2;
+    if (L.length >= 4 && L.filter(function (x) { return x.weak; }).length > L.length / 2) need = 5;   // mostly weak answers: ask for more agreement
     if (L.length < need) return null;
     var m = median(L.map(function (x) { return x.bpm; }));
     var inl = L.filter(function (x) { return Math.abs(x.bpm - m) <= tol; });
@@ -351,5 +352,27 @@
     return { bpm: median(inl.map(function (x) { return x.bpm; })), peaks: inl[inl.length - 1].peaks, approx: !!final && weakN > 0 || weakN > inl.length / 2, n: inl.length };
   }
 
-  return { analyze: analyze, assessLive: assessLive, consensus: consensus, isCovered: isCovered, _x: { resample: resample, bandpass: bandpass, powerSpectrum: powerSpectrum, channelInfo: channelInfo, FS: FS } };
+  /* One short line of facts about a finished scan (what the camera really delivered), shown on a failed scan so it can be tuned. */
+  function diagnose(buf) {
+    try {
+      var n = buf.t.length;
+      if (n < 10) return 'frames ' + n;
+      var tb = trimToCovered(buf), m = tb.t.length, parts = [];
+      parts.push('fps ' + Math.round(fpsOf(buf.t)) + ', ' + n + ' frames, finger on ' + m);
+      if (m < 40) return parts.join(' | ');
+      var i0 = 0, tEnd = tb.t[m - 1]; while (i0 < m - 1 && tEnd - tb.t[i0] > 14000) i0++;
+      var ts = tb.t.slice(i0);
+      ['r', 'g'].forEach(function (c) {
+        var v = tb[c].slice(i0), clip = 0, k; for (k = 0; k < v.length; k++) if (v[k] >= 254.5) clip++;
+        var s2 = 'R' === c.toUpperCase() ? 'R' : 'G';
+        var line = s2 + ' ' + Math.round(mean(v)) + ' clip ' + Math.round(100 * clip / v.length) + '%';
+        var inf = v.length > FS * 3 ? channelInfo(ts, v, 0.02) : null;
+        if (inf) line += ' pi ' + inf.pi.toFixed(4) + ' snr ' + inf.snr.toFixed(2) + ' pk ' + inf.pkRatio.toFixed(1) + ' ' + Math.round(inf.f0 * 60) + 'bpm';
+        parts.push(line);
+      });
+      return parts.join(' | ');
+    } catch (e) { return 'diag error'; }
+  }
+
+  return { analyze: analyze, assessLive: assessLive, consensus: consensus, diagnose: diagnose, isCovered: isCovered, _x: { resample: resample, bandpass: bandpass, powerSpectrum: powerSpectrum, channelInfo: channelInfo, FS: FS } };
 });

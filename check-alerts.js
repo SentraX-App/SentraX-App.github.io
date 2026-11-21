@@ -58,6 +58,52 @@ function timeToMinutes(t) {
   return parseInt(parts[0]) * 60 + parseInt(parts[1]);
 }
 
+
+// ---------------------------------------------------------------------------
+// Should this medicine be allowed to alert a caregiver right now?
+// One strict rule set, so an old, expired, deleted-looking or just-added medicine can never send an alert.
+// Returns { alert: true } or { alert: false, why: '...' } (the reason is logged so a surprise alert can be traced).
+// ---------------------------------------------------------------------------
+const STALE_AFTER_MINUTES = 180;   // a dose more than 3 hours late is not an actionable "just missed it" alert
+
+function nigeriaDateOf(ms) {
+  const d = new Date(ms + NIGERIA_OFFSET_MINUTES * 60000);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+function nigeriaMinutesOf(ms) {
+  const d = new Date(ms + NIGERIA_OFFSET_MINUTES * 60000);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+function addDaysStr(dateStr, days) {
+  const p = dateStr.split('-').map(Number);
+  const d = new Date(Date.UTC(p[0], p[1] - 1, p[2] + days));
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+
+function medAlertDecision(med, todayStrNow, nowMin, nowMs) {
+  if (!med || !med.id || !med.time || !/^\d{1,2}:\d{2}$/.test(String(med.time))) return { alert: false, why: 'bad record' };
+  const created = Number(med.createdAt) || parseInt(med.id, 10) || 0;
+  // 1. Expiry. Same rule as the app: a duration counts from the start date; with no duration the medicine lasts 1 hour.
+  const startStr = (typeof med.startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(med.startDate)) ? med.startDate : (created ? nigeriaDateOf(created) : null);
+  if (med.durationDays && Number(med.durationDays) > 0) {
+    if (!startStr) return { alert: false, why: 'no start date, cannot prove it is active' };
+    const endStr = addDaysStr(startStr, Math.round(Number(med.durationDays)));
+    if (todayStrNow >= endStr) return { alert: false, why: 'expired on ' + endStr };
+  } else {
+    if (!created) return { alert: false, why: 'no duration and no creation time' };
+    if (nowMs - created > 60 * 60 * 1000) return { alert: false, why: 'short-term medicine expired' };
+  }
+  // 2. A medicine that does not start until a later day must stay silent.
+  if (startStr && todayStrNow < startStr) return { alert: false, why: 'starts later' };
+  // 3. A medicine added after today's dose time could not have been taken on time: its first alert is tomorrow.
+  if (created && nigeriaDateOf(created) === todayStrNow && nigeriaMinutesOf(created) >= timeToMinutes(med.time)) return { alert: false, why: 'added after today\'s dose time' };
+  // 4. Overdue enough, but not stale.
+  const overdueBy = nowMin - timeToMinutes(med.time);
+  if (overdueBy < REMINDER_DELAY_MINUTES) return { alert: false, why: 'not overdue yet' };
+  if (overdueBy > STALE_AFTER_MINUTES) return { alert: false, why: 'too late to be useful (' + overdueBy + ' min)' };
+  return { alert: true };
+}
+
 async function sendEmail(toEmail, patientName, caregiverName, alertMessage) {
   try {
     const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
@@ -192,15 +238,8 @@ async function checkUser(doc) {
 
   for (const med of meds) {
     if (todayLog[med.id]) continue;
-    if (med.startDate && med.durationDays) {
-      const endDate = new Date(med.startDate);
-      endDate.setDate(endDate.getDate() + med.durationDays);
-      if (new Date() > endDate) continue;
-    } else if (!med.durationDays) {
-      // No duration was entered — treat as short-term and expire 1 hour after creation.
-      const created = med.createdAt || parseInt(med.id, 10) || 0;
-      if (created && (Date.now() - created) > 60 * 60 * 1000) continue;
-    }
+    const decision = medAlertDecision(med, today, nowMin, Date.now());
+    if (!decision.alert) { if (decision.why !== 'not overdue yet') console.log('Skip medicine alert:', med && med.name, '-', decision.why); continue; }
     const overdueBy = nowMin - timeToMinutes(med.time);
     const key = med.id + '_' + today;
     if (overdueBy >= REMINDER_DELAY_MINUTES && !medAlertsSent[key]) {
