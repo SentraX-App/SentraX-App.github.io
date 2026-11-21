@@ -198,7 +198,7 @@
   // A very dark channel (the green of a fingertip under the flash is often only 5 to 20 out of 255) is mostly rounding
   // noise, and rounding noise can look like a perfect pulse stuck at the very edge of the band. So a channel only counts
   // when it is bright enough, shows a believable pulse size, and peaks away from the band edges; of those the cleanest wins.
-  var MIN_GREEN = 12, MIN_RED = 12;
+  var MIN_GREEN = 8, MIN_RED = 12;
   // A channel is usable when it is not black and not clipped. Clipping (value stuck at 255) flattens the pulse, so a channel is dropped when
   // more than 15% of its frames are clipped. This replaces the old "average must be under 250" rule, which threw away a fingertip under the flash
   // whenever red sat at 250 to 255, even though green (often only 12 to 40 out of 255) still carried a clean pulse.
@@ -206,7 +206,7 @@
     var m = mean(v), clip = 0;
     if (!(m > minMean) || m > 253) return false;
     for (var i = 0; i < v.length; i++) if (v[i] >= 254.5) clip++;
-    return clip <= 0.15 * v.length;
+    return clip <= 0.35 * v.length;
   }
   function plausible(ch) { return !!ch && ch.pi >= 0.0004 && ch.f0 > LO + 0.08 && ch.f0 < HI - 0.15; }
   function bestChannel(list) {
@@ -257,6 +257,10 @@
     if (n < 40) return { ok: false, reason: 'short' };
     var t0 = buf.t[0], i0 = 0;
     while (i0 < n && buf.t[i0] - t0 < settleMs) i0++;
+    if (opts.windowMs) {   // only the most recent windowMs of the run: old movement or exposure settling ages out
+      var cutT = buf.t[n - 1] - opts.windowMs;
+      while (i0 < n - 1 && buf.t[i0] < cutT) i0++;
+    }
     var ts = buf.t.slice(i0), spanS = ts.length > 1 ? (ts[ts.length - 1] - ts[0]) / 1000 : 0;
     if (spanS < (opts.minSeconds || 8)) return { ok: false, reason: 'short' };
     if (fpsOf(ts) < MIN_FPS) return { ok: false, reason: 'camera' };
@@ -334,5 +338,18 @@
     return { ok: true, bpm: bpm, peaks: kept.map(function (j) { return Math.round((t0s + pk[j]) * 1000); }), beats: beats, snr: ch.snr, channel: ch.name, method: method, seconds: dur, bpmBeats: bpmTime };
   }
 
-  return { analyze: analyze, assessLive: assessLive, isCovered: isCovered, _x: { resample: resample, bandpass: bandpass, powerSpectrum: powerSpectrum, channelInfo: channelInfo, FS: FS } };
+  /* Decide whether the recent answers of analyze() agree well enough to show a number.
+     list: [{bpm, weak, peaks}] oldest first. final=true is the last chance at the end of the scan (a little more tolerance).
+     One failed or odd answer no longer throws everything away: the middle value of the agreeing majority is used. */
+  function consensus(list, final) {
+    var L = list.slice(-6), need = final ? 3 : 4, tol = final ? 3 : 2;
+    if (L.length < need) return null;
+    var m = median(L.map(function (x) { return x.bpm; }));
+    var inl = L.filter(function (x) { return Math.abs(x.bpm - m) <= tol; });
+    if (inl.length < need || inl.length < 0.66 * L.length) return null;
+    var weakN = inl.filter(function (x) { return x.weak; }).length;
+    return { bpm: median(inl.map(function (x) { return x.bpm; })), peaks: inl[inl.length - 1].peaks, approx: !!final && weakN > 0 || weakN > inl.length / 2, n: inl.length };
+  }
+
+  return { analyze: analyze, assessLive: assessLive, consensus: consensus, isCovered: isCovered, _x: { resample: resample, bandpass: bandpass, powerSpectrum: powerSpectrum, channelInfo: channelInfo, FS: FS } };
 });

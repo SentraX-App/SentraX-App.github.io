@@ -1059,7 +1059,7 @@ input[type="number"] { -moz-appearance: textfield; }
 .hr-line.hr-good, .hr-line.hr-done { --hr-c: #4ade80; border-color: rgba(74,222,128,0.4); }
 .hr-line.hr-bad { --hr-c: #fbbf24; border-color: rgba(251,191,36,0.35); }
 .hr-line.hr-fail { --hr-c: #f87171; border-color: rgba(248,113,113,0.45); }
-.hr-video { position: absolute; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
+.hr-video { position: absolute; width: 16px; height: 16px; opacity: 0.02; pointer-events: none; }
 .hr-row { display: flex; align-items: flex-start; gap: 12px; }
 .hr-dot { flex: none; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--hr-c); transition: background .3s; }
 .hr-line.hr-good .hr-dot { animation: hrPulse 1s ease-in-out infinite; }

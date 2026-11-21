@@ -4015,9 +4015,10 @@ let hrStartTime = 0;
 const HR_DURATION_MS = 20000;  // the original 20 seconds of steady finger before a result is tried
 const HR_MAX_MS = 35000;       // keep trying until here if the first 20 seconds were not clean
 let hrSession = 0, hrTorchTimers = [], hrRunStart = null, hrMissSince = null, hrRecent = [], hrRecentWeak = [], hrLastTryAt = 0, hrLastLabelAt = 0;
-const HR_TIGHT_MS = 24000;     // earliest moment a number may be shown: 24 s of steady finger
+const HR_TIGHT_MS = 20000;     // earliest moment a number may be shown: 20 s of steady finger
 const HR_ABS_MAX_MS = 75000;   // hard stop, however often the finger moved
 let hrEverRun = 0, hrLastReason = '-', hrFailNote = '';
+let hrResults = [], hrSatFrames = 0, hrSatSeen = 0, hrAutoFlashOff = false;
 let hrIsGood = false, hrWeakRun = 0, hrShown = '', hrGoodFrames = 0, hrTotalFrames = 0, hrLastMean = 0;
 
 // One card, three parts: a short title, one plain sentence under it, and (once the scan has finished) two buttons.
@@ -4054,6 +4055,7 @@ function measureHeartRate() {
   const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = '0%';
   hrBuf = { t: [], r: [], g: [], b: [] };
   hrRunStart = null; hrMissSince = null; hrRecent = []; hrRecentWeak = []; hrLastTryAt = 0; hrLastLabelAt = 0;
+  hrResults = []; hrSatFrames = 0; hrSatSeen = 0; hrAutoFlashOff = false;
   hrIsGood = false; hrWeakRun = 0; hrGoodFrames = 0; hrTotalFrames = 0; hrLastMean = 0; hrCoveredSeen = false; hrEverRun = 0; hrLastReason = '-';
   const alertBox = document.getElementById('hr-pattern-alert');
   if (alertBox) alertBox.style.display = 'none';
@@ -4102,6 +4104,15 @@ function hrOpenCamera() {
 function hrApplyCam() {
   if (!hrTrack || !hrStream) return;
   const on = !!hrFlashOn;
+  // A flash-lit fingertip often turns the red channel pure 255, which hides the pulse. Where the phone allows it, make the
+  // picture a little darker. This is a separate request so a phone that refuses it can never affect the torch.
+  try {
+    const caps = hrTrack.getCapabilities ? hrTrack.getCapabilities() : null;
+    if (caps && caps.exposureCompensation && typeof caps.exposureCompensation.min === 'number') {
+      const ec = caps.exposureCompensation, v = ec.min + (ec.max - ec.min) * 0.2;
+      hrTrack.applyConstraints({ advanced: [{ exposureCompensation: v }] }).catch(function () {});
+    }
+  } catch (_e) { /* optional camera control */ }
   try {
     hrTrack.applyConstraints({ advanced: [{ torch: on }, { focusMode: 'fixed' }] }).catch(function () {
       try { hrTrack.applyConstraints({ advanced: [{ torch: on }] }).catch(function () {}); } catch (_e) { /* optional camera control */ }
@@ -4143,12 +4154,20 @@ function hrOnFrame(r, g, b, t) {
   const covered = r > 60 && r > g * 1.3 && r > b * 1.3, saturated = r >= 250;
   hrTotalFrames++; if (covered && !saturated) hrGoodFrames++;
   const onLens = covered || SXHR.isCovered(r, g, b);
+  if (onLens) { hrSatSeen++; if (saturated) hrSatFrames++; }
   // One odd camera frame must not restart the count: the finger counts as lifted only after 0.7 s of frames that do not look covered.
   if (onLens) { hrCoveredSeen = true; hrMissSince = null; if (hrRunStart === null) hrRunStart = t; }
   else { if (hrMissSince === null) hrMissSince = t; if (t - hrMissSince >= 700) hrRunStart = null; }
   const elapsed = t - hrStartTime, run = hrRunStart === null ? 0 : t - hrRunStart;
 
   if (run > hrEverRun) hrEverRun = run;
+
+  // If the flash drives the red channel to pure 255 for most of the first seconds, no pulse can be seen. Switch the flash off once
+  // (room light is then used) and restart the clean run from this moment, instead of failing 30 seconds later.
+  if (!hrAutoFlashOff && hrFlashOn && run >= 4000 && hrSatSeen >= 60 && hrSatFrames / hrSatSeen > 0.6) {
+    hrAutoFlashOff = true; hrSetFlash(false); hrFlashNote = 'Your camera was too bright with the flash, so it was switched off. Use a bright room. ';
+    hrFlashLabel(); hrBuf = { t: [t], r: [r], g: [g], b: [b] }; hrRunStart = t; hrResults = []; hrSatFrames = 0; hrSatSeen = 0; hrShown = '';
+  }
 
   // Live label, about 2.5 times a second. Title says how the signal is, the line under it says what to do.
   if (elapsed - hrLastLabelAt >= 400) {
@@ -4166,36 +4185,27 @@ function hrOnFrame(r, g, b, t) {
     const bar = document.getElementById('hr-bar-fill'); if (bar) bar.style.width = Math.min(100, run / HR_TIGHT_MS * 100) + '%';
   }
 
-  // From 20 s of steady finger the precise engine is asked once a second (the first answers are only collected). A number is shown
-  // only when the last SIX answers agree: within 1 bpm once the finger has been on for 24 s, or within 2 bpm after 32 s if the pulse
-  // is a little less steady. The middle value is shown, so one odd answer can never move the result, and a moved hand cannot become a result.
-  if (run >= HR_DURATION_MS - 2000 && t - hrLastTryAt >= 1000) {
+  // From 15 s of steady finger the precise engine is asked once a second, on the most recent 16 s of the run only (so an early wobble
+  // or the camera settling its exposure ages out). Each answer is kept; one failed answer no longer throws the others away.
+  // A number is shown once the recent answers agree (SXHR.consensus: 4 of the last 6 within 2 bpm, from 20 s of steady finger).
+  // The middle value of the agreeing answers is shown, so one odd answer can never move the result and a moved hand cannot become a result.
+  if (run >= 15000 && t - hrLastTryAt >= 1000) {
     hrLastTryAt = t;
-    const res = SXHR.analyze(hrBuf);
-    if (res && res.ok) {
-      hrRecent.push(res.bpm); if (hrRecent.length > 6) hrRecent.shift();
-      if (hrRecent.length === 6) {
-        const spread = Math.max.apply(null, hrRecent) - Math.min.apply(null, hrRecent);
-        if ((run >= HR_TIGHT_MS && spread <= 1.0) || (run >= 32000 && spread <= 2.0)) {
-          const sorted = hrRecent.slice().sort(function (x, y) { return x - y; });
-          finishHeartRateMeasure({ bpm: (sorted[2] + sorted[3]) / 2, peaks: res.peaks, approx: false }); return;
-        }
-      }
-    } else { hrRecent = []; hrLastReason = (res && res.reason) || 'weak'; }
-    // Weaker signal: after 28 s of steady finger the engine gets a second, stricter chance. Its quality limits are a little lower, so six answers in a
-    // row must lie within 1.5 bpm of each other, and the result is marked "Weak signal".
-    const weak = SXHR.analyze(hrBuf, { relaxed: true });
-    if (weak && weak.ok) {
-      hrRecentWeak.push(weak.bpm); if (hrRecentWeak.length > 6) hrRecentWeak.shift();
-      if (run >= HR_DURATION_MS + 8000 && hrRecentWeak.length === 6 && Math.max.apply(null, hrRecentWeak) - Math.min.apply(null, hrRecentWeak) <= 1.5) {
-        const sw = hrRecentWeak.slice().sort(function (x, y) { return x - y; });
-        finishHeartRateMeasure({ bpm: (sw[2] + sw[3]) / 2, peaks: weak.peaks, approx: true }); return;
-      }
-    } else hrRecentWeak = [];
+    let res = SXHR.analyze(hrBuf, { windowMs: 16000 }), weak = false;
+    if (!(res && res.ok)) { hrLastReason = (res && res.reason) || 'weak'; res = SXHR.analyze(hrBuf, { windowMs: 16000, relaxed: true }); weak = !!(res && res.ok); }
+    if (res && res.ok) { hrResults.push({ bpm: res.bpm, weak: weak, peaks: res.peaks }); if (hrResults.length > 8) hrResults.shift(); }
+    if (run >= HR_TIGHT_MS) {
+      const c = SXHR.consensus(hrResults, false);
+      if (c) { finishHeartRateMeasure({ bpm: c.bpm, peaks: c.peaks, approx: c.approx }); return; }
+    }
   }
   // Give up 35 s after the start, but never while the finger is steadily on the lens and its own time is not used up (someone who places a
   // finger late used to run out of time before the 20 s were over).
   const deadline = hrRunStart === null ? HR_MAX_MS : Math.min(HR_ABS_MAX_MS, Math.max(HR_MAX_MS, (hrRunStart - hrStartTime) + HR_DURATION_MS + 15000));
+  if (elapsed >= deadline) {
+    const last = SXHR.consensus(hrResults, true);
+    if (last) { finishHeartRateMeasure({ bpm: last.bpm, peaks: last.peaks, approx: true }); return; }
+  }
   if (elapsed >= deadline || (!hrCoveredSeen && elapsed >= 15000)) finishHeartRateMeasure(null);   // no finger at all after 15 s: say so now, not after 35 s
 }
 
@@ -4203,6 +4213,7 @@ function hrOnFrame(r, g, b, t) {
 function hrFailDetail() {
   if (!hrCoveredSeen) return 'No finger was detected. Cover the camera ' + hrLensWord() + ' fully with your fingertip.';
   if (hrEverRun < HR_DURATION_MS) return 'Your finger lifted too soon. Keep it on the lens for the full 20 seconds.';
+  if (hrSatSeen > 30 && hrSatFrames / hrSatSeen > 0.5) return 'The camera was too bright. Press a little lighter, or tap Flash: on to switch the flash off and use a bright room.';
   if (hrLastReason === 'unsteady') return 'There was too much movement. Rest your hand on a table and stay still.';
   if (hrLastReason === 'camera') return 'The camera is running too slowly here. Try a brighter room.';
   return 'The pulse was too faint to read. Press lightly, keep your fingertip flat and hold still.';
