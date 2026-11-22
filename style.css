@@ -1054,7 +1054,7 @@ input[type="number"] { -moz-appearance: textfield; }
            progress bar while scanning, or two buttons when it has finished.
    State class on #hr-measure-box: hr-wait | hr-good | hr-bad | hr-done | hr-fail
    ===================================================================== */
-.hr-line { --hr-c: #93c5fd; margin: 12px 0 6px; padding: 14px; text-align: left; border-radius: 16px;
+.hr-line { --hr-c: #93c5fd; position: relative; margin: 12px 0 10px; padding: 14px; text-align: left; border-radius: 16px;
   background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.1); transition: border-color .3s; animation: hrIn .25s ease; }
 .hr-line.hr-good, .hr-line.hr-done { --hr-c: #4ade80; border-color: rgba(74,222,128,0.4); }
 .hr-line.hr-bad { --hr-c: #fbbf24; border-color: rgba(251,191,36,0.35); }
@@ -1100,3 +1100,9 @@ input[type="number"] { -moz-appearance: textfield; }
 .hr-alert-actions .hr-btn { flex: none; width: 100%; }
 
 .hr-detail { white-space: pre-line; }
+/* "Trouble with the camera?" link under the buttons of a failed scan */
+.hr-help { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 40px; margin-top: 6px; padding: 6px 8px;
+  text-align: center; font-size: 13px; line-height: 1.4; font-weight: 600; color: #93c5fd; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.hr-help:active { color: #bfdbfe; }
+.hr-help:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; border-radius: 8px; }
+.hr-line.hr-done .hr-detail { margin-top: 2px; }

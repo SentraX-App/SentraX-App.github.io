@@ -261,7 +261,6 @@
       <button type="button" class="ghost" onclick="measureHeartRate()">📷 Check Heart Rate (Camera)</button>
       <div id="hr-measure-box" class="hr-line hr-wait" style="display:none;" role="region" aria-label="Camera heart rate scan">
         <video id="hr-video" class="hr-video" autoplay playsinline muted></video>
-        <canvas id="hr-canvas" width="40" height="40" style="display:none;"></canvas>
         <div class="hr-row">
           <span class="hr-dot" aria-hidden="true"></span>
           <div class="hr-text" role="status" aria-live="polite">
@@ -279,6 +278,7 @@
           <button type="button" id="hr-retry" class="hr-btn hr-btn-main" onclick="measureHeartRate()">Try again</button>
           <button type="button" id="hr-manual" class="hr-btn" onclick="hrManualEntry()">Enter manually</button>
         </div>
+        <button type="button" id="hr-help" class="hr-help" style="display:none;" onclick="sxOpenHelp(false, 'manual-pulse')">Trouble with the camera? See how to check your pulse by hand</button>
       </div>
       <button onclick="checkBP()">Save &amp; Check My Risk</button>
       <div id="result"></div>
@@ -717,9 +717,9 @@
 <script src="auth.js"></script>
 <div id="hr-pattern-alert" class="modal-backdrop" style="display:none;" role="alertdialog" aria-modal="true" aria-labelledby="hr-pattern-title">
   <div class="hr-alert-card">
-    <h4 id="hr-pattern-title">Your pulse looked unusual</h4>
+    <h4 id="hr-pattern-title">Your pulse is outside the usual range</h4>
     <p id="hr-pattern-text" class="hr-alert-text"></p>
-    <p class="hr-alert-note">This is based on your pulse rate and rhythm only. It is not a blood pressure reading. If you feel unwell, seek medical care.</p>
+    <p class="hr-alert-note">This is a camera estimate of pulse rate only. It is not a blood pressure reading or a medical test. If you feel dizzy, faint, short of breath or have chest pain, get medical care now.</p>
     <div class="hr-alert-actions">
       <button type="button" class="hr-btn hr-btn-main" onclick="document.getElementById('hr-pattern-alert').style.display='none';focusBpFields()">Check blood pressure now</button>
       <button type="button" class="hr-btn" onclick="document.getElementById('hr-pattern-alert').style.display='none'">Not now</button>

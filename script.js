@@ -4395,7 +4395,8 @@ const SX_HELP_POSTER = 'help/sentrax-tour.jpg';
 function sxHelpSections() {
   return [
     ['Log a blood pressure reading', ['Open the Vitals tab.', 'Type the top number (Systolic) and the bottom number (Diastolic). Heart rate and weight are optional.', 'Tap Save & Check My Risk. The colour shows your risk level, and the reading is saved in History.']],
-    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Sit down and rest your hand on a table. Stay still and do not talk.', 'Cover the back camera lens and flash fully with the soft pad of your fingertip. Press lightly, like touching a screen.', 'Hold for about 20 seconds. Green Good signal means keep still. Amber Weak signal means press lighter and cover the lens fully.', 'The number is added to the Heart rate box when the scan finishes. If a scan fails, rest, warm your hands and try again, or type your pulse in yourself.', 'Lift your finger if the flash feels warm. You can tap Flash on to turn it off and scan in a bright room instead.', 'This is a camera estimate for everyday tracking, not a medical test.']],
+    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Sit down and rest your hand on a table. Stay still and do not talk.', 'Cover the back camera lens and flash fully with the soft pad of your fingertip. Press lightly, like touching a screen.', 'Hold for about 20 seconds. Green Good signal means keep still. Amber Weak signal means press lighter and cover the lens fully.', 'The number is added to the Heart rate box when the scan finishes. Your pulse changes a little from minute to minute, so for a steadier result take two or three scans a minute apart. The app shows the average.', 'Lift your finger if the flash feels warm. You can tap Flash on to turn it off and scan in a bright room instead.', 'This is a camera estimate for everyday tracking, not a medical test. If the camera keeps giving you trouble, check your pulse by hand: see the next section.'], 'camera-pulse'],
+    ['Check your pulse by hand (if the camera gives trouble)', ['Sit down and rest for 5 minutes first. Do not check right after walking, stairs, caffeine or smoking.', 'Turn one hand palm up. Rest the tips of your first two fingers on the inside of that wrist, just below the base of the thumb. Use your fingers, not your thumb, and do not press on your neck.', 'Press gently until you feel a steady beat. If you cannot find it, move your fingers a little or press slightly firmer.', 'Count the beats for 30 seconds and multiply by 2. Counting for a full 60 seconds is more accurate.', 'Type the number in the Heart rate box on the Vitals tab, then tap Save & Check My Risk. A usual resting pulse for adults is 60 to 100 beats per minute.', 'If your resting pulse stays above 100 or below 50, or it feels very uneven, tell a doctor. If you also feel dizzy, faint, short of breath or have chest pain, get medical care now.'], 'manual-pulse'],
     ['Medicines and reminders', ['Open the Meds tab and add the name, time and how long you take it.', 'You get a reminder at that time. Tap to mark each dose as taken.', 'If a caregiver is linked, they are alerted only if a dose is still missed after your reminder.']],
     ['Add a caregiver', ['Open the Family tab.', 'Add Caregiver saves a phone number or email so they get SMS and email alerts. Please ask them first.', 'Generate Invite Code lets someone create their own account and see your readings. You can remove their access at any time under Linked caregivers.']],
     ['Emergency SOS', ['On the Vitals tab, the Emergency card has the SOS button. It asks you to confirm, then sends your location to your caregivers by SMS and email and prepares a WhatsApp message.', 'Call Emergency Line shows the number for where you are. Use it for real emergencies only.']],
@@ -4405,7 +4406,7 @@ function sxHelpSections() {
   ];
 }
 
-function sxOpenHelp(autoplay) {
+function sxOpenHelp(autoplay, jumpTo) {
   const old = document.getElementById('sx-help');
   if (old) old.remove();
   const prevOverflow = document.body.style.overflow;
@@ -4448,6 +4449,7 @@ function sxOpenHelp(autoplay) {
   // guide
   sxHelpSections().forEach(function (sec, i) {
     const card = document.createElement('div');
+    if (sec[2]) card.setAttribute('data-sec', sec[2]);
     card.style.cssText = 'background:#0f172a;border:1px solid rgba(148,163,184,0.2);border-radius:16px;padding:14px 16px;margin-bottom:12px;';
     const h = document.createElement('div');
     h.textContent = (i + 1) + '. ' + sec[0];
@@ -4474,6 +4476,13 @@ function sxOpenHelp(autoplay) {
   document.body.style.overflow = 'hidden';
   document.body.appendChild(sheet);
   sheet.scrollTop = 0;
+  if (jumpTo) {   // open straight at one section (for example the manual pulse guide from the scanner) and highlight it
+    const target = sheet.querySelector('[data-sec="' + jumpTo + '"]');
+    if (target) {
+      sheet.scrollTop = Math.max(0, target.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 72);
+      target.style.borderColor = 'rgba(147,197,253,0.7)';
+    }
+  }
   if (autoplay) { try { v.play().catch(function () {}); } catch (_e) {} }
 }
 window.sxOpenHelp = sxOpenHelp;

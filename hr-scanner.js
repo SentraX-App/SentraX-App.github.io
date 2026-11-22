@@ -160,7 +160,15 @@
     var seg = Math.floor(filt.length / 3), amps = [];
     for (var s = 0; s < 3; s++) amps.push(sd(filt.slice(s * seg, (s + 1) * seg)));
     var am = mean(amps);
-    return { dc: dc, x: x, t0: rs.t0, filt: filt, f0: f0, snr: spectralSnr(sp, f0, T), pi: dc > 0 ? sd(filt) / dc : 0, lowRatio: inBand > 0 ? low / inBand : 99, pkRatio: med > 0 ? pk / med : 0, ampCv: am > 0 ? sd(amps) / am : 9, T: T };
+    return { dc: dc, x: x, t0: rs.t0, filt: filt, f0: f0, snr: spectralSnr(sp, f0, T), pi: dc > 0 ? sd(filt) / dc : 0, lowRatio: inBand > 0 ? low / inBand : 99, pkRatio: med > 0 ? pk / med : 0, ampCv: am > 0 ? sd(amps) / am : 9, burst: burstOf(filt), T: T };
+  }
+
+  // Largest swing divided by the typical swing of the filtered signal. A steady pulse stays under about 7; a knock, a slip or a re-press
+  // makes a spike of 10 or more.
+  function burstOf(f) {
+    var a = [], mx = 0, i, v;
+    for (i = 0; i < f.length; i++) { v = Math.abs(f[i]); a.push(v); if (v > mx) mx = v; }
+    var md = median(a); return md > 0 ? mx / md : 99;
   }
 
   // A very dark channel (the green of a fingertip under the flash is often only 5 to 20 out of 255) is mostly rounding
@@ -217,7 +225,7 @@
     if (ch.snr < (relaxed ? 0.33 : 0.45) || ch.pi < 0.0004 || ch.pkRatio < (relaxed ? 7 : 10)) return { ok: false, reason: 'weak', snr: ch.snr };
     // the two halves of the run must show the same pulse rate (a hand that moved or a finger that slipped changes it)
     var half = Math.floor(ch.filt.length / 2), fa = pulseFreq(powerSpectrum(ch.filt.slice(0, half), FS, 0.005), half / FS), fb = pulseFreq(powerSpectrum(ch.filt.slice(half), FS, 0.005), (ch.filt.length - half) / FS);
-    if (Math.abs(fa - fb) * 60 > 9) return { ok: false, reason: 'unsteady', snr: ch.snr };
+    if (Math.abs(fa - fb) * 60 > (opts.maxHalfDiff || 6)) return { ok: false, reason: 'unsteady', snr: ch.snr };
 
     // Tight band around the pulse frequency removes the second bump of the pulse wave, leaving one clean peak per beat.
     var tight = bandpass(ch.x, FS, Math.max(0.5, f0 * 0.62), Math.min(HI + 0.5, f0 * 1.55)), x = tight;
@@ -264,8 +272,8 @@
     // comes from the fine frequency search over the whole window, which uses every sample instead of only the first and last beat.
     var fRef = refineFreq(ch.filt, FS, f0, ch.T);
     var bpmTime = 0.5 * (60 * beats / dur) + 0.5 * (60 * lxx / lxy), bpmSpec = 60 * fRef, diff = Math.abs(bpmTime - bpmSpec), bpm, method;
-    if (diff <= 5) { bpm = bpmSpec; method = 'spectrum+beats'; }
-    else if (diff <= 10 && ch.snr >= 0.5) { bpm = bpmSpec; method = 'spectrum'; }
+    if (diff <= 4) { bpm = bpmSpec; method = 'spectrum+beats'; }
+    else if (diff <= 7 && ch.snr >= 0.55) { bpm = bpmSpec; method = 'spectrum'; }
     else return { ok: false, reason: 'unsteady', snr: ch.snr };
     if (bpm < 40 || bpm > 200) return { ok: false, reason: 'weak', snr: ch.snr };
     var t0s = (ch.t0 - buf.t[0]) / 1000;
@@ -321,7 +329,7 @@
     var gMax = torchOn ? (relaxed ? 0.88 : 0.82) : (relaxed ? 0.68 : 0.62), bMax = torchOn ? (relaxed ? 0.78 : 0.72) : (relaxed ? 0.58 : 0.52);
     if (s.g > gMax * s.r || s.b > bMax * s.r) return false;
     if (s.redFrac < (relaxed ? 0.6 : 0.7)) return false;
-    if (s.lumCv > (relaxed ? 0.38 : 0.5)) return false;
+    if (s.lumCv > (relaxed ? 0.5 : 0.5)) return false;   // never stricter than the start test
     return true;
   }
   // Lens is covered by something very uniform and dark (a finger in a dim room with no flash): tell the person what to do.
@@ -335,7 +343,7 @@
      Returns { good, checking, reason, hint }. reason: checking | camera | bright | motion | weak | good */
   function assessLive(buf, opts) {
     opts = opts || {};
-    var n = buf.t.length, winMs = opts.windowMs || 8000, skip = 0;
+    var n = buf.t.length, winMs = opts.windowMs || 10000, skip = 0;
     while (skip < n && buf.t[skip] - buf.t[0] < 1000) skip++;          // exposure is still settling
     if (n - skip < 6) return { good: false, checking: true, reason: 'checking', hint: 'Hold still while we find your pulse.' };
     var tEnd = buf.t[n - 1], i0 = n - 1;
@@ -347,8 +355,11 @@
     if (rI) { rI.name = 'r'; cands.push(rI); } if (gI) { gI.name = 'g'; cands.push(gI); }
     if (!cands.length) return { good: false, checking: false, reason: 'bright', hint: 'Too bright. Press a little lighter, or move away from direct light.' };
     var ch = bestChannel(cands);
-    if (ch.lowRatio > 14 || ch.pi > 0.06 || ch.ampCv > 0.6) return { good: false, checking: false, reason: 'motion', hint: 'Too much movement. Rest your hand and keep still.' };
-    if (ch.pi < 0.0007 || ch.snr < 0.5 || ch.pkRatio < 15) return { good: false, checking: false, reason: 'weak', hint: 'Pulse is faint. Press lightly and keep your fingertip flat on the lens.' };
+    // Movement = sudden spikes or a pulse that keeps changing strength. Slow drift from breathing or finger pressure is NOT movement:
+    // the pulse filter already removes it, and judging it here made good signals look bad.
+    if (ch.burst > 9 || ch.ampCv > 0.5 || ch.pi > 0.06) return { good: false, checking: false, reason: 'motion', hint: 'Too much movement. Rest your hand and keep still.' };
+    // Same bar as the final analysis (snr 0.45, peak 10), a little higher on the peak, so "Good signal" means the number will come.
+    if (ch.pi < 0.0005 || ch.snr < 0.5 || ch.pkRatio < 12) return { good: false, checking: false, reason: 'weak', hint: 'Pulse is faint. Press lightly and keep your fingertip flat on the lens.' };
     return { good: true, checking: false, reason: 'good', hint: 'Hold still.', snr: ch.snr };
   }
 
@@ -428,6 +439,8 @@ function hrShow(cls, title, detail) {
   if (retry) { retry.textContent = cls === 'hr-done' ? 'Measure again' : 'Try again'; retry.classList.toggle('hr-btn-main', cls !== 'hr-done'); }
   const manual = document.getElementById('hr-manual');
   if (manual) manual.style.display = cls === 'hr-done' ? 'none' : '';
+  const helpLink = document.getElementById('hr-help');
+  if (helpLink) helpLink.style.display = cls === 'hr-fail' ? 'flex' : 'none';
 }
 
 function hrManualEntry() {
@@ -439,7 +452,7 @@ function hrManualEntry() {
 function hrNewState() {
   return { start: 0, buf: { t: [], r: [], g: [], b: [] }, candSince: null, runStart: null, missSince: null, coveredSeen: false, everRun: 0,
            results: [], lastTry: 0, lastLabel: -1e9, weakRun: 0, lastReason: '-', satFrames: 0, satSeen: 0, satStage: 0, flashNote: '',
-           lastRGB: '', lastGood: false, everGood: false, goodStreak: 0, dark: false, diagBuf: null, fingerFrames: 0, totalFrames: 0 };
+           lastRGB: '', lastGood: false, everGood: false, goodStreak: 0, lastOk: -1e9, dark: false, diagBuf: null, fingerFrames: 0, totalFrames: 0 };
 }
 
 function measureHeartRate() {
@@ -602,10 +615,16 @@ function hrOnFrame(st, t) {
       let live = { good: false, checking: true, hint: '' };
       try { live = SXHR.assessLive(s.buf); } catch (_e) { /* keep default */ }
       const left = Math.ceil((HR_TIGHT_MS - run) / 1000);
-      if (live.good && ++s.goodStreak >= 6) { s.weakRun = 0; s.lastGood = true; s.everGood = true; hrShow('hr-good', 'Good signal', left > 0 ? 'Hold still. About ' + left + (left === 1 ? ' second left.' : ' seconds left.') : 'Finishing up…'); }
+      if (live.good && ++s.goodStreak >= 8) { s.weakRun = 0; s.lastGood = true; s.everGood = true; hrShow('hr-good', 'Good signal', left > 0 ? 'Hold still. About ' + left + (left === 1 ? ' second left.' : ' seconds left.') : 'Finishing up…'); }
       else if (live.good) { /* first good checks: wait for a steady streak before saying Good signal */ }
       else if (live.checking) { s.goodStreak = 0; s.weakRun = 0; if (!s.lastGood) hrShow('hr-wait', 'Looking for your pulse', 'Keep your fingertip still on the lens.'); }
-      else if (++s.weakRun >= 2 || !s.lastGood) { s.goodStreak = 0; s.lastGood = false; hrShow('hr-bad', 'Weak signal', live.hint || 'Press a little lighter, keep your fingertip flat and hold still.'); }
+      else {
+        s.goodStreak = 0; s.weakRun++;
+        // Calm label: never "Weak signal" in the first 10 s of a run, never from one bad check, and never while the full analysis is succeeding.
+        const analysing = s.results.length > 0 && t - s.lastOk < 4000;
+        if (!analysing && (s.lastGood ? s.weakRun >= 5 : (run >= 10000 && s.weakRun >= 4))) { s.lastGood = false; hrShow('hr-bad', 'Weak signal', live.hint || 'Press a little lighter, keep your fingertip flat and hold still.'); }
+        else if (!s.lastGood && !analysing) hrShow('hr-wait', 'Looking for your pulse', 'Keep your fingertip still on the lens.');
+      }
       if (bar) bar.style.width = Math.min(s.everGood ? 100 : 30, run / HR_TIGHT_MS * 100) + '%';   // the bar only fills past 30% once a real pulse has been seen
     }
   }
@@ -615,7 +634,7 @@ function hrOnFrame(st, t) {
     s.lastTry = t;
     let res = SXHR.analyze(s.buf, { windowMs: 16000 }), weak = false;
     if (!(res && res.ok)) { s.lastReason = (res && res.reason) || 'weak'; res = SXHR.analyze(s.buf, { windowMs: 16000, relaxed: true }); weak = !!(res && res.ok); }
-    if (res && res.ok) { s.results.push({ bpm: res.bpm, weak: weak, peaks: res.peaks }); if (s.results.length > 8) s.results.shift(); }
+    if (res && res.ok) { s.lastOk = t; s.results.push({ bpm: res.bpm, weak: weak, peaks: res.peaks }); if (s.results.length > 8) s.results.shift(); }
     if (run >= HR_TIGHT_MS) {
       const c = SXHR.consensus(s.results, false);
       if (c) { finishHeartRateMeasure({ bpm: c.bpm, peaks: c.peaks, approx: c.approx }); return; }
@@ -659,18 +678,23 @@ function finishHeartRateMeasure(res) {
   if (res) {
     const bpm = Math.round(res.bpm);   // whole beats per minute: a camera cannot honestly tell 66.3 from 65.9
     document.getElementById('heartrate').value = bpm;
-    // Two scans a few minutes apart should be close. If this one is far from the last, say so instead of passing either off as certain.
-    let differs = '';
-    try {
-      const last = JSON.parse(localStorage.getItem('hrLast') || 'null');
-      if (last && Date.now() - last.t < 10 * 60 * 1000 && Math.abs(last.bpm - bpm) > 15) differs = 'Different from your last scan (' + Math.round(last.bpm) + ' bpm). Measure again to confirm.';
-      localStorage.setItem('hrLast', JSON.stringify({ bpm: bpm, t: Date.now() }));
-    } catch (_e) { /* storage unavailable: just no comparison */ }
-    const notes = [];
-    if (res.approx) notes.push('The signal was weak. Measure again for a more reliable result.');
-    if (differs) notes.push(differs);
-    notes.push('Camera estimate, not a medical test.');
-    hrShown = ''; hrShow('hr-done', (res.approx ? 'About ' : '') + bpm + ' bpm', (notes.length > 1 ? notes.join(' ') : 'Added to the Heart rate box. ' + notes[0]));
+    // A resting pulse moves a few beats from one minute to the next, so the card also shows the average of the last scans (within 15 minutes).
+    // Weak, approximate scans are never kept for the average. If this scan is far from the one before it, the card says so.
+    let differs = '', avgLine = '';
+    if (!res.approx) {
+      let recent = [];
+      try { recent = JSON.parse(localStorage.getItem('hrRecent') || '[]').filter(function (x) { return x && isFinite(x.bpm) && Date.now() - x.t < 15 * 60 * 1000; }); } catch (_e) { recent = []; }
+      const prev = recent.length ? recent[recent.length - 1] : null;
+      if (prev && Math.abs(prev.bpm - bpm) > 10) differs = 'Different from your last scan (' + prev.bpm + ' bpm). Rest for a minute and measure again to confirm.';
+      recent.push({ bpm: bpm, t: Date.now() }); recent = recent.slice(-5);
+      try { localStorage.setItem('hrRecent', JSON.stringify(recent)); } catch (_e) { /* storage unavailable: no average */ }
+      if (recent.length >= 2) avgLine = 'Average of your last ' + recent.length + ' scans: ' + Math.round(recent.reduce(function (a, x) { return a + x.bpm; }, 0) / recent.length) + ' bpm.';
+    }
+    const lines = [res.approx ? 'The signal was weak. Measure again for a more reliable result.' : 'Added to the Heart rate box.'];
+    if (avgLine) lines.push(avgLine);
+    if (differs) lines.push(differs);
+    lines.push('Camera estimate, not a medical test.');
+    hrShown = ''; hrShow('hr-done', (res.approx ? 'About ' : '') + bpm + ' bpm', lines.join('\n'));
     if (bar) bar.style.width = '100%';
     const pattern = analyzeHeartRatePattern(bpm, res.peaks);
     if (pattern.abnormal && alertBox && !res.approx) {   // a weak, approximate reading never raises an alert: it just asks for another scan
