@@ -3,6 +3,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ====================================================================
+    // Sentra Care (paid doctor chat) - ADDED. Nothing above or below that
+    // existed before this block was changed, except one extra "allow read"
+    // line inside /users for doctors (marked NEW).
+    // ====================================================================
+    function signedIn() { return request.auth != null; }
+    function isDoctor() { return signedIn() && exists(/databases/$(database)/documents/doctors/$(request.auth.uid)); }
+    function isAdmin()  { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    // A plan is active when its entitlement says so and has not expired.
+    function entActive(ownerUid) {
+      return exists(/databases/$(database)/documents/entitlements/$(ownerUid))
+          && get(/databases/$(database)/documents/entitlements/$(ownerUid)).data.status == 'active'
+          && get(/databases/$(database)/documents/entitlements/$(ownerUid)).data.expiresAt > request.time.toMillis();
+    }
+    // This person is covered by their own plan, or by a Duo/Family plan that lists them.
+    function hasPlan(uid) {
+      return entActive(uid)
+          || (exists(/databases/$(database)/documents/memberOf/$(uid))
+              && entActive(get(/databases/$(database)/documents/memberOf/$(uid)).data.ownerUid)
+              && uid in get(/databases/$(database)/documents/entitlements/$(get(/databases/$(database)/documents/memberOf/$(uid)).data.ownerUid)).data.memberUids);
+    }
+
     match /users/{userId} {
       // Unchanged - owner keeps full read/write, exactly as before.
       allow read, write: if request.auth != null
@@ -11,6 +33,13 @@ service cloud.firestore {
       // NEW: a linked caregiver can read (never write) this patient's data.
       allow read: if request.auth != null
                   && request.auth.uid in resource.data.get('caregiverUids', []);
+
+      // NEW: a Sentra-X doctor can read (never write) the record of a patient who is on an active plan
+      // AND has switched on "Share my readings with the doctor" in the doctor chat.
+      allow read: if isDoctor()
+                  && exists(/databases/$(database)/documents/consults/$(userId))
+                  && get(/databases/$(database)/documents/consults/$(userId)).data.get('shareVitals', false) == true
+                  && hasPlan(userId);
 
       // NEW: a caregiver may add themselves to caregiverUids ONLY if their
       // own caregiverLinks doc proves they claimed a valid invite for this
@@ -118,6 +147,110 @@ service cloud.firestore {
                     && (linkId == request.auth.uid
                         || resource.data.caregiverUid == request.auth.uid
                         || resource.data.get('patientUid', '') == request.auth.uid);
+    }
+
+    // ---- Plans. Clients can read their own plan but can NEVER write one: only an admin account can. ----
+    match /entitlements/{ownerUid} {
+      allow read: if signedIn()
+                  && (request.auth.uid == ownerUid
+                      || request.auth.uid in resource.data.get('memberUids', [])
+                      || isAdmin());
+      allow create, update: if isAdmin();
+      // The person who paid may add or remove the people on their own Duo/Family plan, and nothing else on it.
+      allow update: if signedIn()
+                    && request.auth.uid == ownerUid
+                    && resource.data.status == 'active'
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids', 'memberNames'])
+                    && request.resource.data.memberUids.size() <= resource.data.get('seats', 1)
+                    && ownerUid in request.resource.data.memberUids;
+      allow delete: if false;
+    }
+
+    // Points a member at the plan they share. Only the plan owner can create it, and only for someone already on their plan.
+    match /memberOf/{memberUid} {
+      allow read: if signedIn()
+                  && (request.auth.uid == memberUid
+                      || resource.data.get('ownerUid', '') == request.auth.uid
+                      || isAdmin());
+      allow create, update: if signedIn()
+                            && request.resource.data.ownerUid == request.auth.uid
+                            && memberUid in getAfter(/databases/$(database)/documents/entitlements/$(request.auth.uid)).data.memberUids;
+      allow delete: if signedIn()
+                    && (resource.data.get('ownerUid', '') == request.auth.uid || request.auth.uid == memberUid);
+    }
+
+    // A payment the person says they made. Only an admin can approve or reject it.
+    match /paymentClaims/{claimId} {
+      allow create: if signedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.plan in ['normal', 'duo', 'family']
+                    && request.resource.data.reference is string
+                    && claimId == request.resource.data.reference
+                    && request.resource.data.amount is number;
+      allow read: if signedIn() && (resource.data.get('uid', '') == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // SMS allowance counter. Written only by the alert server (Admin SDK, which bypasses rules); a person can only read their own, to see what is left.
+    match /smsUsage/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Launch-offer counter (for example promos/duo: limit 5, claimed N). Everyone signed in can read it; only an admin can change it.
+    match /promos/{promoId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Role markers. Created by hand in the Firebase console only; the app can only check its own.
+    match /doctors/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // ---- Doctor chat. One private thread per person; messages are never edited or deleted from the app. ----
+    match /consults/{patientUid} {
+      allow read: if signedIn() && (request.auth.uid == patientUid || isDoctor());
+      allow create: if signedIn()
+                    && request.auth.uid == patientUid
+                    && hasPlan(patientUid)
+                    && request.resource.data.patientUid == patientUid;
+      // The patient can update their own thread while on a plan.
+      allow update: if signedIn()
+                    && request.auth.uid == patientUid
+                    && hasPlan(patientUid)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientName', 'plan', 'lastMessage', 'lastAt', 'unreadDoctor', 'unreadPatient', 'shareVitals', 'sharedAt', 'consentAt']);
+      // Clearing their own "new message" dot is always allowed, even after a plan ends.
+      allow update: if signedIn()
+                    && request.auth.uid == patientUid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadPatient']);
+      allow update: if isDoctor()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'lastAt', 'unreadDoctor', 'unreadPatient', 'doctorName']);
+      allow delete: if false;
+
+      match /messages/{msgId} {
+        allow read: if signedIn() && (request.auth.uid == patientUid || isDoctor());
+        allow create: if signedIn()
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() > 0
+                      && request.resource.data.text.size() <= 2000
+                      && request.resource.data.at is number
+                      && ((request.auth.uid == patientUid
+                           && request.resource.data.from == 'patient'
+                           && request.resource.data.senderUid == request.auth.uid
+                           && hasPlan(patientUid))
+                          || (isDoctor()
+                              && request.resource.data.from == 'doctor'
+                              && request.resource.data.senderUid == request.auth.uid));
+        allow update, delete: if false;
+      }
     }
   }
 }
