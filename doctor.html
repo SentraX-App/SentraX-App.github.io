@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0f172a">
+<title>Sentra-X Doctor Dashboard</title>
+<link rel="icon" href="icon-192-1.png">
+<style>
+  :root { --bg:#0b1220; --panel:rgba(255,255,255,0.06); --line:rgba(255,255,255,0.10); --txt:#e5e7eb; --mut:#94a3b8; --blue:#3b82f6; --blue2:#93c5fd; --green:#34d399; --red:#f87171; --amber:#fbbf24; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: var(--txt); background: radial-gradient(circle at 20% 0%, #1e3a8a 0%, #0f172a 45%, #0b1220 100%) fixed; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 12px; padding: 11px 16px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  button.ghost { background: rgba(59,130,246,0.15); color: var(--blue2); }
+  button.ok { background: linear-gradient(135deg, #34d399, #059669); }
+  button.bad { background: rgba(248,113,113,0.15); color: #fca5a5; }
+  button:disabled { opacity: 0.55; cursor: default; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--blue2); outline-offset: 2px; }
+  input, textarea { width: 100%; font: inherit; font-size: 16px; color: #f1f5f9; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; padding: 12px 14px; }
+  .center { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .box { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 24px; backdrop-filter: blur(14px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+  .box h1 { margin: 0 0 4px; font-size: 21px; } .box p { color: var(--mut); font-size: 14px; line-height: 1.5; margin: 6px 0 14px; }
+  .box input { margin: 6px 0; } .box button { width: 100%; margin-top: 10px; }
+  .err { color: #fca5a5; font-size: 13.5px; min-height: 18px; margin-top: 8px; }
+  #app { display: none; height: 100%; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(15,23,42,0.7); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); }
+  header img { height: 26px; } header .who { margin-left: auto; text-align: right; font-size: 13px; color: var(--mut); line-height: 1.3; } header .who b { color: #f8fafc; display: block; font-size: 14px; }
+  .tabs { display: flex; gap: 6px; padding: 10px 16px 0; }
+  .tab { background: transparent; color: var(--mut); padding: 9px 14px; border-radius: 10px 10px 0 0; position: relative; }
+  .tab.on { color: #fff; background: rgba(255,255,255,0.08); }
+  .pill { display: inline-block; min-width: 18px; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 11px; font-weight: 800; background: var(--red); color: #fff; }
+  main { flex: 1; min-height: 0; padding: 0 16px 16px; }
+  section { display: none; height: 100%; } section.on { display: block; }
+  .split { display: none; height: 100%; gap: 14px; } .split.on { display: flex; }
+  .list { width: 340px; flex: 0 0 340px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 0 16px 16px 16px; }
+  .thread { display: flex; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--line); cursor: pointer; align-items: center; }
+  .thread:hover, .thread.on { background: rgba(255,255,255,0.07); }
+  .av { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; background: rgba(96,165,250,0.2); color: #bfdbfe; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+  .tmain { flex: 1; min-width: 0; } .tname { font-weight: 700; color: #f8fafc; display: flex; gap: 8px; align-items: center; } .tprev { font-size: 13px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .tmeta { text-align: right; font-size: 11.5px; color: var(--mut); } .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--blue); margin-top: 6px; }
+  .chip { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(96,165,250,0.18); color: #bfdbfe; }
+  .pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .empty { margin: auto; text-align: center; color: var(--mut); padding: 30px; font-size: 14px; }
+  .phead { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .phead .back { display: none; padding: 8px 12px; }
+  .phead b { color: #f8fafc; }
+  .sum { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; background: rgba(255,255,255,0.03); max-height: 40%; overflow-y: auto; }
+  .sum summary { cursor: pointer; font-weight: 700; color: var(--blue2); }
+  .sum table { width: 100%; border-collapse: collapse; margin-top: 8px; } .sum th, .sum td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); font-size: 12.5px; } .sum th { color: var(--mut); font-weight: 600; }
+  .msgs { flex: 1; overflow-y: auto; padding: 14px; }
+  .msg { max-width: 78%; margin-bottom: 10px; } .msg.doc { margin-left: auto; text-align: right; } .msg.pat { margin-right: auto; }
+  .bub { display: inline-block; text-align: left; padding: 10px 14px; border-radius: 18px; line-height: 1.45; word-break: break-word; font-size: 14.5px; }
+  .msg.doc .bub { background: linear-gradient(135deg, #3b82f6, #2563eb); border-bottom-right-radius: 6px; } .msg.pat .bub { background: rgba(255,255,255,0.10); border-bottom-left-radius: 6px; }
+  .mt { font-size: 11px; color: var(--mut); margin-top: 3px; padding: 0 4px; } .day { text-align: center; font-size: 11.5px; color: var(--mut); margin: 12px 0 8px; }
+  .comp { padding: 10px 12px; border-top: 1px solid var(--line); } .comp .row { display: flex; gap: 8px; align-items: flex-end; } .comp textarea { resize: none; max-height: 130px; border-radius: 18px; }
+  .comp .tools { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; } .comp .tools button { padding: 6px 12px; font-size: 12.5px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .card h3 { margin: 0 0 10px; font-size: 13px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--blue2); }
+  .wrap { height: 100%; overflow-y: auto; max-width: 820px; margin: 0 auto; padding-top: 4px; }
+  .claim { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+  .claim .info { min-width: 220px; flex: 1; } .claim .info b { color: #f8fafc; } .claim .info div { font-size: 13px; color: var(--mut); margin-top: 3px; word-break: break-all; }
+  .claim .acts { display: flex; gap: 8px; } .warn { color: var(--amber); font-weight: 700; }
+  .kv { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; } .kv b { color: #f8fafc; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #0f172a; border: 1px solid var(--line); padding: 11px 16px; border-radius: 12px; font-size: 14px; z-index: 50; max-width: 90%; display: none; }
+  @media (max-width: 760px) {
+    .list { width: 100%; flex: 1 1 auto; border-radius: 0 16px 16px 16px; } .pane { display: none; }
+    .split.open .list { display: none; } .split.open .pane { display: flex; } .phead .back { display: inline-block; }
+    .msg { max-width: 90%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="auth" class="center">
+  <form class="box" id="login" autocomplete="on">
+    <h1>Doctor sign in</h1>
+    <p>Sentra-X doctor and admin access. Use the account that was set up for you.</p>
+    <input id="em" type="email" placeholder="Email" autocomplete="username" required>
+    <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit" id="go">Sign in</button>
+    <button type="button" class="ghost" id="forgot">Forgot password</button>
+    <div class="err" id="err" role="alert"></div>
+  </form>
+</div>
+
+<div id="denied" class="center" style="display:none;">
+  <div class="box"><h1>No access</h1><p id="denied-msg">This account is not set up as a Sentra-X doctor or admin.</p><button id="out1" class="ghost">Sign out</button></div>
+</div>
+
+<div id="app">
+  <header><img src="logo-header.png" alt="Sentra-X"><div class="who"><b id="who-name">Doctor</b><span id="who-role"></span></div><button class="ghost" id="out2" style="padding:8px 12px;">Sign out</button></header>
+  <div class="tabs"><button class="tab on" id="t-inbox" data-tab="inbox">Inbox<span class="pill" id="p-inbox" style="display:none;"></span></button><button class="tab" id="t-pay" data-tab="pay" style="display:none;">Payments<span class="pill" id="p-pay" style="display:none;"></span></button></div>
+  <main>
+    <section id="s-inbox" class="split on">
+      <div class="list" id="list"><div class="empty">Loading\u2026</div></div>
+      <div class="pane" id="pane"><div class="empty">Select a conversation to read and reply.</div></div>
+    </section>
+    <section id="s-pay"><div class="wrap" id="pay"></div></section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  'use strict';
+  firebase.initializeApp({
+    apiKey: "AIzaSyCHeWvZzGZVa79m2JvvpkX5Xlvmj8vpdPc", authDomain: "sentra-x.firebaseapp.com", projectId: "sentra-x",
+    storageBucket: "sentra-x.firebasestorage.app", messagingSenderId: "5654480364", appId: "1:5654480364:web:bd6dbe766a1c46edb66cc9"
+  });
+  var auth = firebase.auth(), db = firebase.firestore();
+  var PLANS = { normal: { name: 'Normal', seats: 1, price: 2000 }, duo: { name: 'Duo', seats: 2, price: 3000, promoPrice: 1500 }, family: { name: 'Family', seats: 6, price: 6000 } };
+  var PERIOD_MS = 30 * 86400000, PROMO_LIMIT = 5;
+  var me = { user: null, doctor: null, admin: null }, unsubs = [], cur = null, promo = null;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fmt(n) { return '\u20A6' + Number(n).toLocaleString('en-NG'); }
+  function dt(ms) { return new Date(ms).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  function dd(ms) { return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  function toast(t) { var el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(function () { el.style.display = 'none'; }, 3500); }
+  function show(id) { ['auth', 'denied'].forEach(function (x) { $(x).style.display = x === id ? 'flex' : 'none'; }); $('app').style.display = id === 'app' ? 'flex' : 'none'; }
+
+  /* ---- sign in ---- */
+  $('login').addEventListener('submit', function (e) {
+    e.preventDefault(); $('err').textContent = ''; $('go').disabled = true;
+    auth.signInWithEmailAndPassword($('em').value.trim(), $('pw').value).catch(function () { $('err').textContent = 'Email or password is not correct.'; }).then(function () { $('go').disabled = false; });
+  });
+  $('forgot').addEventListener('click', function () {
+    var em = $('em').value.trim(); if (!em) { $('err').textContent = 'Type your email first.'; return; }
+    auth.sendPasswordResetEmail(em).then(function () { $('err').style.color = '#6ee7b7'; $('err').textContent = 'Reset link sent. Check your email.'; }).catch(function () { $('err').style.color = '#fca5a5'; $('err').textContent = 'Could not send the reset link.'; });
+  });
+  function signOut() { unsubs.forEach(function (u) { try { u(); } catch (_e) { /* ignore */ } }); unsubs = []; auth.signOut(); }
+  $('out1').onclick = signOut; $('out2').onclick = signOut;
+
+  auth.onAuthStateChanged(function (u) {
+    me = { user: u, doctor: null, admin: null }; unsubs.forEach(function (f) { try { f(); } catch (_e) { /* ignore */ } }); unsubs = []; cur = null;
+    if (!u) { show('auth'); return; }
+    Promise.all([db.collection('doctors').doc(u.uid).get().catch(function () { return null; }), db.collection('admins').doc(u.uid).get().catch(function () { return null; })]).then(function (r) {
+      me.doctor = r[0] && r[0].exists ? (r[0].data() || {}) : null; me.admin = r[1] && r[1].exists ? (r[1].data() || {}) : null;
+      if (!me.doctor && !me.admin) { show('denied'); return; }
+      $('who-name').textContent = (me.doctor && me.doctor.name) || (me.admin && me.admin.name) || 'Sentra-X';
+      $('who-role').textContent = [me.doctor ? 'Doctor' : '', me.admin ? 'Admin' : ''].filter(Boolean).join(' \u00B7 ');
+      $('t-pay').style.display = me.admin ? '' : 'none'; $('t-inbox').style.display = me.doctor ? '' : 'none';
+      show('app'); tab(me.doctor ? 'inbox' : 'pay');
+      if (me.doctor) startInbox(); if (me.admin) startPayments();
+    });
+  });
+
+  function tab(name) {
+    ['inbox', 'pay'].forEach(function (t) { $('t-' + t).classList.toggle('on', t === name); var s = $('s-' + t); s.classList.toggle('on', t === name); });
+  }
+  document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { tab(b.getAttribute('data-tab')); }); });
+
+  /* ---- inbox ---- */
+  var threads = [];
+  function startInbox() {
+    unsubs.push(db.collection('consults').orderBy('lastAt', 'desc').limit(100).onSnapshot(function (snap) {
+      threads = []; snap.forEach(function (d) { var t = d.data(); t.id = d.id; threads.push(t); });
+      renderList(); var n = threads.filter(function (t) { return t.unreadDoctor; }).length; var p = $('p-inbox'); p.style.display = n ? 'inline-block' : 'none'; p.textContent = n;
+      document.title = (n ? '(' + n + ') ' : '') + 'Sentra-X Doctor Dashboard';
+    }, function () { $('list').innerHTML = '<div class="empty">Could not load conversations. Check that the Firestore rules are deployed and your doctor record exists.</div>'; }));
+  }
+  function renderList() {
+    var el = $('list');
+    if (!threads.length) { el.innerHTML = '<div class="empty">No conversations yet. They will appear here when a patient sends a message.</div>'; return; }
+    el.innerHTML = threads.map(function (t) {
+      var nm = t.patientName || 'Patient';
+      return '<div class="thread' + (cur && cur.id === t.id ? ' on' : '') + '" data-id="' + esc(t.id) + '"><div class="av">' + esc(nm.charAt(0).toUpperCase()) + '</div><div class="tmain"><div class="tname">' + esc(nm) + ' <span class="chip">' + esc((PLANS[t.plan] || { name: t.plan || '' }).name) + '</span></div><div class="tprev">' + esc(t.lastMessage || '') + '</div></div><div class="tmeta">' + (t.lastAt ? dt(t.lastAt) : '') + '<br>' + (t.unreadDoctor ? '<span class="dot"></span>' : '') + '</div></div>';
+    }).join('');
+    el.querySelectorAll('.thread').forEach(function (n) { n.addEventListener('click', function () { openThread(n.getAttribute('data-id')); }); });
+  }
+
+  var msgUnsub = null;
+  function openThread(id) {
+    var t = threads.filter(function (x) { return x.id === id; })[0]; if (!t) return; cur = t;
+    if (msgUnsub) { msgUnsub(); msgUnsub = null; }
+    $('s-inbox').classList.add('open'); renderList();
+    var pane = $('pane');
+    pane.innerHTML = '<div class="phead"><button class="ghost back" id="back">\u2039 Back</button><div><b>' + esc(t.patientName || 'Patient') + '</b><div style="font-size:12px;color:var(--mut)">' + esc((PLANS[t.plan] || { name: t.plan || '' }).name) + ' plan</div></div></div>' +
+      '<div class="sum" id="sum"></div><div class="msgs" id="msgs"></div>' +
+      '<div class="comp"><div class="tools"><button class="ghost" id="snip">Add emergency advice</button></div><div class="row"><textarea id="rt" rows="1" maxlength="2000" placeholder="Reply to the patient\u2026"></textarea><button id="rs">Send</button></div></div>';
+    $('back').onclick = function () { $('s-inbox').classList.remove('open'); cur = null; renderList(); if (msgUnsub) { msgUnsub(); msgUnsub = null; } };
+    $('rs').onclick = send; $('rt').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 760) { e.preventDefault(); send(); } });
+    $('rt').addEventListener('input', function () { var x = $('rt'); x.style.height = 'auto'; x.style.height = Math.min(x.scrollHeight, 130) + 'px'; });
+    $('snip').onclick = function () { var x = $('rt'); x.value = (x.value ? x.value + '\n\n' : '') + 'If you have chest pain, trouble breathing, fainting, sudden weakness or confusion, or a very high or very low reading with symptoms, please go to the nearest hospital or call your local emergency number now.'; x.dispatchEvent(new Event('input')); x.focus(); };
+    loadSummary(t);
+    msgUnsub = db.collection('consults').doc(id).collection('messages').orderBy('at').limitToLast(300).onSnapshot(function (snap) {
+      var h = '', last = '';
+      snap.forEach(function (d) { var m = d.data(), day = dd(m.at); if (day !== last) { h += '<div class="day">' + day + '</div>'; last = day; }
+        h += '<div class="msg ' + (m.from === 'doctor' ? 'doc' : 'pat') + '"><div class="bub">' + esc(m.text).replace(/\n/g, '<br>') + '</div><div class="mt">' + (m.from === 'doctor' ? esc(m.senderName || 'Doctor') + ' \u00B7 ' : '') + new Date(m.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '</div></div>'; });
+      var box = $('msgs'); if (!box) return; box.innerHTML = h || '<div class="empty">No messages yet.</div>'; box.scrollTop = box.scrollHeight;
+      if (cur && cur.unreadDoctor) db.collection('consults').doc(id).update({ unreadDoctor: false }).catch(function () { /* not critical */ });
+    });
+    unsubs.push(function () { if (msgUnsub) { msgUnsub(); msgUnsub = null; } });
+  }
+
+  function loadSummary(t) {
+    var box = $('sum');
+    if (!t.shareVitals) { box.innerHTML = '<span style="color:var(--mut)">This patient has not shared their readings. You can ask them to turn on \u201CShare my readings with the doctor\u201D in the chat.</span>'; return; }
+    box.innerHTML = '<span style="color:var(--mut)">Loading shared readings\u2026</span>';
+    db.collection('users').doc(t.id).get().then(function (s) {
+      if (!s.exists) { box.textContent = 'No readings found.'; return; }
+      var d = s.data(), v = (d.vitals || []).slice(0, 8), meds = d.meds || [];
+      var rows = v.map(function (r) { return '<tr><td>' + esc(r.dateISO ? dd(new Date(r.dateISO).getTime()) : (r.date || '')) + '</td><td>' + esc(r.sys && r.dia ? r.sys + '/' + r.dia : '') + '</td><td>' + esc(r.hr || '') + '</td><td>' + esc(r.weight || '') + '</td><td>' + esc(r.level || '') + '</td></tr>'; }).join('');
+      var bp = (d.vitals || []).filter(function (r) { return r.sys && r.dia && Date.now() - new Date(r.dateISO || r.date).getTime() <= 30 * 86400000; });
+      var avg = bp.length ? Math.round(bp.reduce(function (a, r) { return a + Number(r.sys); }, 0) / bp.length) + '/' + Math.round(bp.reduce(function (a, r) { return a + Number(r.dia); }, 0) / bp.length) : '\u2014';
+      box.innerHTML = '<details open><summary>Shared readings' + (d.userCondition ? ' \u00B7 ' + esc(d.userCondition) : '') + '</summary>' +
+        '<div style="margin-top:6px;color:var(--mut)">30-day average BP: <b style="color:#f8fafc">' + avg + '</b> from ' + bp.length + ' reading' + (bp.length === 1 ? '' : 's') + '</div>' +
+        (rows ? '<table><tr><th>Date</th><th>BP</th><th>Pulse</th><th>Weight</th><th>Result</th></tr>' + rows + '</table>' : '<div style="margin-top:6px;color:var(--mut)">No readings logged yet.</div>') +
+        (meds.length ? '<div style="margin-top:8px;color:var(--mut)">Medicines: <span style="color:#e2e8f0">' + meds.map(function (m) { return esc(m.name || m.medName || ''); }).filter(Boolean).join(', ') + '</span></div>' : '') + '</details>';
+    }).catch(function () { box.innerHTML = '<span style="color:#fca5a5">Could not load readings. The patient may have switched sharing off, or their plan has ended.</span>'; });
+  }
+
+  function send() {
+    var ta = $('rt'); if (!ta || !cur) return; var text = ta.value.trim(); if (!text) return;
+    $('rs').disabled = true; var now = Date.now(), name = (me.doctor && me.doctor.name) || 'Doctor';
+    var ref = db.collection('consults').doc(cur.id), b = db.batch();
+    b.set(ref.collection('messages').doc(), { from: 'doctor', text: text, at: now, senderUid: me.user.uid, senderName: name });
+    b.update(ref, { lastMessage: 'You: ' + text.slice(0, 110), lastAt: now, unreadPatient: true, unreadDoctor: false, doctorName: name });
+    b.commit().then(function () { ta.value = ''; ta.dispatchEvent(new Event('input')); }).catch(function () { toast('Message not sent. Check your connection.'); }).then(function () { $('rs').disabled = false; });
+  }
+
+  /* ---- payments and plans (admin) ---- */
+  var claims = [], plansList = [];
+  function startPayments() {
+    unsubs.push(db.collection('paymentClaims').where('status', '==', 'pending').onSnapshot(function (s) { claims = []; s.forEach(function (d) { claims.push(d.data()); }); claims.sort(function (a, b) { return a.createdAt - b.createdAt; }); renderPay(); }, function () { $('pay').innerHTML = '<div class="card">Could not load payments. Check the Firestore rules and your admin record.</div>'; }));
+    unsubs.push(db.collection('entitlements').where('status', '==', 'active').onSnapshot(function (s) { plansList = []; s.forEach(function (d) { var x = d.data(); x.id = d.id; plansList.push(x); }); plansList.sort(function (a, b) { return a.expiresAt - b.expiresAt; }); renderPay(); }, function () { /* shown above */ }));
+    unsubs.push(db.collection('promos').doc('duo').onSnapshot(function (s) { promo = s.exists ? s.data() : null; renderPay(); }, function () { /* ignore */ }));
+  }
+  function renderPay() {
+    var n = claims.length, p = $('p-pay'); p.style.display = n ? 'inline-block' : 'none'; p.textContent = n;
+    var left = promo ? Math.max(0, (promo.limit || 0) - (promo.claimed || 0)) : null;
+    var h = '<div class="card"><h3>Duo launch offer</h3>' + (promo ? '<div class="kv"><span>Claimed <b>' + (promo.claimed || 0) + '</b> of <b>' + (promo.limit || 0) + '</b></span><span>Left <b>' + left + '</b></span></div>' : '<p style="color:var(--mut);margin:0 0 10px;">Not set up yet. Patients see the normal Duo price until you create it.</p><button id="mkpromo">Create offer: first ' + PROMO_LIMIT + ' pairs at ' + fmt(PLANS.duo.promoPrice) + '</button>') + '</div>';
+    h += '<div class="card"><h3>Payments waiting (' + n + ')</h3>';
+    if (!n) h += '<p style="color:var(--mut);margin:0;">Nothing waiting. New payments appear here as soon as a patient pays.</p>';
+    claims.forEach(function (c) {
+      var pl = PLANS[c.plan] || { name: c.plan, price: 0 }, expected = c.promo ? pl.promoPrice : pl.price, low = c.amount < expected;
+      h += '<div class="claim" style="padding:12px 0;border-top:1px solid var(--line)"><div class="info"><b>' + esc(c.userName || 'Patient') + '</b> \u00B7 ' + esc(pl.name) + (c.promo ? ' <span class="chip">launch offer</span>' : '') + '<div>' + esc(c.email || '') + '</div><div>Paid ' + fmt(c.amount) + (low ? ' <span class="warn">(expected ' + fmt(expected) + ')</span>' : '') + ' \u00B7 ' + dt(c.createdAt) + '</div><div>Ref: ' + esc(c.reference) + '</div></div>' +
+        '<div class="acts"><button class="ok" data-a="ok" data-ref="' + esc(c.reference) + '">Approve</button><button class="bad" data-a="no" data-ref="' + esc(c.reference) + '">Reject</button></div></div>';
+    });
+    h += '<p style="color:var(--mut);font-size:12.5px;margin:12px 0 0;">Before approving, confirm the reference in your Paystack dashboard under Transactions.</p></div>';
+    h += '<div class="card"><h3>Active plans (' + plansList.length + ')</h3>';
+    if (!plansList.length) h += '<p style="color:var(--mut);margin:0;">No active plans yet.</p>';
+    plansList.forEach(function (e) {
+      h += '<div class="claim" style="padding:10px 0;border-top:1px solid var(--line)"><div class="info"><b>' + esc(e.ownerName || 'Patient') + '</b> \u00B7 ' + esc((PLANS[e.plan] || { name: e.plan }).name) + '<div>' + esc(e.ownerEmail || '') + '</div><div>Until ' + dd(e.expiresAt) + ' \u00B7 ' + (e.memberUids || []).length + ' of ' + (e.seats || 1) + ' people</div></div><div class="acts"><button class="bad" data-a="revoke" data-uid="' + esc(e.id) + '">Cancel plan</button></div></div>';
+    });
+    h += '</div>';
+    $('pay').innerHTML = h;
+    var mk = $('mkpromo'); if (mk) mk.onclick = function () { db.collection('promos').doc('duo').set({ limit: PROMO_LIMIT, claimed: 0 }).then(function () { toast('Launch offer created.'); }).catch(function () { toast('Could not create it. Check your admin record.'); }); };
+    $('pay').querySelectorAll('button[data-a]').forEach(function (b) { b.onclick = function () {
+      var a = b.getAttribute('data-a');
+      if (a === 'ok') approve(b.getAttribute('data-ref'), b); else if (a === 'no') reject(b.getAttribute('data-ref')); else if (a === 'revoke') revoke(b.getAttribute('data-uid'));
+    }; });
+  }
+
+  function approve(ref, btn) {
+    var c = claims.filter(function (x) { return x.reference === ref; })[0]; if (!c) return;
+    var pl = PLANS[c.plan]; if (!pl) { toast('Unknown plan on this payment.'); return; }
+    var promoLeft = promo ? Math.max(0, (promo.limit || 0) - (promo.claimed || 0)) : 0, wantsPromo = c.plan === 'duo' && c.promo, usePromo = wantsPromo && promoLeft > 0;
+    var expected = usePromo ? pl.promoPrice : pl.price;
+    if (wantsPromo && !usePromo && !window.confirm('The launch offer is already full, so the Duo price is ' + fmt(pl.price) + ' but they paid ' + fmt(c.amount) + '. Approve anyway?')) return;
+    if (c.amount < expected && !(wantsPromo && !usePromo) && !window.confirm('They paid ' + fmt(c.amount) + ' but this plan costs ' + fmt(expected) + '. Approve anyway?')) return;
+    if (!window.confirm('Approve ' + (c.userName || 'this patient') + '\u2019s ' + pl.name + ' plan for 30 days?\n\nConfirm the reference ' + c.reference + ' is in Paystack first.')) return;
+    btn.disabled = true;
+    var entRef = db.collection('entitlements').doc(c.uid), claimRef = db.collection('paymentClaims').doc(ref), promoRef = db.collection('promos').doc('duo');
+    db.runTransaction(function (tx) {
+      return Promise.all([tx.get(entRef), tx.get(claimRef), tx.get(promoRef)]).then(function (r) {
+        var prev = r[0].exists ? r[0].data() : null, cl = r[1].data(), pr = r[2].exists ? r[2].data() : null, now = Date.now();
+        if (!cl || cl.status !== 'pending') throw new Error('already-processed');
+        var promoOk = usePromo && pr && (pr.claimed || 0) < (pr.limit || 0);
+        var base = prev && prev.status === 'active' && prev.expiresAt > now ? prev.expiresAt : now;
+        var members = (prev && prev.memberUids ? prev.memberUids.filter(function (u) { return u !== c.uid; }) : []).slice(0, Math.max(0, pl.seats - 1)); members.unshift(c.uid);
+        var names = {}; members.forEach(function (u) { if (prev && prev.memberNames && prev.memberNames[u]) names[u] = prev.memberNames[u]; });
+        tx.set(entRef, { ownerUid: c.uid, ownerName: c.userName || '', ownerEmail: c.email || '', plan: c.plan, seats: pl.seats, status: 'active', startedAt: prev && prev.startedAt ? prev.startedAt : now, expiresAt: base + PERIOD_MS, memberUids: members, memberNames: names, lastRef: ref, lastAmount: c.amount, promo: !!((prev && prev.promo) || promoOk), updatedAt: now });
+        tx.update(claimRef, { status: 'approved', processedAt: now, processedBy: me.user.uid });
+        if (promoOk) tx.set(promoRef, { limit: pr.limit, claimed: (pr.claimed || 0) + 1 }, { merge: true });
+      });
+    }).then(function () { toast('Plan activated.'); }).catch(function (e) { btn.disabled = false; toast(e && e.message === 'already-processed' ? 'This payment was already handled.' : 'Could not approve. Check your admin record and the rules.'); });
+  }
+  function reject(ref) {
+    var why = window.prompt('Reason for rejecting (the patient will not see this, it is for your records):', 'Payment not found in Paystack'); if (why === null) return;
+    db.collection('paymentClaims').doc(ref).update({ status: 'rejected', reason: why, processedAt: Date.now(), processedBy: me.user.uid }).then(function () { toast('Rejected.'); }).catch(function () { toast('Could not reject.'); });
+  }
+  function revoke(uid) {
+    if (!window.confirm('Cancel this plan now? The patient keeps their chat history but can no longer send messages.')) return;
+    db.collection('entitlements').doc(uid).update({ status: 'cancelled', updatedAt: Date.now() }).then(function () { toast('Plan cancelled.'); }).catch(function () { toast('Could not cancel.'); });
+  }
+})();
+</script>
+</body>
+</html>

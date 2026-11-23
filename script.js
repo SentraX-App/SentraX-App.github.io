@@ -52,7 +52,7 @@ function showScreen(name) {
   document.querySelectorAll('#more-sheet button').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById(name + '-screen').classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
-  if (name === 'firstaid' || name === 'maternal' || name === 'passport' || name === 'ai' || name === 'articles' || name === 'marketplace' || name === 'rewards' || name === 'tips') {
+  if (name === 'firstaid' || name === 'maternal' || name === 'passport' || name === 'ai' || name === 'care' || name === 'articles' || name === 'marketplace' || name === 'rewards' || name === 'tips') {
   document.getElementById('nav-more').classList.add('active');
   }
   closeMoreMenu();
@@ -62,6 +62,8 @@ function showScreen(name) {
   if (name === 'passport') renderPassport();
   if (name === 'maternal') renderMaternalScreen();
   if (name === 'tips') renderTipsScreen();
+  if (name === 'care' && window.SXCare) SXCare.open();
+  if ((name === 'ai' || name === 'passport' || name === 'family') && window.SXCare) SXCare.refreshMeters();
   // Only re-render (and, for an existing thread, inject a fresh spoken
   // "welcome back" line) on a genuine arrival into the AI screen. Without
   // this guard, showScreen('ai') firing again while already there — e.g. a
@@ -2469,7 +2471,7 @@ async function triggerSOS() {
   const confirmMsg = (isOffline ? '⚠️ You appear to be offline — SMS, email, and WhatsApp may not send until you have signal. If possible, move toward network coverage or call for help directly.\n\n' : '') +
     'This will automatically send an SOS alert with your location to all your saved caregivers by SMS and email, and also prepare a WhatsApp message for your primary caregiver (one tap to send)' +
     (SOS_SEND_TO_STATE_LINE && isInBayelsa(null) ? ', and notify the Bayelsa State emergency line' : '') +
-    '. Continue?';
+    '. Continue?' + ((window.SXCare && SXCare.sosSmsNote) ? SXCare.sosSmsNote() : '');
   const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
   if (isOffline) {
@@ -2542,9 +2544,15 @@ async function triggerSOS() {
     if (SOS_SMS_WORKER_URL) {
       const sosTracker = createSOSTracker(caregivers.filter(function (c) { return normalizeNigerianPhone(c.phone) || c.email; }).length);
       caregivers.forEach(function (cg) {
-        const phone = normalizeNigerianPhone(cg.phone);
+        let phone = normalizeNigerianPhone(cg.phone);
         const email = cg.email || '';
         if (!phone && !email) return;
+        // SMS costs money, so it has a monthly allowance by plan. It never holds back an emergency: the primary caregiver is always
+        // texted, everyone with an email still gets the email, and WhatsApp and the call button are unaffected.
+        if (phone && window.SXCare && SXCare.sosSmsAllowed && !SXCare.sosSmsAllowed(cg === primary)) {
+          phone = '';
+          if (!email) { try { sosTracker.record({ name: cg.name, httpOk: false }); } catch (_e) { /* status display only */ } return; }   // phone-only caregiver beyond the allowance: shown as not reached
+        }
         sxWorkerFetch(SOS_SMS_WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Sentra-Secret': SOS_WORKER_SHARED_SECRET },
@@ -4396,7 +4404,8 @@ function sxHelpSections() {
   return [
     ['Log a blood pressure reading', ['Open the Vitals tab.', 'Type the top number (Systolic) and the bottom number (Diastolic). Heart rate and weight are optional.', 'Tap Save & Check My Risk. The colour shows your risk level, and the reading is saved in History.']],
     ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Sit down and rest your hand on a table. Stay still and do not talk.', 'Cover the back camera lens and flash fully with the soft pad of your fingertip. Press lightly, like touching a screen.', 'Hold for about 20 seconds. Green Good signal means keep still. Amber Weak signal means press lighter and cover the lens fully.', 'The number is added to the Heart rate box when the scan finishes. Your pulse changes a little from minute to minute, so for a steadier result take two or three scans a minute apart. The app shows the average.', 'Lift your finger if the flash feels warm. You can tap Flash on to turn it off and scan in a bright room instead.', 'This is a camera estimate for everyday tracking, not a medical test. If the camera keeps giving you trouble, check your pulse by hand: see the next section.'], 'camera-pulse'],
-    ['Check your pulse by hand (if the camera gives trouble)', ['Sit down and rest for 5 minutes first. Do not check right after walking, stairs, caffeine or smoking.', 'Turn one hand palm up. Rest the tips of your first two fingers on the inside of that wrist, just below the base of the thumb. Use your fingers, not your thumb, and do not press on your neck.', 'Press gently until you feel a steady beat. If you cannot find it, move your fingers a little or press slightly firmer.', 'Count the beats for 30 seconds and multiply by 2. Counting for a full 60 seconds is more accurate.', 'Type the number in the Heart rate box on the Vitals tab, then tap Save & Check My Risk. A usual resting pulse for adults is 60 to 100 beats per minute.', 'If your resting pulse stays above 100 or below 50, or it feels very uneven, tell a doctor. If you also feel dizzy, faint, short of breath or have chest pain, get medical care now.'], 'manual-pulse'],
+    ['Check your pulse by hand (if the camera gives trouble)', ['Sit and rest for 5 minutes.', 'Place two fingers on the inside of your wrist, just below the thumb. Do not use your thumb or press on your neck.', 'Count the beats for 30 seconds, then multiply by 2.', 'Type the number in the Heart rate box on the Vitals tab.', 'A usual resting pulse is 60 to 100. If yours stays outside that, tell a doctor. If you also feel dizzy, faint or have chest pain, get medical care now.'], 'manual-pulse'],
+    ['What the plans include', ['Free for everyone: readings, the camera heart-rate scan, medicines and reminders, history, caregivers, Emergency SOS, First Aid, your Passport, the Health Library, Marketplace and Rewards.', 'Free allowance: 5 Health Assistant questions a day, 2 document scans a month, and a monthly number of SMS to your caregivers. Email, WhatsApp and the emergency call button are always free, and SOS always reaches your primary caregiver.', 'Every paid plan adds chat with a doctor, unlimited Assistant questions, unlimited document scans, a printable doctor-ready health report and more caregiver SMS each month.', 'Normal covers 1 person, Duo covers 2 and Family covers up to 6. Find them under More, then Doctor Care.'], 'plans-info'],
     ['Medicines and reminders', ['Open the Meds tab and add the name, time and how long you take it.', 'You get a reminder at that time. Tap to mark each dose as taken.', 'If a caregiver is linked, they are alerted only if a dose is still missed after your reminder.']],
     ['Add a caregiver', ['Open the Family tab.', 'Add Caregiver saves a phone number or email so they get SMS and email alerts. Please ask them first.', 'Generate Invite Code lets someone create their own account and see your readings. You can remove their access at any time under Linked caregivers.']],
     ['Emergency SOS', ['On the Vitals tab, the Emergency card has the SOS button. It asks you to confirm, then sends your location to your caregivers by SMS and email and prepares a WhatsApp message.', 'Call Emergency Line shows the number for where you are. Use it for real emergencies only.']],

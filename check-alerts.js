@@ -12,6 +12,7 @@ const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
 const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY;
 const TERMII_API_KEY = process.env.TERMII_API_KEY;
 const TERMII_SENDER_ID = process.env.TERMII_SENDER_ID;
+const smsAllowance = require('./sms-allowance.cjs');   // monthly SMS allowance by plan; email is never limited
 
 console.log('Diagnostic - EMAILJS_SERVICE_ID present:', !!EMAILJS_SERVICE_ID, 'length:', (EMAILJS_SERVICE_ID || '').length);
 console.log('Diagnostic - EMAILJS_TEMPLATE_ID present:', !!EMAILJS_TEMPLATE_ID, 'length:', (EMAILJS_TEMPLATE_ID || '').length);
@@ -246,7 +247,11 @@ async function checkUser(doc) {
       const medMessage = (data.userName || 'Your loved one') + ' has not taken their medication "' + med.name + '" (due at ' + med.time + '). It has been overdue for over ' + REMINDER_DELAY_MINUTES + ' minutes.';
       let emailOk = true, smsOk = true;
       if (data.cgEmail) emailOk = await sendEmail(data.cgEmail, data.userName || 'Your loved one', data.cgName, medMessage);
-      if (data.cgPhone) smsOk = await sendSMS(data.cgPhone, 'SentraX Alert: ' + medMessage);
+      if (data.cgPhone) {
+        const gate = await smsAllowance.canSendAlertSms(db, uid, 'meds');
+        if (gate.ok) { smsOk = await sendSMS(data.cgPhone, 'SentraX Alert: ' + medMessage); if (smsOk) await smsAllowance.recordAlertSms(db, uid); }
+        else console.log('SMS skipped, monthly allowance used (' + gate.used + '/' + gate.limit + ', ' + gate.plan + '):', uid);   // smsOk stays true: the alert counts as sent, and the email is not repeated
+      }
       if (emailOk && smsOk) {
         medAlertsSent[key] = true;
         updates.medAlertsSent = medAlertsSent;
@@ -261,7 +266,11 @@ async function checkUser(doc) {
       const bpMessage = (data.userName || 'Your loved one') + "'s blood pressure just read " + latest.sys + '/' + latest.dia + ' (' + latest.level + '). Please check on them as soon as possible.';
       let emailOk = true, smsOk = true;
       if (data.cgEmail) emailOk = await sendEmail(data.cgEmail, data.userName || 'Your loved one', data.cgName, bpMessage);
-      if (data.cgPhone) smsOk = await sendSMS(data.cgPhone, 'SentraX Alert: ' + bpMessage);
+      if (data.cgPhone) {
+        const gate = await smsAllowance.canSendAlertSms(db, uid, 'bp');   // 'bp' also has a small safety reserve after the allowance
+        if (gate.ok) { smsOk = await sendSMS(data.cgPhone, 'SentraX Alert: ' + bpMessage); if (smsOk) await smsAllowance.recordAlertSms(db, uid); }
+        else console.log('SMS skipped, monthly allowance and reserve used (' + gate.used + '/' + gate.limit + ', ' + gate.plan + '):', uid);
+      }
       if (emailOk && smsOk) {
         updates.lastBpAlertISO = latest.dateISO;
       }
