@@ -441,6 +441,14 @@ function hrShow(cls, title, detail) {
   if (manual) manual.style.display = cls === 'hr-done' ? 'none' : '';
   const helpLink = document.getElementById('hr-help');
   if (helpLink) helpLink.style.display = cls === 'hr-fail' ? 'flex' : 'none';
+  // While scanning this control says Cancel. Once a result or a failure is showing it becomes a close button (an X), so the card can always be dismissed.
+  const closeBtn = document.getElementById('hr-cancel');
+  if (closeBtn) {
+    const finished = cls === 'hr-done' || cls === 'hr-fail';
+    closeBtn.textContent = finished ? '\u2715' : 'Cancel';
+    closeBtn.setAttribute('aria-label', finished ? 'Close' : 'Cancel the scan');
+    closeBtn.classList.toggle('hr-close', finished);
+  }
 }
 
 function hrManualEntry() {

@@ -23,6 +23,10 @@
   .box { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 24px; backdrop-filter: blur(14px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
   .box h1 { margin: 0 0 4px; font-size: 21px; } .box p { color: var(--mut); font-size: 14px; line-height: 1.5; margin: 6px 0 14px; }
   .box input { margin: 6px 0; } .box button { width: 100%; margin-top: 10px; }
+  .idbox { background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 4px 0 12px; }
+  .idl { font-size: 11.5px; color: var(--mut); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.4px; } .idv { display: block; font-size: 13.5px; color: #f1f5f9; word-break: break-all; margin-top: 2px; user-select: all; }
+  .idbox button { margin-top: 10px; padding: 8px 12px; width: auto; }
+  .steps { margin: 0 0 6px; padding-left: 20px; color: var(--mut); font-size: 13.5px; line-height: 1.6; } .steps b { color: #e2e8f0; }
   .err { color: #fca5a5; font-size: 13.5px; min-height: 18px; margin-top: 8px; }
   #app { display: none; height: 100%; flex-direction: column; }
   header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(15,23,42,0.7); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); }
@@ -86,7 +90,20 @@
 </div>
 
 <div id="denied" class="center" style="display:none;">
-  <div class="box"><h1>No access</h1><p id="denied-msg">This account is not set up as a Sentra-X doctor or admin.</p><button id="out1" class="ghost">Sign out</button></div>
+  <div class="box" style="max-width:460px;">
+    <h1 id="d-title">Almost there</h1>
+    <p id="denied-msg">This account is not set up as a Sentra-X doctor or admin yet.</p>
+    <div class="idbox"><div class="idl">Signed in as</div><div id="d-email" class="idv"></div><div class="idl">This account's ID (UID)</div><code id="d-uid" class="idv"></code><button class="ghost" id="d-copy" type="button">Copy ID</button></div>
+    <ol class="steps" id="d-steps">
+      <li>Open the <b>Firebase console</b> and go to <b>Firestore Database</b>.</li>
+      <li>Open the collection <b>doctors</b> (to answer patients) or <b>admins</b> (to approve payments). Create it if it does not exist.</li>
+      <li>Tap <b>Add document</b>. Paste the ID above as the <b>Document ID</b>.</li>
+      <li>Add a field called <b>name</b> (type string) with the person's name, then save.</li>
+      <li>Come back here and tap <b>Check again</b>.</li>
+    </ol>
+    <button id="d-retry" type="button">Check again</button>
+    <button id="out1" class="ghost" type="button">Sign out</button>
+  </div>
 </div>
 
 <div id="app">
@@ -128,28 +145,71 @@
   /* ---- sign in ---- */
   $('login').addEventListener('submit', function (e) {
     e.preventDefault(); $('err').textContent = ''; $('go').disabled = true;
-    auth.signInWithEmailAndPassword($('em').value.trim(), $('pw').value).catch(function () { $('err').textContent = 'Email or password is not correct.'; }).then(function () { $('go').disabled = false; });
+    $('err').style.color = '';
+    auth.signInWithEmailAndPassword($('em').value.trim(), $('pw').value).catch(function (e) { $('err').textContent = authMsg(e); }).then(function () { $('go').disabled = false; });
   });
   $('forgot').addEventListener('click', function () {
     var em = $('em').value.trim(); if (!em) { $('err').textContent = 'Type your email first.'; return; }
     auth.sendPasswordResetEmail(em).then(function () { $('err').style.color = '#6ee7b7'; $('err').textContent = 'Reset link sent. Check your email.'; }).catch(function () { $('err').style.color = '#fca5a5'; $('err').textContent = 'Could not send the reset link.'; });
   });
+  function authMsg(e) {
+    var c = e && e.code;
+    if (c === 'auth/user-not-found') return 'There is no account with this email yet. Create it in the Sentra-X app, or add it in Firebase under Authentication, then Users.';
+    if (c === 'auth/wrong-password' || c === 'auth/invalid-credential' || c === 'auth/invalid-login-credentials') return 'Email or password is not correct, or this email has no account yet. Tap Forgot password to set a new one.';
+    if (c === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes, or reset your password.';
+    if (c === 'auth/network-request-failed') return 'No internet connection. Please try again.';
+    if (c === 'auth/invalid-email') return 'That email address does not look right.';
+    if (c === 'auth/user-disabled') return 'This account has been disabled in Firebase.';
+    return 'Could not sign in' + (c ? ' (' + c + ')' : '') + '. Please try again.';
+  }
   function signOut() { unsubs.forEach(function (u) { try { u(); } catch (_e) { /* ignore */ } }); unsubs = []; auth.signOut(); }
   $('out1').onclick = signOut; $('out2').onclick = signOut;
 
   auth.onAuthStateChanged(function (u) {
     me = { user: u, doctor: null, admin: null }; unsubs.forEach(function (f) { try { f(); } catch (_e) { /* ignore */ } }); unsubs = []; cur = null;
     if (!u) { show('auth'); return; }
-    Promise.all([db.collection('doctors').doc(u.uid).get().catch(function () { return null; }), db.collection('admins').doc(u.uid).get().catch(function () { return null; })]).then(function (r) {
-      me.doctor = r[0] && r[0].exists ? (r[0].data() || {}) : null; me.admin = r[1] && r[1].exists ? (r[1].data() || {}) : null;
-      if (!me.doctor && !me.admin) { show('denied'); return; }
+    roleCheck(u);
+  });
+
+  // Looks up this account's doctor and admin records. Keeps the real reason when it fails, so the screen can say what to fix.
+  function roleCheck(u) {
+    me = { user: u, doctor: null, admin: null }; unsubs.forEach(function (f) { try { f(); } catch (_e) { /* ignore */ } }); unsubs = [];
+    var ERR = { err: true };
+    Promise.all([db.collection('doctors').doc(u.uid).get().catch(function (e) { ERR.code = e && e.code; return ERR; }), db.collection('admins').doc(u.uid).get().catch(function (e) { ERR.code = e && e.code; return ERR; })]).then(function (r) {
+      var blocked = r[0] === ERR || r[1] === ERR;
+      me.doctor = r[0] && r[0] !== ERR && r[0].exists ? (r[0].data() || {}) : null; me.admin = r[1] && r[1] !== ERR && r[1].exists ? (r[1].data() || {}) : null;
+      if (!me.doctor && !me.admin) { showDenied(u, blocked ? ERR.code : null); return; }
       $('who-name').textContent = (me.doctor && me.doctor.name) || (me.admin && me.admin.name) || 'Sentra-X';
       $('who-role').textContent = [me.doctor ? 'Doctor' : '', me.admin ? 'Admin' : ''].filter(Boolean).join(' \u00B7 ');
       $('t-pay').style.display = me.admin ? '' : 'none'; $('t-inbox').style.display = me.doctor ? '' : 'none';
       show('app'); tab(me.doctor ? 'inbox' : 'pay');
       if (me.doctor) startInbox(); if (me.admin) startPayments();
     });
+  }
+
+  function showDenied(u, errCode) {
+    $('d-email').textContent = u.email || '(no email)'; $('d-uid').textContent = u.uid;
+    if (errCode === 'permission-denied') {
+      $('d-title').textContent = 'Security rules not published yet';
+      $('denied-msg').textContent = 'The app is not allowed to look up doctor records yet. In GitHub, open the Actions tab and check that the latest “Deploy Firestore Rules” run has a green tick. If it is red, the rules file did not publish. Then tap Check again.';
+      $('d-steps').style.display = 'none';
+    } else if (errCode) {
+      $('d-title').textContent = 'Could not check your account';
+      $('denied-msg').textContent = 'Something stopped the check (' + errCode + '). Check your internet connection and tap Check again.';
+      $('d-steps').style.display = 'none';
+    } else {
+      $('d-title').textContent = 'Almost there';
+      $('denied-msg').textContent = 'You are signed in, but this account is not set up as a Sentra-X doctor or admin yet. This is a one-time step in Firebase.';
+      $('d-steps').style.display = '';
+    }
+    show('denied');
+  }
+  $('d-copy').addEventListener('click', function () {
+    var t = $('d-uid').textContent, b = $('d-copy');
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copied'; }).catch(function () { var r = document.createRange(); r.selectNodeContents($('d-uid')); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Now press copy'; });
+    setTimeout(function () { b.textContent = 'Copy ID'; }, 2500);
   });
+  $('d-retry').addEventListener('click', function () { var u = auth.currentUser; if (!u) { show('auth'); return; } $('d-retry').disabled = true; u.getIdToken(true).catch(function () {}).then(function () { $('d-retry').disabled = false; roleCheck(u); }); });
 
   function tab(name) {
     ['inbox', 'pay'].forEach(function (t) { $('t-' + t).classList.toggle('on', t === name); var s = $('s-' + t); s.classList.toggle('on', t === name); });

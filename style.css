@@ -1083,7 +1083,9 @@ input[type="number"] { -moz-appearance: textfield; }
 .hr-btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
 /* finished states: no progress bar, no Flash/Cancel pills (the two buttons take over) */
 .hr-line.hr-done .hr-bar, .hr-line.hr-fail .hr-bar,
-.hr-line.hr-done .hr-right, .hr-line.hr-fail .hr-right { display: none; }
+.hr-line.hr-done .hr-right, .hr-line.hr-fail .hr-right { display: inline-flex; }
+.hr-line.hr-done #hr-flash, .hr-line.hr-fail #hr-flash { display: none !important; }
+.hr-right .hr-link.hr-close { width: 34px; min-height: 34px; padding: 0; justify-content: center; font-size: 15px; line-height: 1; color: #e2e8f0; background: rgba(255,255,255,0.10); }
 .hr-line.hr-done .hr-title { font-size: 20px; }
 @keyframes hrIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes hrPulse { 50% { transform: scale(1.5); opacity: .55; } }

@@ -282,6 +282,7 @@
       </div>
       <button onclick="checkBP()">Save &amp; Check My Risk</button>
       <div id="result"></div>
+      <div id="ask-doctor-slot"></div>
       <div id="alert-caregiver-btn"></div>
     </div>
     <div id="bp-breakdown"></div>
@@ -367,6 +368,7 @@
   </div>
 
   <div class="screen" id="history-screen">
+    <button type="button" class="ghost care-report-btn" onclick="SXCare.openReport()">📄 Doctor-ready health report<span class="care-badge-plan">Plans</span></button>
     <div class="card">
       <h3>Weekly Summary</h3>
       <div class="summary-grid" id="weekly-summary">
@@ -452,8 +454,8 @@
     </div>
     <div class="card" id="doctor-dpo-card">
       <h3>Privacy questions</h3>
-      <p style="margin:0 0 12px;font-size:12.5px;color:#94a3b8;line-height:1.45;">Our Data Protection Officer, Dr Enekeme Isaac Ayibadeimode, handles questions about your personal data and privacy rights. This is not a medical advice line. In an emergency call 0800 220 0223 or 112.</p>
-      <a href="mailto:cokerbanks647@gmail.com?subject=Sentra-X%20privacy%20question" style="display:block;text-align:center;padding:12px;border-radius:12px;border:1px solid #334155;color:#93c5fd;text-decoration:none;font-weight:600;">Email our DPO</a>
+      <p style="margin:0 0 12px;font-size:12.5px;color:#94a3b8;line-height:1.45;">Our privacy team handles questions about your personal data and privacy rights. This is not a medical advice line. In an emergency call 0800 220 0223 or 112.</p>
+      <a href="mailto:sentraxforteltd@gmail.com?subject=Sentra-X%20privacy%20question" style="display:block;text-align:center;padding:12px;border-radius:12px;border:1px solid #334155;color:#93c5fd;text-decoration:none;font-weight:600;">Email our privacy team</a>
     </div>
     <div style="text-align:center;padding:14px 0 4px;">
       <a href="privacy.html" style="color:#94a3b8;font-size:12.5px;text-decoration:underline;">Privacy Policy</a>
@@ -642,6 +644,9 @@
   <div class="screen" id="rewards-screen">
   <div id="rewards-root"></div>
   </div>
+  <div class="screen" id="care-screen">
+    <div id="care-root"></div>
+  </div>
   <div class="screen" id="tips-screen">
     <div id="tips-content"></div>
     <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -657,6 +662,7 @@
     <button onclick="showScreen('passport')" id="nav-passport"><span class="icon">🪪</span>Passport</button>
     <button onclick="showScreen('tips')" id="nav-tips"><span class="icon">📊</span>Health Trends</button>
     <button onclick="showScreen('ai')" id="nav-ai"><span class="icon">💬</span>Assistant</button>
+    <button onclick="showScreen('care')" id="nav-care"><span class="icon">🩺</span>Doctor Care<span class="more-tag">New</span></button>
     <div class="more-divider"></div>
     <button onclick="showScreen('articles')" id="nav-articles"><span class="icon">📰</span>Articles</button>
     <button onclick="showScreen('marketplace')" id="nav-marketplace"><span class="icon">🛍️</span>Marketplace</button>
@@ -710,6 +716,7 @@
   <script src="ads.js"></script>
   <script src="articles.js"></script>
   <script src="store.js"></script>
+  <script src="plans.js"></script>
   <script src="rewards.js"></script>
   <script src="passport-scan.js"></script>
   <script src="voice.js"></script>
@@ -722,6 +729,7 @@
     <p class="hr-alert-note">This is a camera estimate of pulse rate only. It is not a blood pressure reading or a medical test. If you feel dizzy, faint, short of breath or have chest pain, get medical care now.</p>
     <div class="hr-alert-actions">
       <button type="button" class="hr-btn hr-btn-main" onclick="document.getElementById('hr-pattern-alert').style.display='none';focusBpFields()">Check blood pressure now</button>
+      <button type="button" class="hr-btn" onclick="document.getElementById('hr-pattern-alert').style.display='none';SXCare.askAbout('pulse')">Ask a doctor</button>
       <button type="button" class="hr-btn" onclick="document.getElementById('hr-pattern-alert').style.display='none'">Not now</button>
     </div>
   </div>
