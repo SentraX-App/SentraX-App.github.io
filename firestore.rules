@@ -193,6 +193,39 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- Creator links (performance-paid content creators) ----
+    // Creator records and conversions: admin only. Nobody else can read or change them.
+    match /creators/{code} {
+      allow read, write: if isAdmin();
+    }
+    match /conversions/{id} {
+      allow read, write: if isAdmin();
+    }
+    // Which creator brought a person in. A person can create their own record once, only for a real and active creator code;
+    // they can never edit or delete it, apart from noting the day the app was installed.
+    match /referrals/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn()
+                    && request.auth.uid == uid
+                    && request.resource.data.keys().hasOnly(['code', 'uid', 'at', 'linkAt', 'source', 'installedAt'])
+                    && request.resource.data.uid == uid
+                    && request.resource.data.code is string
+                    && request.resource.data.code.size() >= 4 && request.resource.data.code.size() <= 24
+                    && exists(/databases/$(database)/documents/creators/$(request.resource.data.code))
+                    && get(/databases/$(database)/documents/creators/$(request.resource.data.code)).data.active == true;
+      allow update: if signedIn()
+                    && request.auth.uid == uid
+                    && resource.data.get('installedAt', null) == null
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['installedAt']);
+      allow delete: if false;
+    }
+    // Totals a creator can see on their own report page. Readable only by its unguessable address; contains counts, never people.
+    match /creatorStats/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if isAdmin();
+    }
+
     // SMS allowance counter. Written only by the alert server (Admin SDK, which bypasses rules); a person can only read their own, to see what is left.
     match /smsUsage/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
