@@ -414,7 +414,7 @@ function hrSetFlash(on) {
   hrFlashOn = !!on;
   const w = document.getElementById('hr-warm'); if (w) w.style.display = hrFlashOn ? 'block' : 'none';
 }
-function hrLensWord() { return hrFlashOn ? 'lens and flash' : 'lens'; }
+function hrLensWord() { return 'lens'; }   // the flash does not need to be covered; a bright place is what matters
 function hrFlashLabel() { const b = document.getElementById('hr-flash'); if (!b) return; b.style.display = hrFlashHasTorch ? 'inline' : 'none'; b.textContent = hrFlashPref() ? 'Flash on' : 'Flash off'; }
 function hrToggleFlash() {
   try { localStorage.setItem('hrFlash', hrFlashPref() ? 'off' : 'on'); } catch (_e) {}
@@ -497,7 +497,7 @@ function hrOpenCamera() {
       }
       video.onloadedmetadata = function () {
         try { const pp = video.play(); if (pp && pp.catch) pp.catch(function () {}); } catch (_e) { /* autoplay attribute still applies */ }
-        hrShow('hr-wait', 'Place your fingertip on the lens', 'Cover the camera ' + hrLensWord() + ' fully and press lightly.');
+        hrShow('hr-wait', 'Place your fingertip on the lens', 'Cover the back camera lens with your fingertip and press lightly. Use a well-lit place.');
         hrS.start = performance.now();
         hrSchedule();
         // some phones ignore the first torch request, so ask again once the camera is running
@@ -616,8 +616,8 @@ function hrOnFrame(st, t) {
     const bar = document.getElementById('hr-bar-fill');
     if (s.runStart === null) {
       if (s.coveredSeen && !s.dark) hrShow('hr-wait', 'Finger lifted', 'Place it back on the lens and hold still.');
-      else if (s.dark) hrShow('hr-wait', 'Too dark', hrFlashOn ? 'Press a little lighter so light gets through, or move to a brighter room.' : 'Move to a brighter room or turn the flash on, then keep your fingertip on the lens.');
-      else hrShow('hr-wait', 'Place your fingertip on the lens', 'Cover the camera ' + hrLensWord() + ' fully and press lightly.');
+      else if (s.dark) hrShow('hr-wait', 'Too dark', 'Move to a brighter place. If it stays dark, press a little lighter.');
+      else hrShow('hr-wait', 'Place your fingertip on the lens', 'Cover the back camera lens with your fingertip and press lightly. Use a well-lit place.');
       if (bar) bar.style.width = '0%';
     } else {
       let live = { good: false, checking: true, hint: '' };
@@ -693,10 +693,10 @@ function finishHeartRateMeasure(res) {
       let recent = [];
       try { recent = JSON.parse(localStorage.getItem('hrRecent') || '[]').filter(function (x) { return x && isFinite(x.bpm) && Date.now() - x.t < 15 * 60 * 1000; }); } catch (_e) { recent = []; }
       const prev = recent.length ? recent[recent.length - 1] : null;
-      if (prev && Math.abs(prev.bpm - bpm) > 10) differs = 'Different from your last scan (' + prev.bpm + ' bpm). Rest for a minute and measure again to confirm.';
+      if (prev && Math.abs(prev.bpm - bpm) > 10) differs = 'Different from your last scan (' + prev.bpm + '\u00A0bpm). Rest for a minute and measure again to confirm.';
       recent.push({ bpm: bpm, t: Date.now() }); recent = recent.slice(-5);
       try { localStorage.setItem('hrRecent', JSON.stringify(recent)); } catch (_e) { /* storage unavailable: no average */ }
-      if (recent.length >= 2) avgLine = 'Average of your last ' + recent.length + ' scans: ' + Math.round(recent.reduce(function (a, x) { return a + x.bpm; }, 0) / recent.length) + ' bpm.';
+      if (recent.length >= 2) avgLine = 'Average of your last ' + recent.length + ' scans: ' + Math.round(recent.reduce(function (a, x) { return a + x.bpm; }, 0) / recent.length) + '\u00A0bpm.';
     }
     const lines = [res.approx ? 'The signal was weak. Measure again for a more reliable result.' : 'Added to the Heart rate box.'];
     if (avgLine) lines.push(avgLine);

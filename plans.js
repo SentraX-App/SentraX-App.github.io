@@ -34,13 +34,12 @@
     'Chat with a Sentra-X doctor inside the app',
     'Unlimited Health Assistant questions',
     'Unlimited document scans to fill in your Passport',
-    'A doctor-ready health report you can print or save as PDF',
-    'More SMS to your caregivers every month, for SOS and automatic alerts',
+    'A doctor-ready health report to print or save as PDF',
+    'More caregiver SMS every month',
     'Share your readings with the doctor, only if you choose'
   ];
-  var STAYS_FREE = ['Blood pressure and camera heart-rate checks', 'Medicines and reminders', 'History, trends and weekly summary', 'Emergency SOS: ' + SOS_SMS.free + ' caregiver SMS a month, plus email, WhatsApp and the call button always free', 'Automatic caregiver alerts: ' + ALERT_SMS.free + ' SMS a month, email always free',
-    'First Aid, Maternal & Child and your Passport', 'Health Assistant: ' + FREE_AI_PER_DAY + ' questions a day', 'Document scan: ' + FREE_SCANS_PER_MONTH + ' a month',
-    'Health Library, Marketplace, Move & Play and Rewards'];
+  var STAYS_FREE = ['Blood pressure and camera heart-rate checks', 'Medicines and reminders', 'History, trends and weekly summary', 'Emergency SOS and caregiver alerts',
+    'First Aid, Maternal & Child and your Passport', 'Health Library, Marketplace, Move & Play and Rewards'];
 
   var st = { user: null, ent: null, active: false, isOwner: false, promoLeft: 0, pending: null, view: 'home', loaded: false, poll: null, chatUnsub: null, badgeUnsub: null, busy: false, notice: '' };
 
@@ -113,15 +112,24 @@
     else {
       if (st.ent) h += expiredHtml();
       h += plansHtml();
-      h += '<div class="card care-free"><h3>Still free for everyone</h3><ul class="care-list care-list-free">' + STAYS_FREE.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+      h += freeHtml();
     }
     h += '<p class="care-legal">Doctor chat gives general health guidance based on what you share. It is not for emergencies and does not replace an in-person examination. <a href="terms.html">Terms</a> \u00B7 <a href="privacy.html">Privacy</a></p>';
     el.innerHTML = h;
   }
 
+  function freeHtml() {
+    function row(k, v) { return '<div class="care-allow-row"><span>' + esc(k) + '</span><b>' + esc(v) + '</b></div>'; }
+    return '<div class="card care-free"><h3>Still free for everyone</h3><ul class="care-list care-list-free">' + STAYS_FREE.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' +
+      '<div class="care-allow"><div class="care-allow-title">Free allowances</div>' + row('Health Assistant', FREE_AI_PER_DAY + ' questions a day') + row('Document scan', FREE_SCANS_PER_MONTH + ' a month') +
+      row('Caregiver SMS', SOS_SMS.free + ' for SOS, ' + ALERT_SMS.free + ' for alerts') +
+      '<div class="care-allow-note">Caregiver email, WhatsApp and the emergency call button are always free.</div></div></div>';
+  }
+
   function heroHtml() {
-    return '<div class="card care-hero"><div class="care-doc"><div class="care-avatar" aria-hidden="true">DI</div><div><div class="care-doc-name">' + esc(DOCTOR.name) + '</div><div class="care-doc-role">' + esc(DOCTOR.role) + '</div></div></div>' +
-      '<h2>Talk to a real doctor, and get more from Sentra-X</h2><p>Chat with a Sentra-X doctor, ask the Health Assistant as much as you like, scan documents and print a doctor-ready report.</p></div>';
+    var doc = '<div class="care-doc"><div class="care-avatar" aria-hidden="true">DI</div><div><div class="care-doc-name">' + esc(DOCTOR.name) + '</div><div class="care-doc-role">' + esc(DOCTOR.role) + '</div></div></div>';
+    if (st.ent && st.active) return '<div class="card care-hero care-hero-compact">' + doc + '</div>';
+    return '<div class="card care-hero">' + doc + '<h2>Talk to a real doctor, and get more from Sentra-X</h2><p>Chat with a Sentra-X doctor, ask the Health Assistant as much as you like, scan documents and print a doctor-ready report.</p></div>';
   }
 
   function pendingHtml() {
@@ -134,12 +142,13 @@
       var p = PLANS[id], price = priceFor(id), promo = id === 'duo' && price === p.promoPrice, per = Math.round(price / p.seats);
       var ribbon = promo ? '<div class="care-ribbon">Launch offer \u00B7 ' + st.promoLeft + ' of ' + p.promoLimit + ' left</div>' : (id === 'family' ? '<div class="care-ribbon alt">Best value</div>' : '');
       var seats = p.seats === 1 ? '1 person' : (id === 'family' ? 'Up to ' + p.seats + ' people' : p.seats + ' people');
+      var multi = p.seats > 1;
       return '<div class="care-plan' + (id === 'duo' ? ' featured' : '') + '">' + ribbon +
         '<div class="care-plan-top"><div><h4>' + p.name + '</h4><div class="care-who">' + p.who + '</div></div>' +
         '<div class="care-price">' + fmt(price) + '<span>/ month</span></div></div>' +
-        '<div class="care-meta"><span>' + seats + '</span>' + (p.seats > 1 ? '<span>about ' + fmt(per) + ' each</span>' : '') + (promo ? '<span>then ' + fmt(p.price) + '</span>' : '') + '</div>' +
-        (p.seats > 1 ? '<div class="care-plan-line">Each person keeps a private chat with the doctor.</div>' : '') +
-        '<div class="care-plan-line">Caregiver SMS each month' + (p.seats > 1 ? ' (per person)' : '') + ': ' + SOS_SMS[id] + ' for SOS, ' + ALERT_SMS[id] + ' for alerts</div>' +
+        '<div class="care-meta"><span>' + seats + '</span>' + (multi ? '<span>about ' + fmt(per) + ' each</span>' : '') + (promo ? '<span>then ' + fmt(p.price) + '</span>' : '') + '</div>' +
+        '<ul class="care-plan-facts">' + (multi ? '<li>A private doctor chat for each person</li>' : '') +
+        '<li>Caregiver SMS' + (multi ? ' per person' : '') + ': ' + SOS_SMS[id] + ' SOS \u00B7 ' + ALERT_SMS[id] + ' alerts a month</li></ul>' +
         '<button type="button" class="care-choose" data-act="choose" data-plan="' + id + '">' + (st.ent ? 'Renew with ' : 'Choose ') + p.name + '</button></div>';
     }).join('');
     return '<div class="care-sect">Choose a plan</div>' + cards +
@@ -159,9 +168,9 @@
       '<button type="button" class="care-open" data-act="chat">\uD83D\uDCAC Open doctor chat<span id="care-unread" class="care-unread" style="display:none;"></span></button>' +
       '<button type="button" class="ghost" data-act="report">\uD83D\uDCC4 Make a health report</button>' +
       (st.isOwner ? '<button type="button" class="' + (soon ? 'care-renew' : 'ghost') + '" data-act="choose" data-plan="' + e.plan + '">Renew ' + esc(p.name) + ' \u00B7 ' + fmt(PLANS[e.plan] ? PLANS[e.plan].price : 0) + '</button>' : '') + '</div>';
-    h += '<div class="card care-incl"><h3>Your plan includes</h3><ul class="care-list">' + INCLUDED.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
     if (st.isOwner && (e.seats || 1) > 1) h += membersHtml();
     if (!st.isOwner) h += '<div class="card"><h3>Shared plan</h3><p class="care-small">You are on ' + esc(e.ownerName || 'a family member') + '\u2019s ' + esc(p.name) + ' plan. You have your own private chat with the doctor.</p></div>';
+    h += '<details class="card care-more"><summary>What your plan includes</summary><ul class="care-list">' + INCLUDED.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></details>';
     h += '<div class="card care-id"><h3>Your Care ID</h3><p class="care-small">Give this to the person who pays for a Duo or Family plan so they can add you.</p><div class="care-idrow"><code id="care-myid">' + esc(st.user.uid) + '</code><button type="button" class="ghost" data-act="copyid">Copy</button></div></div>';
     return h;
   }
@@ -274,7 +283,7 @@
     h += '<div class="care-emerg">Not for emergencies. If it is urgent, use Emergency SOS or call your local emergency number.</div>' +
       '<div id="care-msgs" class="care-msgs" aria-live="polite"><div class="care-loading"><div class="care-spin"></div></div></div>';
     if (canSend) {
-      h += '<div class="care-share"><label class="care-switch"><input type="checkbox" id="care-share"><span class="care-slider"></span></label><div><b>Share my readings with the doctor</b><small>Lets the doctor see your history while you are on a plan. Turn it off any time.</small></div></div>' +
+      h += '<div class="care-share"><label class="care-switch"><input type="checkbox" id="care-share" aria-label="Share my readings with the doctor"><span class="care-slider"></span></label><div><b>Share my readings with the doctor</b><small>The doctor can see your history while this is on.</small></div></div>' +
         '<div class="care-composer"><button type="button" class="care-attach" data-act="attach">+ Attach my latest readings</button>' +
         '<div class="care-inputrow"><textarea id="care-text" rows="1" maxlength="2000" placeholder="Write to the doctor\u2026"></textarea><button type="button" class="care-send" data-act="send" aria-label="Send">\u27A4</button></div></div>';
     } else {
@@ -296,7 +305,18 @@
       sh.addEventListener('change', function () { setShare(sh.checked); });
     }
     listenMessages();
+    fitChat(); setTimeout(fitChat, 120);
   }
+  // Sizes the chat to the space between its top and the bottom bar, so the message box is never hidden behind it.
+  function fitChat() {
+    var c = document.querySelector('.care-chat'); if (!c) return;
+    var nav = document.querySelector('nav'), vv = window.visualViewport, vh = vv ? vv.height : window.innerHeight;
+    var keyboard = vv && (window.innerHeight - vv.height) > 120;
+    var h = vh - c.getBoundingClientRect().top - (keyboard || !nav ? 0 : nav.getBoundingClientRect().height) - 12;
+    c.style.height = Math.max(300, Math.floor(h)) + 'px';
+  }
+  window.addEventListener('resize', fitChat);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fitChat);
 
   function listenMessages() {
     if (st.chatUnsub) { st.chatUnsub(); st.chatUnsub = null; }

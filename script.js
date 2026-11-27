@@ -1446,7 +1446,7 @@ function checkDueMeds() {
     return !taken && timeToMinutes(m.time) <= now;
   });
   if (due.length > 0) {
-    const names = due.map(function(m){ return m.name + ' (' + m.time + ')'; }).join(', ');
+    const names = due.map(function(m){ return escapeHtml(m.name) + ' (' + escapeHtml(m.time) + ')'; }).join(', ');
     banner.innerHTML = '<div class="alert-banner">⏰ ' + due.length + ' medication' + (due.length > 1 ? 's' : '') + ' due or overdue today: ' + names + '</div>';
 
     // Re-fires whenever the SET of currently-due meds changes, not just
@@ -1934,9 +1934,10 @@ function renderLinkedCaregivers() {
         uids.map(function (uid) {
           const meta = info[uid] || {};
           const label = meta.email || 'Caregiver';
+          if (!/^[A-Za-z0-9_-]{6,128}$/.test(String(uid))) return '';   // never place an unexpected id inside a button
           return '<div class="cg-card">' +
               '<div class="cg-info">' +
-                '<div class="cg-name-row"><span class="cg-name">' + String(label).replace(/</g, '&lt;') + '</span></div>' +
+                '<div class="cg-name-row"><span class="cg-name">' + escapeHtml(String(label)) + '</span></div>' +
                 '<div class="cg-row"><span>🔗</span><span>Has read access to your health data</span></div>' +
               '</div>' +
               '<button class="cg-danger" onclick="revokeCaregiver(\'' + uid + '\')">Revoke</button>' +
@@ -1958,7 +1959,7 @@ function revokeCaregiver(uid) {
 }
 const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/K1QIZXLxBycG2WnAfCpuba';
 function openWhatsAppCommunity() {
-  window.open(COMMUNITY_WHATSAPP_URL, '_blank');
+  window.open(COMMUNITY_WHATSAPP_URL, '_blank', 'noopener,noreferrer');
 }
 
 // Reuses the exact same EmailJS project/service/template/company inbox
@@ -3724,7 +3725,7 @@ function openAiThread(id) {
   closeAiHistoryList();
 }
 
-const AI_WELCOME_FULL = "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call 0800 220 0223.";
+const AI_WELCOME_FULL = "Hi, I'm your Sentra-X health assistant. Ask me anything about symptoms, medications, or general wellness — and remember, for emergencies always call " + (function () { try { return getEmergencyTarget(null).label; } catch (_e) { return '0800 220 0223'; } })() + ".";
 const AI_WELCOME_BACK_VARIANTS = [
   "Welcome back — what's up?",
   "Good to see you again. What's on your mind?",
@@ -4403,7 +4404,7 @@ const SX_HELP_POSTER = 'help/sentrax-tour.jpg';
 function sxHelpSections() {
   return [
     ['Log a blood pressure reading', ['Open the Vitals tab.', 'Type the top number (Systolic) and the bottom number (Diastolic). Heart rate and weight are optional.', 'Tap Save & Check My Risk. The colour shows your risk level, and the reading is saved in History.']],
-    ['Check your heart rate with the camera', ['Tap Check Heart Rate (Camera).', 'Sit down and rest your hand on a table. Stay still and do not talk.', 'Cover the back camera lens and flash fully with the soft pad of your fingertip. Press lightly, like touching a screen.', 'Hold for about 20 seconds. Green Good signal means keep still. Amber Weak signal means press lighter and cover the lens fully.', 'The number is added to the Heart rate box when the scan finishes. Your pulse changes a little from minute to minute, so for a steadier result take two or three scans a minute apart. The app shows the average.', 'Lift your finger if the flash feels warm. You can tap Flash on to turn it off and scan in a bright room instead.', 'This is a camera estimate for everyday tracking, not a medical test. If the camera keeps giving you trouble, check your pulse by hand: see the next section.'], 'camera-pulse'],
+    ['Check your heart rate with the camera', ['In a well-lit place, sit still and tap Check Heart Rate (Camera).', 'Cover the back camera lens with your fingertip and press lightly. You do not need to cover the flash.', 'Hold still for about 20 seconds. Green means a good signal. If it turns amber, press a little lighter.', 'The result goes into the Heart rate box. Pulse varies a little, so take 2 or 3 scans and use the average. It is an estimate, not a medical test. If the camera keeps failing, check your pulse by hand (next section).'], 'camera-pulse'],
     ['Check your pulse by hand (if the camera gives trouble)', ['Sit and rest for 5 minutes.', 'Place two fingers on the inside of your wrist, just below the thumb. Do not use your thumb or press on your neck.', 'Count the beats for 30 seconds, then multiply by 2.', 'Type the number in the Heart rate box on the Vitals tab.', 'A usual resting pulse is 60 to 100. If yours stays outside that, tell a doctor. If you also feel dizzy, faint or have chest pain, get medical care now.'], 'manual-pulse'],
     ['What the plans include', ['Free for everyone: readings, the camera heart-rate scan, medicines and reminders, history, caregivers, Emergency SOS, First Aid, your Passport, the Health Library, Marketplace and Rewards.', 'Free allowance: 5 Health Assistant questions a day, 2 document scans a month, and a monthly number of SMS to your caregivers. Email, WhatsApp and the emergency call button are always free, and SOS always reaches your primary caregiver.', 'Every paid plan adds chat with a doctor, unlimited Assistant questions, unlimited document scans, a printable doctor-ready health report and more caregiver SMS each month.', 'Normal covers 1 person, Duo covers 2 and Family covers up to 6. Find them under More, then Doctor Care.'], 'plans-info'],
     ['Medicines and reminders', ['Open the Meds tab and add the name, time and how long you take it.', 'You get a reminder at that time. Tap to mark each dose as taken.', 'If a caregiver is linked, they are alerted only if a dose is still missed after your reminder.']],

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0f172a">
+<title>Sentra-X Creator Report</title>
+<link rel="icon" href="icon-192-1.png">
+<style>
+  :root { --line: rgba(255,255,255,0.10); --mut: #94a3b8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: #e5e7eb; background: radial-gradient(circle at 20% 0%, #1e3a8a 0%, #0f172a 45%, #0b1220 100%) fixed; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 22px 16px 40px; }
+  img.logo { height: 34px; display: block; margin: 0 auto 18px; }
+  .card { background: rgba(255,255,255,0.06); border: 1px solid var(--line); border-radius: 20px; padding: 20px; margin-bottom: 14px; backdrop-filter: blur(14px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+  h1 { margin: 0 0 4px; font-size: 22px; color: #f8fafc; } p { margin: 6px 0 0; color: var(--mut); line-height: 1.5; font-size: 14px; }
+  .hi { font-size: 13px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: #93c5fd; margin-bottom: 6px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .stat { background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 14px; padding: 14px 10px; text-align: center; }
+  .stat b { display: block; font-size: 28px; color: #f8fafc; } .stat span { font-size: 12.5px; color: var(--mut); }
+  .stat.big { grid-column: span 2; background: linear-gradient(160deg, rgba(52,211,153,0.16), rgba(255,255,255,0.04)); border-color: rgba(52,211,153,0.35); } .stat.big b { font-size: 38px; color: #6ee7b7; }
+  .linkrow { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+  code { flex: 1; min-width: 0; font-size: 13px; color: #bfdbfe; background: rgba(255,255,255,0.06); border-radius: 10px; padding: 10px; word-break: break-all; }
+  button, a.btn { font: inherit; font-weight: 700; color: #fff; background: linear-gradient(135deg, #3b82f6, #2563eb); border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; }
+  button.ghost { background: rgba(59,130,246,0.15); color: #93c5fd; }
+  .mut { color: var(--mut); font-size: 12.5px; line-height: 1.5; margin-top: 12px; }
+  .err { text-align: center; padding: 30px 10px; }
+  .paused { background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35); color: #fde68a; border-radius: 12px; padding: 10px 12px; margin-top: 12px; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img class="logo" src="logo-header.png" alt="Sentra-X">
+  <div id="root"><div class="card err"><p>Loading your report\u2026</p></div></div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  'use strict';
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function when(ms) { return new Date(ms).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  var root = document.getElementById('root'), tok = (new URLSearchParams(location.search).get('t') || '').trim();
+  function fail(msg) { root.innerHTML = '<div class="card err"><h1>Report not found</h1><p>' + esc(msg) + '</p></div>'; }
+  if (!/^[a-z0-9]{20,40}$/.test(tok)) { fail('This link looks incomplete. Please open the full link you were sent.'); return; }
+  try {
+    firebase.initializeApp({ apiKey: "AIzaSyCHeWvZzGZVa79m2JvvpkX5Xlvmj8vpdPc", authDomain: "sentra-x.firebaseapp.com", projectId: "sentra-x", storageBucket: "sentra-x.firebasestorage.app", messagingSenderId: "5654480364", appId: "1:5654480364:web:bd6dbe766a1c46edb66cc9" });
+    firebase.firestore().collection('creatorStats').doc(tok).get().then(function (s) {
+      if (!s.exists) { fail('We could not find this report. Ask the Sentra-X team to check your link.'); return; }
+      var d = s.data(), p = d.plans || {}, link = d.link || '';
+      root.innerHTML =
+        '<div class="card"><div class="hi">Creator report</div><h1>' + esc(d.name || 'Creator') + '</h1><p>The people who joined Sentra-X through your link, and the plans they chose.</p>' +
+        (d.active === false ? '<div class="paused">Your link is paused right now. People already credited to you stay credited.</div>' : '') +
+        '<div class="grid"><div class="stat big"><b>' + (d.paid || 0) + '</b><span>People who bought a plan</span></div>' +
+        '<div class="stat"><b>' + (d.signups || 0) + '</b><span>Signed up</span></div><div class="stat"><b>' + (d.installs || 0) + '</b><span>Installed the app</span></div>' +
+        '<div class="stat"><b>' + (d.renewals || 0) + '</b><span>Renewals</span></div><div class="stat"><b>' + ((p.normal || 0) + (p.duo || 0) + (p.family || 0)) + '</b><span>First plans</span></div></div>' +
+        '<div class="mut">First plans: Normal ' + (p.normal || 0) + ' \u00B7 Duo ' + (p.duo || 0) + ' \u00B7 Family ' + (p.family || 0) + '</div>' +
+        '<div class="mut">Last updated ' + esc(d.updatedAt ? when(d.updatedAt) : 'not yet') + '. The Sentra-X team refreshes these totals regularly.</div></div>' +
+        '<div class="card"><h1 style="font-size:18px;">Your link</h1><p>Share this link. People must open it before they sign up for you to be credited. Your code is <b style="color:#f8fafc;">' + esc(d.code || '') + '</b>.</p>' +
+        '<div class="linkrow"><code id="lk">' + esc(link) + '</code><button class="ghost" id="cp" type="button">Copy</button></div>' +
+        '<p style="margin-top:12px;"><a class="btn" id="wa" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=' + encodeURIComponent('Try Sentra-X for blood pressure, medicines and family care: ' + link) + '">Share on WhatsApp</a></p></div>' +
+        '<div class="card"><p style="margin:0;">For privacy, this page shows totals only. It never shows who signed up.</p></div>';
+      var cp = document.getElementById('cp');
+      cp.addEventListener('click', function () { (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function () { cp.textContent = 'Copied'; setTimeout(function () { cp.textContent = 'Copy'; }, 2000); }).catch(function () { window.prompt('Copy this link:', link); }); });
+    }).catch(function () { fail('We could not load the report. Check your internet connection and try again.'); });
+  } catch (e) { fail('Something went wrong loading the report.'); }
+})();
+</script>
+</body>
+</html>

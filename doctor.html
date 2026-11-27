@@ -67,11 +67,19 @@
   .claim .info { min-width: 220px; flex: 1; } .claim .info b { color: #f8fafc; } .claim .info div { font-size: 13px; color: var(--mut); margin-top: 3px; word-break: break-all; }
   .claim .acts { display: flex; gap: 8px; } .warn { color: var(--amber); font-weight: 700; }
   .kv { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; } .kv b { color: #f8fafc; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+  .stat { background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px; text-align: center; }
+  .stat b { display: block; font-size: 20px; color: #f8fafc; } .stat span { font-size: 11.5px; color: var(--mut); }
+  .linkrow { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .linkrow code { flex: 1; min-width: 0; font-size: 12.5px; color: #bfdbfe; background: rgba(255,255,255,0.06); border-radius: 10px; padding: 9px 10px; word-break: break-all; }
+  .linkrow button { padding: 8px 12px; font-size: 13px; width: auto; flex: 0 0 auto; }
+  .formrow { display: flex; gap: 8px; flex-wrap: wrap; } .formrow input { flex: 1 1 150px; min-width: 0; } .formrow input.pct { flex: 0 0 120px; }
   .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #0f172a; border: 1px solid var(--line); padding: 11px 16px; border-radius: 12px; font-size: 14px; z-index: 50; max-width: 90%; display: none; }
   @media (max-width: 760px) {
     .list { width: 100%; flex: 1 1 auto; border-radius: 0 16px 16px 16px; } .pane { display: none; }
     .split.open .list { display: none; } .split.open .pane { display: flex; } .phead .back { display: inline-block; }
     .msg { max-width: 90%; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
 </head>
@@ -79,6 +87,7 @@
 
 <div id="auth" class="center">
   <form class="box" id="login" autocomplete="on">
+    <img src="logo-header.png" alt="Sentra-X" style="height:34px;margin-bottom:12px;">
     <h1>Doctor sign in</h1>
     <p>Sentra-X doctor and admin access. Use the account that was set up for you.</p>
     <input id="em" type="email" placeholder="Email" autocomplete="username" required>
@@ -108,13 +117,14 @@
 
 <div id="app">
   <header><img src="logo-header.png" alt="Sentra-X"><div class="who"><b id="who-name">Doctor</b><span id="who-role"></span></div><button class="ghost" id="out2" style="padding:8px 12px;">Sign out</button></header>
-  <div class="tabs"><button class="tab on" id="t-inbox" data-tab="inbox">Inbox<span class="pill" id="p-inbox" style="display:none;"></span></button><button class="tab" id="t-pay" data-tab="pay" style="display:none;">Payments<span class="pill" id="p-pay" style="display:none;"></span></button></div>
+  <div class="tabs"><button class="tab on" id="t-inbox" data-tab="inbox">Inbox<span class="pill" id="p-inbox" style="display:none;"></span></button><button class="tab" id="t-pay" data-tab="pay" style="display:none;">Payments<span class="pill" id="p-pay" style="display:none;"></span></button><button class="tab" id="t-cre" data-tab="cre" style="display:none;">Creators</button></div>
   <main>
     <section id="s-inbox" class="split on">
       <div class="list" id="list"><div class="empty">Loading\u2026</div></div>
       <div class="pane" id="pane"><div class="empty">Select a conversation to read and reply.</div></div>
     </section>
     <section id="s-pay"><div class="wrap" id="pay"></div></section>
+    <section id="s-cre"><div class="wrap" id="cre"></div></section>
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -181,9 +191,9 @@
       if (!me.doctor && !me.admin) { showDenied(u, blocked ? ERR.code : null); return; }
       $('who-name').textContent = (me.doctor && me.doctor.name) || (me.admin && me.admin.name) || 'Sentra-X';
       $('who-role').textContent = [me.doctor ? 'Doctor' : '', me.admin ? 'Admin' : ''].filter(Boolean).join(' \u00B7 ');
-      $('t-pay').style.display = me.admin ? '' : 'none'; $('t-inbox').style.display = me.doctor ? '' : 'none';
+      $('t-pay').style.display = me.admin ? '' : 'none'; $('t-cre').style.display = me.admin ? '' : 'none'; $('t-inbox').style.display = me.doctor ? '' : 'none';
       show('app'); tab(me.doctor ? 'inbox' : 'pay');
-      if (me.doctor) startInbox(); if (me.admin) startPayments();
+      if (me.doctor) startInbox(); if (me.admin) { startPayments(); startCreators(); }
     });
   }
 
@@ -212,7 +222,7 @@
   $('d-retry').addEventListener('click', function () { var u = auth.currentUser; if (!u) { show('auth'); return; } $('d-retry').disabled = true; u.getIdToken(true).catch(function () {}).then(function () { $('d-retry').disabled = false; roleCheck(u); }); });
 
   function tab(name) {
-    ['inbox', 'pay'].forEach(function (t) { $('t-' + t).classList.toggle('on', t === name); var s = $('s-' + t); s.classList.toggle('on', t === name); });
+    ['inbox', 'pay', 'cre'].forEach(function (t) { $('t-' + t).classList.toggle('on', t === name); var s = $('s-' + t); s.classList.toggle('on', t === name); });
   }
   document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { tab(b.getAttribute('data-tab')); }); });
 
@@ -269,7 +279,7 @@
       var rows = v.map(function (r) { return '<tr><td>' + esc(r.dateISO ? dd(new Date(r.dateISO).getTime()) : (r.date || '')) + '</td><td>' + esc(r.sys && r.dia ? r.sys + '/' + r.dia : '') + '</td><td>' + esc(r.hr || '') + '</td><td>' + esc(r.weight || '') + '</td><td>' + esc(r.level || '') + '</td></tr>'; }).join('');
       var bp = (d.vitals || []).filter(function (r) { return r.sys && r.dia && Date.now() - new Date(r.dateISO || r.date).getTime() <= 30 * 86400000; });
       var avg = bp.length ? Math.round(bp.reduce(function (a, r) { return a + Number(r.sys); }, 0) / bp.length) + '/' + Math.round(bp.reduce(function (a, r) { return a + Number(r.dia); }, 0) / bp.length) : '\u2014';
-      box.innerHTML = '<details open><summary>Shared readings' + (d.userCondition ? ' \u00B7 ' + esc(d.userCondition) : '') + '</summary>' +
+      box.innerHTML = '<details' + (window.innerWidth > 760 ? ' open' : '') + '><summary>Shared readings' + (d.userCondition ? ' \u00B7 ' + esc(d.userCondition) : '') + '</summary>' +
         '<div style="margin-top:6px;color:var(--mut)">30-day average BP: <b style="color:#f8fafc">' + avg + '</b> from ' + bp.length + ' reading' + (bp.length === 1 ? '' : 's') + '</div>' +
         (rows ? '<table><tr><th>Date</th><th>BP</th><th>Pulse</th><th>Weight</th><th>Result</th></tr>' + rows + '</table>' : '<div style="margin-top:6px;color:var(--mut)">No readings logged yet.</div>') +
         (meds.length ? '<div style="margin-top:8px;color:var(--mut)">Medicines: <span style="color:#e2e8f0">' + meds.map(function (m) { return esc(m.name || m.medName || ''); }).filter(Boolean).join(', ') + '</span></div>' : '') + '</details>';
@@ -318,6 +328,83 @@
     }; });
   }
 
+
+  /* ---- creators: unique links, tracked sign-ups and paid plans (admin) ---- */
+  var creators = [], creStats = {}, creBusy = false, lastStatsAt = 0;
+  var CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  function randStr(n, chars) { var a = new Uint32Array(n), s = ''; (window.crypto || window.msCrypto).getRandomValues(a); for (var i = 0; i < n; i++) s += chars[a[i] % chars.length]; return s; }
+  function linkFor(code) { return location.origin + '/?ref=' + code; }
+  function reportFor(tok) { return location.origin + '/creator.html?t=' + tok; }
+  function copyText(t, label) { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { toast((label || 'Link') + ' copied.'); }).catch(function () { window.prompt('Copy this:', t); }); }
+
+  function startCreators() {
+    unsubs.push(db.collection('creators').onSnapshot(function (s) {
+      creators = []; s.forEach(function (d) { var x = d.data(); x.code = d.id; creators.push(x); });
+      creators.sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); }); renderCre(); refreshStats(false);
+    }, function () { $('cre').innerHTML = '<div class="card">Could not load creators. Check that the Firestore rules are published and your admin record exists.</div>'; }));
+  }
+
+  function refreshStats(force) {
+    if (creBusy || !creators.length || (!force && Date.now() - lastStatsAt < 20000)) return;
+    creBusy = true; lastStatsAt = Date.now();
+    Promise.all(creators.map(function (c) {
+      return Promise.all([db.collection('referrals').where('code', '==', c.code).get(), db.collection('conversions').where('code', '==', c.code).get()]).then(function (r) {
+        var st = { signups: r[0].size, installs: 0, paid: 0, renewals: 0, revenue: 0, plans: { normal: 0, duo: 0, family: 0 } };
+        r[0].forEach(function (d) { if (d.data().installedAt) st.installs++; });
+        r[1].forEach(function (d) { var x = d.data(); st.revenue += Number(x.amount) || 0; if (x.isFirst) { st.paid++; if (st.plans[x.plan] !== undefined) st.plans[x.plan]++; } else st.renewals++; });
+        creStats[c.code] = st;
+        // The creator's own report page shows totals only: no names, no emails, no amounts.
+        if (c.statsToken) return db.collection('creatorStats').doc(c.statsToken).set({ name: c.name, code: c.code, link: linkFor(c.code), active: c.active !== false, signups: st.signups, installs: st.installs, paid: st.paid, renewals: st.renewals, plans: st.plans, updatedAt: Date.now() }).catch(function () { /* the report is optional */ });
+      }).catch(function () { /* one creator failing must not stop the others */ });
+    })).then(function () { creBusy = false; renderCre(); }, function () { creBusy = false; });
+  }
+
+  function renderCre() {
+    var h = '<div class="card"><h3>New creator link</h3><p style="color:var(--mut);font-size:13.5px;margin:0 0 10px;line-height:1.5;">Give each creator their own link. People who open it and then sign up are credited to that creator, and every plan they pay for is counted for that creator.</p>' +
+      '<div class="formrow"><input id="cre-name" placeholder="Creator name" maxlength="40"><input id="cre-pct" class="pct" type="number" min="0" max="100" step="0.5" placeholder="Share %"></div>' +
+      '<button id="cre-add" style="margin-top:10px;">Create link</button></div>';
+    if (!creators.length) h += '<div class="card"><p style="color:var(--mut);margin:0;">No creators yet. Create the first link above.</p></div>';
+    creators.forEach(function (c) {
+      var s = creStats[c.code], link = linkFor(c.code), pct = Number(c.commissionPct) || 0;
+      h += '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;"><div><b style="color:#f8fafc;font-size:16px;">' + esc(c.name) + '</b> <span class="chip">' + esc(c.code) + '</span>' + (c.active === false ? ' <span class="chip" style="background:rgba(248,113,113,0.2);color:#fca5a5;">paused</span>' : '') + '</div>' +
+        '<button class="ghost" data-a="toggle" data-code="' + esc(c.code) + '" style="padding:6px 12px;font-size:12.5px;">' + (c.active === false ? 'Resume' : 'Pause') + '</button></div>' +
+        '<div class="linkrow"><code>' + esc(link) + '</code><button class="ghost" data-a="copy" data-t="' + esc(link) + '" data-l="Link">Copy link</button></div>' +
+        (s ? '<div class="stats"><div class="stat"><b>' + s.signups + '</b><span>Sign-ups</span></div><div class="stat"><b>' + s.installs + '</b><span>Installs</span></div><div class="stat"><b>' + s.paid + '</b><span>Paid plans</span></div><div class="stat"><b>' + s.renewals + '</b><span>Renewals</span></div></div>' +
+          '<div style="margin-top:10px;font-size:13.5px;color:var(--mut);line-height:1.6;">Paid by their people (approved): <b style="color:#f8fafc;">' + fmt(s.revenue) + '</b>' + (pct ? ' \u00B7 ' + pct + '% share = <b style="color:#6ee7b7;">' + fmt(Math.round(s.revenue * pct / 100)) + '</b> (estimate)' : '') +
+          '<br>Plans: Normal ' + s.plans.normal + ', Duo ' + s.plans.duo + ', Family ' + s.plans.family + '</div>' : '<div style="margin-top:10px;color:var(--mut);font-size:13px;">Loading totals\u2026</div>') +
+        (c.statsToken ? '<div class="linkrow"><code>' + esc(reportFor(c.statsToken)) + '</code><button class="ghost" data-a="copy" data-t="' + esc(reportFor(c.statsToken)) + '" data-l="Report link">Copy report link</button></div><div style="font-size:12px;color:var(--mut);margin-top:6px;">The report link shows the creator their totals only. It never shows names, emails or amounts.</div>' : '') + '</div>';
+    });
+    h += '<div style="text-align:center;"><button class="ghost" id="cre-refresh">Refresh totals</button></div>';
+    $('cre').innerHTML = h;
+    $('cre-add').onclick = addCreator; $('cre-refresh').onclick = function () { refreshStats(true); toast('Refreshing totals\u2026'); };
+    $('cre').querySelectorAll('button[data-a]').forEach(function (b) { b.onclick = function () {
+      var a = b.getAttribute('data-a');
+      if (a === 'copy') copyText(b.getAttribute('data-t'), b.getAttribute('data-l'));
+      else if (a === 'toggle') toggleCreator(b.getAttribute('data-code'));
+    }; });
+  }
+
+  function addCreator() {
+    var name = ($('cre-name').value || '').trim(), pct = parseFloat($('cre-pct').value);
+    if (!name) { toast('Type the creator\u2019s name first.'); return; }
+    var base = name.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/[01OIL]/g, '').slice(0, 5) || 'SX';
+    $('cre-add').disabled = true;
+    (function attempt(n) {
+      var code = (base + randStr(3, CODE_CHARS)).slice(0, 8);
+      db.collection('creators').doc(code).get().then(function (s) {
+        if (s.exists) { if (n < 6) return attempt(n + 1); throw new Error('no-code'); }
+        return db.collection('creators').doc(code).set({ name: name, code: code, active: true, statsToken: randStr(28, 'abcdefghijkmnpqrstuvwxyz23456789'), commissionPct: isFinite(pct) && pct > 0 && pct <= 100 ? pct : 0, createdAt: Date.now(), createdBy: me.user.uid })
+          .then(function () { toast('Link created for ' + name + '.'); });
+      }).catch(function () { toast('Could not create the link. Check your admin record and the rules.'); }).then(function () { var b = $('cre-add'); if (b) b.disabled = false; });
+    })(0);
+  }
+  function toggleCreator(code) {
+    var c = creators.filter(function (x) { return x.code === code; })[0]; if (!c) return;
+    var pausing = c.active !== false;
+    if (pausing && !window.confirm('Pause ' + c.name + '\u2019s link? People who open it after this will not be credited to them. Everyone already credited stays credited.')) return;
+    db.collection('creators').doc(code).update({ active: !pausing }).then(function () { toast(pausing ? 'Paused.' : 'Resumed.'); }).catch(function () { toast('Could not change that.'); });
+  }
+
   function approve(ref, btn) {
     var c = claims.filter(function (x) { return x.reference === ref; })[0]; if (!c) return;
     var pl = PLANS[c.plan]; if (!pl) { toast('Unknown plan on this payment.'); return; }
@@ -327,9 +414,9 @@
     if (c.amount < expected && !(wantsPromo && !usePromo) && !window.confirm('They paid ' + fmt(c.amount) + ' but this plan costs ' + fmt(expected) + '. Approve anyway?')) return;
     if (!window.confirm('Approve ' + (c.userName || 'this patient') + '\u2019s ' + pl.name + ' plan for 30 days?\n\nConfirm the reference ' + c.reference + ' is in Paystack first.')) return;
     btn.disabled = true;
-    var entRef = db.collection('entitlements').doc(c.uid), claimRef = db.collection('paymentClaims').doc(ref), promoRef = db.collection('promos').doc('duo');
+    var entRef = db.collection('entitlements').doc(c.uid), claimRef = db.collection('paymentClaims').doc(ref), promoRef = db.collection('promos').doc('duo'), refRef = db.collection('referrals').doc(c.uid), convRef = db.collection('conversions').doc(ref);
     db.runTransaction(function (tx) {
-      return Promise.all([tx.get(entRef), tx.get(claimRef), tx.get(promoRef)]).then(function (r) {
+      return Promise.all([tx.get(entRef), tx.get(claimRef), tx.get(promoRef), tx.get(refRef)]).then(function (r) {
         var prev = r[0].exists ? r[0].data() : null, cl = r[1].data(), pr = r[2].exists ? r[2].data() : null, now = Date.now();
         if (!cl || cl.status !== 'pending') throw new Error('already-processed');
         var promoOk = usePromo && pr && (pr.claimed || 0) < (pr.limit || 0);
@@ -339,6 +426,8 @@
         tx.set(entRef, { ownerUid: c.uid, ownerName: c.userName || '', ownerEmail: c.email || '', plan: c.plan, seats: pl.seats, status: 'active', startedAt: prev && prev.startedAt ? prev.startedAt : now, expiresAt: base + PERIOD_MS, memberUids: members, memberNames: names, lastRef: ref, lastAmount: c.amount, promo: !!((prev && prev.promo) || promoOk), updatedAt: now });
         tx.update(claimRef, { status: 'approved', processedAt: now, processedBy: me.user.uid });
         if (promoOk) tx.set(promoRef, { limit: pr.limit, claimed: (pr.claimed || 0) + 1 }, { merge: true });
+        // If this person came through a creator's link, record the paid plan for that creator. A first payment and a renewal are kept apart.
+        if (r[3] && r[3].exists && r[3].data().code) tx.set(convRef, { code: r[3].data().code, uid: c.uid, plan: c.plan, amount: c.amount, at: now, isFirst: !prev, ref: ref });
       });
     }).then(function () { toast('Plan activated.'); }).catch(function (e) { btn.disabled = false; toast(e && e.message === 'already-processed' ? 'This payment was already handled.' : 'Could not approve. Check your admin record and the rules.'); });
   }
