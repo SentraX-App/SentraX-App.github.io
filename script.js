@@ -4510,10 +4510,20 @@ window.sxOpenHelp = sxOpenHelp;
         const b = document.createElement('button');
         b.id = 'sx-help-btn';
         b.type = 'button';
-        b.textContent = '\u2753  Help and video tour';
-        b.style.cssText = 'display:block;width:100%;margin:0 0 12px;padding:11px 14px;border-radius:14px;border:1px solid rgba(147,197,253,0.35);background:rgba(37,99,235,0.12);color:#93c5fd;font-size:14px;font-weight:600;cursor:pointer;';
         b.addEventListener('click', function () { sxOpenHelp(false); });
-        screen.insertBefore(b, screen.firstChild);
+        const bar = document.querySelector('header');
+        if (bar) {
+          // Top bar, right side, on every screen. Styled by .sx-help-top in medical-ui.css.
+          b.className = 'sx-help-top';
+          b.setAttribute('aria-label', 'Help and video tour');
+          b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.4a2.8 2.8 0 0 1 5.4 1c0 1.6-2.7 2.1-2.7 4"/><path d="M12 17.6v.1"/></svg><span>Help</span>';
+          bar.appendChild(b);
+        } else {
+          // Fallback: the original banner at the top of Vitals.
+          b.textContent = '\u2753  Help and video tour';
+          b.style.cssText = 'display:block;width:100%;margin:0 0 12px;padding:11px 14px;border-radius:14px;border:1px solid rgba(147,197,253,0.35);background:rgba(37,99,235,0.12);color:#93c5fd;font-size:14px;font-weight:600;cursor:pointer;';
+          screen.insertBefore(b, screen.firstChild);
+        }
         return;
       }
     } catch (_e) { /* try again */ }
@@ -4538,7 +4548,7 @@ window.sxOpenHelp = sxOpenHelp;
       const seen = function () { try { localStorage.setItem('sxTourSeen', '1'); } catch (_e) {} };
       sxModal('Welcome to Sentra-X', [
         'Take a one-minute tour to see how to log readings, check your heart rate, add a caregiver and use Emergency SOS.',
-        'You can find Help any time at the top of the Vitals page.'
+        'You can find Help any time at the top right of the screen.'
       ], null, [
         { label: 'Watch the video tour', kind: 'primary', onClick: function (w) { seen(); w.remove(); sxOpenHelp(true); } },
         { label: 'Read the quick guide', kind: 'secondary', onClick: function (w) { seen(); w.remove(); sxOpenHelp(false); } },

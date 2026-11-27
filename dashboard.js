@@ -32,6 +32,15 @@
   function maskEmail(e) { e = String(e || ''); var i = e.indexOf('@'); return i > 1 ? e.slice(0, 2) + '\u2026' + e.slice(i) : e; }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 
+  function ico(name) {
+    var P = {
+      heart: '<path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7.1L12 21.5l8.8-8.8a5 5 0 0 0 0-7.1z"/>',
+      pill: '<path d="M10.5 20.5a5 5 0 0 1-7-7l9-9a5 5 0 0 1 7 7z"/><path d="M8.5 8.5l7 7"/>',
+      family: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.2c2.4.3 4 2.2 4 4.8"/>'
+    };
+    return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + P[name] + '</svg>';
+  }
+
   /* ---------- explanations of a reading, in plain words ---------- */
   var EXPLAIN = {
     0: 'In the healthy range for most adults.',
@@ -82,13 +91,13 @@
     if (v && v.sys && v.dia) {
       var t = ts(v), sev = v.severity || 0, fresh = t != null ? ago(t) : '';
       var stale = t != null && Date.now() - t > 3 * 86400000;
-      h += '<button type="button" class="sx-row" data-go="history"><span class="sx-ico" style="--c:' + chipColor(sev) + '">\u2764</span><span class="sx-main"><span class="sx-k">Latest blood pressure</span>' +
+      h += '<button type="button" class="sx-row" data-go="history"><span class="sx-ico" style="--c:' + chipColor(sev) + '">' + ico('heart') + '</span><span class="sx-main"><span class="sx-k">Latest blood pressure</span>' +
         '<span class="sx-v">' + esc(v.sys) + '/' + esc(v.dia) + ' <small>mmHg</small>' + (v.hr ? ' \u00B7 ' + esc(v.hr) + ' <small>bpm</small>' : '') + '</span>' +
         '<span class="sx-chip" style="--c:' + chipColor(sev) + '">' + esc(shortLevel(v.level)) + '</span>' +
         '<span class="sx-s">' + esc(EXPLAIN[sev] || '') + '</span>' +
         (t != null ? '<span class="sx-s sx-time">Logged ' + esc(fresh) + ' \u00B7 ' + esc(when(t)) + (stale ? ' \u00B7 time for a new reading?' : '') + '</span>' : '') + '</span><span class="sx-go" aria-hidden="true">\u203A</span></button>';
     } else {
-      h += '<button type="button" class="sx-row" data-act="log"><span class="sx-ico" style="--c:#60a5fa">\u2764</span><span class="sx-main"><span class="sx-k">Blood pressure</span><span class="sx-v sx-soft">No readings yet</span><span class="sx-s">Log your first reading below. Over time, Sentra-X helps you see how your health is changing.</span></span><span class="sx-go" aria-hidden="true">\u203A</span></button>';
+      h += '<button type="button" class="sx-row" data-act="log"><span class="sx-ico" style="--c:#60a5fa">' + ico('heart') + '</span><span class="sx-main"><span class="sx-k">Blood pressure</span><span class="sx-v sx-soft">No readings yet</span><span class="sx-s">Log your first reading below. Over time, Sentra-X helps you see how your health is changing.</span></span><span class="sx-go" aria-hidden="true">\u203A</span></button>';
     }
 
     // Medicines
@@ -96,16 +105,16 @@
     if (n) {
       var taken = s.doses.filter(function (d) { return d.state === 'taken'; }).length, overdue = s.doses.filter(function (d) { return d.state === 'overdue'; }), due = s.doses.filter(function (d) { return d.state === 'due'; }), next = s.doses.filter(function (d) { return d.state === 'upcoming'; })[0];
       var line = taken === n ? 'All taken for today. Well done.' : (overdue.length ? plural(overdue.length, 'medicine is', 'medicines are') + ' overdue' : (due.length ? plural(due.length, 'medicine is', 'medicines are') + ' due now' : (next ? 'Next: ' + next.name + ' at ' + next.time : '')));
-      h += '<button type="button" class="sx-row" data-go="meds"><span class="sx-ico" style="--c:' + (overdue.length ? '#f87171' : '#60a5fa') + '">\uD83D\uDC8A</span><span class="sx-main"><span class="sx-k">Medicines today</span><span class="sx-v">' + taken + ' of ' + n + ' taken</span>' +
+      h += '<button type="button" class="sx-row" data-go="meds"><span class="sx-ico" style="--c:' + (overdue.length ? '#f87171' : '#60a5fa') + '">' + ico('pill') + '</span><span class="sx-main"><span class="sx-k">Medicines today</span><span class="sx-v">' + taken + ' of ' + n + ' taken</span>' +
         '<span class="sx-s' + (overdue.length ? ' sx-warn' : '') + '">' + esc(line) + '</span></span><span class="sx-go" aria-hidden="true">\u203A</span></button>';
     } else {
-      h += '<button type="button" class="sx-row" data-go="meds"><span class="sx-ico" style="--c:#60a5fa">\uD83D\uDC8A</span><span class="sx-main"><span class="sx-k">Medicines</span><span class="sx-v sx-soft">None added</span><span class="sx-s">Add your medicines and Sentra-X will remind you, so doses are not forgotten.</span></span><span class="sx-go" aria-hidden="true">\u203A</span></button>';
+      h += '<button type="button" class="sx-row" data-go="meds"><span class="sx-ico" style="--c:#60a5fa">' + ico('pill') + '</span><span class="sx-main"><span class="sx-k">Medicines</span><span class="sx-v sx-soft">None added</span><span class="sx-s">Add your medicines and Sentra-X will remind you, so doses are not forgotten.</span></span><span class="sx-go" aria-hidden="true">\u203A</span></button>';
     }
 
     // Care circle
     var team = s.circle.length, conn = linked ? linked.length : 0;
     var cl = team || conn ? (conn ? plural(conn, 'family account', 'family accounts') + ' connected' : plural(team, 'person', 'people') + ' alerted if you need help') : 'Nobody connected yet';
-    h += '<button type="button" class="sx-row" data-go="family"><span class="sx-ico" style="--c:#fbbf24">\uD83D\uDC6A</span><span class="sx-main"><span class="sx-k">Your care circle</span><span class="sx-v' + (team || conn ? '' : ' sx-soft') + '">' + esc(cl) + '</span>' +
+    h += '<button type="button" class="sx-row" data-go="family"><span class="sx-ico" style="--c:#fbbf24">' + ico('family') + '</span><span class="sx-main"><span class="sx-k">Your care circle</span><span class="sx-v' + (team || conn ? '' : ' sx-soft') + '">' + esc(cl) + '</span>' +
       '<span class="sx-s">' + (team || conn ? 'They can support you, with your permission.' : 'Add someone who cares about you. You are not managing your health alone.') + '</span></span><span class="sx-go" aria-hidden="true">\u203A</span></button>';
     return h;
   }

@@ -116,7 +116,7 @@
 </div>
 
 <div id="app">
-  <header><img src="logo-header.png" alt="Sentra-X"><div class="who"><b id="who-name">Doctor</b><span id="who-role"></span></div><button class="ghost" id="out2" style="padding:8px 12px;">Sign out</button></header>
+  <header><img src="logo-header.png" alt="Sentra-X"><div class="who"><b id="who-name">Doctor</b><span id="who-role"></span></div><a href="index.html" class="backapp" style="color:#93c5fd;font-size:13px;font-weight:700;text-decoration:none;padding:8px 6px;white-space:nowrap;">&larr; App</a><button class="ghost" id="out2" style="padding:8px 12px;">Sign out</button></header>
   <div class="tabs"><button class="tab on" id="t-inbox" data-tab="inbox">Inbox<span class="pill" id="p-inbox" style="display:none;"></span></button><button class="tab" id="t-pay" data-tab="pay" style="display:none;">Payments<span class="pill" id="p-pay" style="display:none;"></span></button><button class="tab" id="t-cre" data-tab="cre" style="display:none;">Creators</button></div>
   <main>
     <section id="s-inbox" class="split on">
@@ -192,7 +192,7 @@
       $('who-name').textContent = (me.doctor && me.doctor.name) || (me.admin && me.admin.name) || 'Sentra-X';
       $('who-role').textContent = [me.doctor ? 'Doctor' : '', me.admin ? 'Admin' : ''].filter(Boolean).join(' \u00B7 ');
       $('t-pay').style.display = me.admin ? '' : 'none'; $('t-cre').style.display = me.admin ? '' : 'none'; $('t-inbox').style.display = me.doctor ? '' : 'none';
-      show('app'); tab(me.doctor ? 'inbox' : 'pay');
+      show('app'); var want = (location.hash || '').replace('#', ''); tab(want === 'pay' && me.admin ? 'pay' : (want === 'cre' && me.admin ? 'cre' : (me.doctor ? 'inbox' : 'pay')));
       if (me.doctor) startInbox(); if (me.admin) { startPayments(); startCreators(); }
     });
   }
