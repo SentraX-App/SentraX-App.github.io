@@ -260,3 +260,153 @@ nav button.active .icon { background: rgba(59, 140, 245, 0.2); filter: none; }
   .sx-help-top { padding: 0 11px 0 9px; }
 }
 @media (prefers-reduced-motion: reduce) { nav button .icon { transition: none; } }
+
+/* ==========================================================================
+   Polish pass (colour + icons). Pure additions on top of the rules above.
+   Remove everything from here down to return to the flat look.
+   Idea: every icon sits on a rich gradient tile with its own colour, so each
+   feature is recognisable at a glance, while surfaces stay calm and clinical.
+   ========================================================================== */
+
+:root {
+  --g-blue-1: #3b8cf5; --g-blue-2: #22b8e0;
+  --g-teal-1: #14b8a6; --g-teal-2: #22c55e;
+  --g-violet-1: #8b5cf6; --g-violet-2: #6366f1;
+  --g-red-1: #ef4444; --g-red-2: #f97316;
+  --g-amber-1: #f59e0b; --g-amber-2: #f97316;
+  --g-rose-1: #ec4899; --g-rose-2: #f43f5e;
+  --g-green-1: #22c55e; --g-green-2: #10b981;
+  --g-cyan-1: #06b6d4; --g-cyan-2: #3b82f6;
+  --g-slate-1: #64748b; --g-slate-2: #475569;
+}
+
+/* one recipe for every gradient icon tile */
+.sx-qa .sx-qa-i,
+.sx-h-ico,
+#more-sheet button .icon {
+  background: linear-gradient(145deg, var(--g1, var(--g-blue-1)), var(--g2, var(--g-blue-2)));
+  color: #fff;
+  box-shadow: 0 6px 14px -6px var(--g2, var(--g-blue-2)), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+.sx-qa svg, .sx-h-ico svg, #more-sheet button .icon svg { stroke-width: 2; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25)); }
+
+/* header: brand accent line */
+header::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px;
+  background: linear-gradient(90deg, #1d4ed8, #22b8e0 55%, #f5b942);
+}
+.sx-help-top { background: linear-gradient(180deg, #f2f7ff, #e0ecff); box-shadow: 0 1px 0 rgba(29, 78, 216, 0.12); }
+
+/* greeting */
+#greeting { font-size: 24px; }
+
+/* cards: faint top light so they read as surfaces, not flat boxes */
+#vitals-screen .card,
+#meds-screen .card,
+#history-screen .card,
+#family-screen .card,
+#firstaid-screen .card,
+#passport-screen .card,
+#maternal-screen .card,
+#ai-screen .card,
+#tips-screen .card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 46%), var(--m-surface);
+  border-color: rgba(150, 190, 230, 0.2);
+  box-shadow: 0 8px 22px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* heading icon colour per card */
+#home-log { --g1: var(--g-blue-1); --g2: var(--g-cyan-1); }
+#home-radar { --g1: var(--g-teal-1); --g2: var(--g-green-1); }
+#home-checkin { --g1: var(--g-violet-1); --g2: var(--g-violet-2); }
+#home-water { --g1: var(--g-cyan-1); --g2: var(--g-cyan-2); }
+#home-tip { --g1: var(--g-teal-1); --g2: var(--g-cyan-1); }
+#home-emergency { --g1: var(--g-red-1); --g2: var(--g-red-2); }
+#sx-circle { --g1: var(--g-amber-1); --g2: var(--g-amber-2); }
+#meds-screen .card { --g1: var(--g-teal-1); --g2: var(--g-cyan-1); }
+#family-screen .card { --g1: var(--g-amber-1); --g2: var(--g-rose-1); }
+#history-screen .card { --g1: var(--g-violet-1); --g2: var(--g-blue-1); }
+
+/* quick actions: a distinct colour each */
+.sx-qa { background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)), var(--m-surface); border-color: rgba(150, 190, 230, 0.2); box-shadow: 0 8px 20px -14px rgba(0, 0, 0, 0.8); }
+.sx-qa:nth-child(1) { --g1: var(--g-blue-1); --g2: var(--g-cyan-1); }
+.sx-qa:nth-child(2) { --g1: var(--g-teal-1); --g2: var(--g-green-1); }
+.sx-qa:nth-child(3) { --g1: var(--g-violet-1); --g2: var(--g-violet-2); }
+.sx-qa.sx-qa-sos { --g1: var(--g-red-1); --g2: var(--g-red-2); border-color: rgba(248, 113, 113, 0.4); background: linear-gradient(180deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.02)), var(--m-surface); }
+.sx-qa.sx-qa-sos .sx-qa-i { background: linear-gradient(145deg, var(--g-red-1), var(--g-red-2)); color: #fff; }
+.sx-qa .sx-qa-i { width: 40px; height: 40px; border-radius: 13px; }
+
+/* hero card */
+#vitals-screen .card.home-hero {
+  background: radial-gradient(circle at 92% 0%, rgba(34, 184, 224, 0.28), transparent 55%), linear-gradient(135deg, #1a5aa0 0%, #14406b 48%, var(--m-surface) 100%);
+  border-color: rgba(120, 180, 240, 0.35);
+}
+
+/* today at a glance: vivid medallions */
+.sx-ico {
+  width: 42px; height: 42px; flex-basis: 42px; border-radius: 14px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--c, #60a5fa) 42%, transparent), color-mix(in srgb, var(--c, #60a5fa) 14%, transparent));
+  border: 1px solid color-mix(in srgb, var(--c, #60a5fa) 60%, transparent);
+  color: color-mix(in srgb, var(--c, #60a5fa) 55%, #ffffff);
+  box-shadow: 0 6px 14px -8px var(--c, #60a5fa), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.sx-ico svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)); }
+
+/* buttons: soft gradient + lift */
+button {
+  background: linear-gradient(180deg, #4d9eff 0%, #2f78e6 100%);
+  box-shadow: 0 8px 18px -10px rgba(47, 120, 230, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+button.secondary { background: rgba(255, 255, 255, 0.07); box-shadow: none; }
+button.ghost, #vitals-screen .card > button.ghost { background: rgba(59, 140, 245, 0.08); box-shadow: none; }
+button.whatsapp { background: linear-gradient(180deg, #2ccf8a, #1fa971); }
+button.danger { background: linear-gradient(180deg, #ef4444, #cf2323); }
+button.sos { background: linear-gradient(180deg, #ef4444, #cf2323); box-shadow: 0 10px 22px -10px rgba(239, 68, 68, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+button.call { background: rgba(239, 68, 68, 0.08); box-shadow: none; }
+
+/* bottom navigation: glowing active pill */
+nav { background: linear-gradient(180deg, #112840, #0b1b2e); }
+nav button { color: #9db3c8; }
+nav button.active { color: #ffffff; }
+nav button.active .icon {
+  background: linear-gradient(135deg, #2f78e6, #22b8e0);
+  box-shadow: 0 6px 16px -6px rgba(34, 184, 224, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+nav button.active .icon svg { stroke-width: 2.1; }
+
+/* More menu: one colour per feature */
+#more-sheet { background: linear-gradient(180deg, #12293f, #0d1f33); }
+#more-sheet button { background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)); }
+#nav-care .icon, #staff-doctor-link .icon { --g1: var(--g-violet-1); --g2: var(--g-violet-2); }
+#nav-ai .icon { --g1: var(--g-cyan-1); --g2: var(--g-cyan-2); }
+#nav-firstaid .icon { --g1: var(--g-red-1); --g2: var(--g-red-2); }
+#nav-maternal .icon { --g1: var(--g-rose-1); --g2: var(--g-rose-2); }
+#nav-tips .icon { --g1: var(--g-blue-1); --g2: var(--g-violet-2); }
+#nav-passport .icon { --g1: var(--g-teal-1); --g2: var(--g-green-1); }
+#nav-articles .icon { --g1: var(--g-amber-1); --g2: var(--g-amber-2); }
+#nav-marketplace .icon { --g1: var(--g-rose-1); --g2: var(--g-violet-1); }
+#nav-rewards .icon { --g1: #eab308; --g2: var(--g-amber-2); }
+#nav-quest .icon { --g1: var(--g-green-1); --g2: var(--g-green-2); }
+#nav-pin .icon { --g1: var(--g-slate-1); --g2: var(--g-slate-2); }
+#nav-rate .icon { --g1: #fbbf24; --g2: var(--g-amber-1); }
+#nav-community .icon { --g1: #25d366; --g2: #128c7e; }
+#nav-caregiver-switch .icon, #staff-admin-link .icon { --g1: var(--g-teal-1); --g2: var(--g-cyan-2); }
+
+/* vector icons that replace plain emoji (added by medical-ui.js) */
+.sx-ei { display: inline-flex; vertical-align: -0.2em; width: 1.15em; height: 1.15em; margin-right: 0.45em; flex: 0 0 auto; }
+.sx-ei svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+button .sx-ei { width: 1.25em; height: 1.25em; }
+
+/* achievements: medallions instead of emoji */
+.badge { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--m-line); }
+.badge .emoji { display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; margin: 0 auto 6px; border-radius: 50%; font-size: 22px; line-height: 1; background: rgba(255, 255, 255, 0.06); color: #7f97ae; }
+.badge .emoji .sx-ei { width: 24px; height: 24px; margin: 0; }
+.badge.unlocked { background: linear-gradient(180deg, rgba(245, 158, 11, 0.16), rgba(245, 158, 11, 0.04)); border-color: rgba(245, 158, 11, 0.5); }
+.badge.unlocked .emoji { background: linear-gradient(145deg, #fbbf24, #f97316); color: #fff; box-shadow: 0 6px 14px -6px #f97316, inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+
+/* care team contact lines and health snapshot labels */
+.cg-row .sx-ei { color: #7db8ff; margin-right: 0; width: 1.2em; height: 1.2em; }
+.radar-item .label .sx-ei { margin-right: 0.3em; }
+.radar-item:nth-child(1) .label .sx-ei { color: #fb7185; }
+.radar-item:nth-child(2) .label .sx-ei { color: #5eead4; }
+.radar-item:nth-child(3) .label .sx-ei { color: #7dd3fc; }
